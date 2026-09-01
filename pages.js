@@ -1575,11 +1575,11 @@ export function renderDashboard(appRoot, ctx) {
     // Default: Overview tab
     return `
       <div class="dash-overview-grid">
-        <!-- Upcoming appointment card -->
+        <!-- 1. Next Appointment Card -->
         <div class="dashboard-card dash-featured-card">
           <div class="dashboard-card-head">
             <div>
-              <span class="mini-label">${icon('calendar')} Next Appointment</span>
+              <span class="mini-label">${icon('calendar')} NEXT CONSULTATION</span>
               <h3>Primary Care Consult</h3>
             </div>
             <span class="status-badge status-confirmed">${icon('check')} Confirmed</span>
@@ -1593,8 +1593,8 @@ export function renderDashboard(appRoot, ctx) {
               ${avatar('MC', 'coral', 'dash-doc-avatar')}
               <div>
                 <strong>Dr. Maya Chen</strong>
-                <span>Internal Medicine · In person</span>
-                <small class="apt-time">${icon('clock')} Today at 10:30 AM</small>
+                <span class="dash-doc-spec-pill">${icon('stethoscope')} Internal Medicine</span>
+                <small class="apt-time">${icon('clock')} Today at 10:30 AM · In person</small>
               </div>
             </div>
           </div>
@@ -1604,14 +1604,14 @@ export function renderDashboard(appRoot, ctx) {
           </div>
         </div>
 
-        <!-- Health Score Ring Card -->
-        <div class="dashboard-card">
+        <!-- 2. Health Score Card -->
+        <div class="dashboard-card dash-score-card">
           <div class="dashboard-card-head">
             <div>
-              <span class="mini-label">${icon('spark')} Health Score</span>
-              <h3>88 / 100</h3>
+              <span class="mini-label">${icon('spark')} HEALTH SCORE</span>
+              <h3>88 <small>/ 100</small></h3>
             </div>
-            <span class="status-badge status-confirmed">Optimal</span>
+            <span class="status-badge status-confirmed">${icon('spark')} Optimal</span>
           </div>
           <div class="wellness-bars">
             <span><i style="height:72%"></i><small>May</small></span>
@@ -1619,27 +1619,72 @@ export function renderDashboard(appRoot, ctx) {
             <span><i style="height:82%"></i><small>Jun 8</small></span>
             <span class="bar-active"><i style="height:96%"></i><small>Today</small></span>
           </div>
-          <p class="dash-score-sub">${icon('check')} Great job! Your vitals and active lifestyle metrics are 14% higher than last month.</p>
+          <div class="dash-score-foot">
+            <span class="dash-score-badge">${icon('check')} Top 5% Tier</span>
+            <p class="dash-score-sub">Vitals and active lifestyle metrics are <strong>14% higher</strong> than last month.</p>
+          </div>
         </div>
 
-        <!-- Active Order Status Card -->
-        <div class="dashboard-card">
+        <!-- 3. Active Medicine Order Card -->
+        <div class="dashboard-card dash-order-overview-card">
           <div class="dashboard-card-head">
             <div>
-              <span class="mini-label">${icon('bag')} Active Medicine Order</span>
+              <span class="mini-label">${icon('bag')} ACTIVE MEDICINE ORDER</span>
               <h3>Order #THP-928104</h3>
             </div>
-            <span class="status-badge status-confirmed">Out for Delivery</span>
+            <span class="status-badge status-confirmed">${icon('pin')} Out for Delivery</span>
           </div>
           <div class="dash-mini-order">
             <div class="dash-mini-order-row">
               <span class="cart-item-avatar avatar-teal">AM</span>
               <div>
                 <strong>Amoxicillin 500mg</strong>
-                <span>Expected by 5:30 PM Today</span>
+                <span>Rx Medicine · 1 Pack · Expected by 5:30 PM Today</span>
               </div>
             </div>
-            <button class="button button-small button-outline full-button" id="btn-track-order">${icon('pin')} Track Order</button>
+            <div class="dash-mini-progress">
+              <div class="dash-mini-bar" style="width: 75%;"></div>
+            </div>
+            <button class="button button-small button-primary full-button" id="btn-track-order">${icon('pin')} Track Live Order ${icon('arrow')}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Health Activity & Prescriptions Feed -->
+      <div class="dash-activity-section">
+        <div class="dash-section-title">
+          <h3>${icon('activity')} Recent Health Activity & Medical Updates</h3>
+          <span class="activity-count">3 New Updates</span>
+        </div>
+        <div class="activity-feed-grid">
+          <div class="activity-feed-card">
+            <div class="af-icon avatar-teal">${icon('flask')}</div>
+            <div class="af-info">
+              <strong>Lab Report Published: Complete Blood Count</strong>
+              <span>St. Jude Diagnostic Center · Verified PDF ready to view</span>
+              <small>2 hours ago</small>
+            </div>
+            <button class="button button-small button-outline btn-dl-report">${icon('file')} View Report</button>
+          </div>
+
+          <div class="activity-feed-card">
+            <div class="af-icon avatar-blue">${icon('pills')}</div>
+            <div class="af-info">
+              <strong>Prescription Refill Dispatched</strong>
+              <span>Order #THP-928104 on the way via Express Delivery</span>
+              <small>4 hours ago</small>
+            </div>
+            <button class="button button-small button-outline" id="btn-track-order-2">${icon('pin')} Track</button>
+          </div>
+
+          <div class="activity-feed-card">
+            <div class="af-icon avatar-gold">${icon('bell')}</div>
+            <div class="af-info">
+              <strong>Vaccination Due Reminder</strong>
+              <span>Annual Influenza Booster scheduled for July 2026</span>
+              <small>Yesterday</small>
+            </div>
+            <button class="button button-small button-quiet" data-nav="doctors">Book Slot</button>
           </div>
         </div>
       </div>
@@ -1772,8 +1817,7 @@ export function renderDashboard(appRoot, ctx) {
     const btnJoinCall = appRoot.querySelector('#btn-join-call')
     if (btnJoinCall) btnJoinCall.addEventListener('click', () => showToast('Connecting to secure video consultation...'))
 
-    const btnTrackOrder = appRoot.querySelector('#btn-track-order')
-    if (btnTrackOrder) btnTrackOrder.addEventListener('click', () => {
+    const switchOrdersTab = () => {
       activeTab = 'orders'
       appRoot.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'))
       const ordTab = appRoot.querySelector('[data-tab="orders"]')
@@ -1784,7 +1828,12 @@ export function renderDashboard(appRoot, ctx) {
         bindNav(appRoot, ctx)
         bindTabActions()
       }
-    })
+    }
+
+    const btnTrackOrder = appRoot.querySelector('#btn-track-order')
+    if (btnTrackOrder) btnTrackOrder.addEventListener('click', switchOrdersTab)
+    const btnTrackOrder2 = appRoot.querySelector('#btn-track-order-2')
+    if (btnTrackOrder2) btnTrackOrder2.addEventListener('click', switchOrdersTab)
 
     appRoot.querySelectorAll('.btn-dl-report').forEach(b => b.addEventListener('click', () => showToast('Downloading encrypted PDF report...')))
     appRoot.querySelectorAll('.btn-share-report').forEach(b => b.addEventListener('click', () => showToast('Report share link copied to clipboard.')))
