@@ -1,5 +1,6 @@
 import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
 import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages } from './data.js'
+import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js'
 
 export function sharedHeader(ctx, activeNav) {
   const { navigate, getCartCount } = ctx
@@ -12,6 +13,9 @@ export function sharedHeader(ctx, activeNav) {
     { label: 'Internships', page: 'internships' },
     { label: 'Track Your Orders', page: 'trackyourorders' }
   ]
+  const isAuth = isAuthenticated()
+  const user = getAuthUser()
+
   return `
     <div class="announcement"><span class="announcement-dot"></span> Care that moves with you <span class="announcement-divider"></span><span>24/7 virtual care is now available</span></div>
     <div class="sticky-header-group">
@@ -22,7 +26,11 @@ export function sharedHeader(ctx, activeNav) {
           <button class="location-button">${icon('pin')} <span>Brooklyn, NY</span> ${icon('chevron')}</button>
           <button class="icon-button" aria-label="Notifications">${icon('bell')}<span class="notification-dot"></span></button>
           <button class="cart-button" data-nav="cart">${icon('bag')}<span>Cart</span><span class="cart-count">${getCartCount()}</span></button>
-          <button class="profile-button">${avatar('JD', 'teal')}<span>Jordan</span>${icon('chevron')}</button>
+          ${isAuth ? `
+            <button class="profile-button">${avatar(user ? user.initials : 'JD', 'teal')}<span>${user ? user.name.split(' ')[0] : 'User'}</span>${icon('chevron')}</button>
+          ` : `
+            <button class="profile-button auth-login-trigger">${icon('heart')}<span>Login / Sign Up</span></button>
+          `}
           <button class="mobile-menu" id="page-mobile-menu" aria-label="Open menu">${icon('menu')}</button>
         </div>
       </div></header>
@@ -55,7 +63,11 @@ function bindNav(appRoot, ctx) {
     profileBtn.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      openAccountDrawer(appRoot)
+      if (isAuthenticated()) {
+        openAccountDrawer(appRoot)
+      } else {
+        requireAuth(() => openAccountDrawer(appRoot), 'OPEN_PROFILE')
+      }
     })
   }
 
@@ -67,8 +79,9 @@ function bindNav(appRoot, ctx) {
   const logoutBtn = appRoot.querySelector('#drawer-logout-btn')
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
+      logoutUser()
       closeAccountDrawer(appRoot)
-      showToast('Logged out successfully.')
+      showToast('Signed out of Tatito Health+.')
       navigate('home')
     })
   }

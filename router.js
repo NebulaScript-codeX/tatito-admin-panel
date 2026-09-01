@@ -1,4 +1,5 @@
 import { cart } from './data.js'
+import { requireAuth, isAuthenticated, getAuthUser } from './auth.js'
 
 export const cartState = cart
 export let currentPage = 'home'
@@ -11,12 +12,16 @@ export function onCartChange(fn) { listeners.cartChange.push(fn) }
 export function notifyCartChange() { listeners.cartChange.forEach(fn => fn()) }
 
 export function addToCart(productId, productData, qty = 1) {
-  const existing = cartState.find(i => i.id === productId)
-  if (existing) existing.qty = qty
-  else cartState.push({ id: productId, name: productData.name, price: productData.price, mrp: productData.mrp, pack: productData.pack, rx: productData.rx, qty, initials: productData.initials, color: productData.color })
-  notifyCartChange()
-  const { showToast } = getCtx()
-  if (showToast) showToast(`${productData.name} added to cart`)
+  const doAdd = () => {
+    const existing = cartState.find(i => i.id === productId)
+    if (existing) existing.qty = qty
+    else cartState.push({ id: productId, name: productData.name, price: productData.price, mrp: productData.mrp, pack: productData.pack, rx: productData.rx, qty, initials: productData.initials, color: productData.color })
+    notifyCartChange()
+    const { showToast } = getCtx()
+    if (showToast) showToast(`${productData.name} added to cart`)
+  }
+
+  requireAuth(doAdd, 'ADD_TO_CART', { productId, productData, qty })
 }
 
 export function changeQty(productId, delta) {
@@ -39,6 +44,17 @@ let currentCtx = null
 function getCtx() { return currentCtx || {} }
 
 export function navigate(page, params = {}) {
+  const protectedPages = ['cart', 'checkout', 'records', 'dashboard']
+  if (protectedPages.includes(page) && !isAuthenticated()) {
+    requireAuth(() => {
+      currentPage = page
+      currentParams = params
+      window.scrollTo(0, 0)
+      renderPage()
+    }, `OPEN_${page.toUpperCase()}`)
+    return
+  }
+
   currentPage = page
   currentParams = params
   window.scrollTo(0, 0)
@@ -65,6 +81,9 @@ export function renderPage() {
     getCartTotal,
     onCartChange,
     notifyCartChange,
+    requireAuth,
+    isAuthenticated,
+    getAuthUser,
     showToast: (msg) => {
       const toast = document.querySelector('#toast')
       const text = document.querySelector('#toast-text')
@@ -74,6 +93,7 @@ export function renderPage() {
       window.setTimeout(() => toast.classList.remove('is-visible'), 2800)
     }
   }
+  window.thpShowToast = ctx.showToast
   currentCtx = ctx
   render(app, ctx)
 }
