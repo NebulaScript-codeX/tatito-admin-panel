@@ -1246,23 +1246,19 @@ export function renderTestDetail(appRoot, ctx) {
 
 // === Cart Page ===
 export function renderCart(appRoot, ctx) {
-  const { navigate, cartState, changeQty, removeFromCart, getCartTotal } = ctx
+  const { navigate, cartState, changeQty, removeFromCart, getCartTotal, addToCart } = ctx
   const subtotal = getCartTotal()
   const savings = cartState.reduce((s, i) => s + (i.mrp - i.price) * i.qty, 0)
-  const deliveryFee = subtotal >= 25 ? 0 : 3.99
+  const deliveryFee = subtotal >= 250 || cartState.length === 0 ? 0 : 39.00
   const total = subtotal + deliveryFee
   const hasRx = cartState.some(i => i.rx)
+  const totalItemsCount = cartState.reduce((s, i) => s + i.qty, 0)
 
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx)}
-      <main id="top" class="section-wrap cart-page cart-page-wrap">
-        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Cart</span></div>
-        <div class="cart-header-title">
-          <h1>Your Healthcare <em class="editorial">Cart</em></h1>
-          <span class="cart-count-badge">${cartState.length} Items</span>
-        </div>
-
+      <main id="top" class="section-wrap cart-page-apollo">
+        
         ${cartState.length === 0 ? `
           <div class="empty-state">
             <div class="empty-icon">${icon('bag')}</div>
@@ -1271,54 +1267,184 @@ export function renderCart(appRoot, ctx) {
             <button class="button button-primary" data-nav="pharmacy">Browse Pharmacy ${icon('arrow')}</button>
           </div>
         ` : `
-        <div class="cart-layout">
-          <div class="cart-items-column">
-            ${hasRx ? `<div class="cart-rx-warning">${icon('file')} <span>This order includes prescription items. You will need to upload a valid prescription during checkout.</span></div>` : ''}
+        <div class="cart-layout-apollo">
+          
+          <!-- LEFT COLUMN -->
+          <div class="cart-left-apollo">
             
-            <div class="cart-items-list">
-              ${cartState.map(item => `
-                <div class="cart-item-row">
-                  <span class="cart-item-avatar avatar-${item.color}">${item.initials}</span>
-                  <div class="cart-item-info">
-                    <strong>${item.name}</strong>
-                    <span>${item.pack}</span>
-                    ${item.rx ? '<span class="cart-rx-note">Rx Prescription Required</span>' : ''}
-                    <div class="cart-item-price">$${item.price.toFixed(2)}</div>
-                  </div>
-                  <div class="qty-controls">
-                    <button data-qty-dec="${item.id}" aria-label="Decrease">−</button>
-                    <span>${item.qty}</span>
-                    <button data-qty-inc="${item.id}" aria-label="Increase">+</button>
-                  </div>
-                  <strong class="cart-item-total">$${(item.price * item.qty).toFixed(2)}</strong>
-                  <button class="cart-item-remove" data-remove="${item.id}" aria-label="Remove">${icon('more')}</button>
-                </div>
-              `).join('')}
+            <div class="cart-top-bar">
+              <h2>MY CART</h2>
             </div>
+
+            <!-- Add Address Alert Banner -->
+            <div class="address-alert-banner">
+              <div class="aab-left">
+                <span class="aab-icon">${icon('pin')}</span>
+                <span>Add address to unlock extra discounts and best offers.</span>
+              </div>
+              <button class="aab-btn" id="btn-add-address-cart">ADD ADDRESS</button>
+            </div>
+
+            <!-- Cart Item Count Header -->
+            <div class="cart-items-header-row">
+              <h3>${totalItemsCount} ITEM${totalItemsCount === 1 ? '' : 'S'} IN YOUR CART</h3>
+              <button class="add-items-link" data-nav="pharmacy">ADD ITEMS</button>
+            </div>
+
+            ${hasRx ? `<div class="cart-rx-warning">${icon('file')} <span>This order includes prescription items. You will need to upload a valid prescription during checkout.</span></div>` : ''}
+
+            <!-- Shipment Box -->
+            <div class="shipment-box">
+              <div class="shipment-head">
+                <div class="sh-left">
+                  ${icon('pin')}
+                  <strong>Within 3 days delivery</strong>
+                </div>
+                <span class="shipment-badge">Shipment 1/1</span>
+              </div>
+
+              <div class="shipment-items-list">
+                ${cartState.map(item => `
+                  <div class="apollo-cart-item">
+                    <div class="aci-img-wrap">
+                      <span class="cart-item-avatar avatar-${item.color}">${item.initials}</span>
+                    </div>
+                    <div class="aci-details">
+                      <div class="aci-top-row">
+                        <h4>${item.name}</h4>
+                        <button class="aci-delete-btn" data-remove="${item.id}" aria-label="Delete item">
+                          ${icon('more')}
+                        </button>
+                      </div>
+                      <span class="aci-pack">${item.pack}</span>
+                      ${item.rx ? '<span class="cart-rx-note">Rx Prescription Required</span>' : ''}
+                      
+                      <div class="aci-bottom-row">
+                        <div class="aci-price-row">
+                          <span class="mrp-strike">MRP ₹${item.mrp.toFixed(2)}</span>
+                          <span class="disc-percent">${Math.round((1 - item.price / item.mrp) * 100)}% off</span>
+                          <strong class="final-price">₹${item.price.toFixed(2)}</strong>
+                        </div>
+
+                        <div class="qty-select-wrapper">
+                          <select class="apollo-qty-select" data-qty-select="${item.id}">
+                            ${[1,2,3,4,5,6,7,8,9,10].map(q => `<option value="${q}" ${q === item.qty ? 'selected' : ''}>Qty ${q}</option>`).join('')}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- LAST MINUTE BUYS Carousel Grid -->
+            <div class="last-minute-buys-section">
+              <div class="lmb-head">
+                <h3>LAST MINUTE BUYS</h3>
+              </div>
+              <div class="lmb-grid">
+                ${products.slice(0, 5).map(prod => `
+                  <div class="lmb-card" data-product="${prod.id}">
+                    <div class="lmb-img">
+                      <span class="product-avatar avatar-${prod.color}">${prod.initials}</span>
+                    </div>
+                    <span class="lmb-title">${prod.name}</span>
+                    <div class="lmb-price-row">
+                      <s>₹${prod.mrp}</s>
+                      <strong>₹${prod.price}</strong>
+                    </div>
+                    <button class="lmb-add-btn" data-add="${prod.id}">ADD</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
           </div>
 
-          <div class="cart-summary-column">
-            <div class="cart-summary-card">
-              <h3>Order Summary</h3>
-              <div class="summary-row"><span>Subtotal (${cartState.length} items)</span><strong>$${subtotal.toFixed(2)}</strong></div>
-              ${savings > 0 ? `<div class="summary-row summary-savings"><span>You save</span><strong>−$${savings.toFixed(2)}</strong></div>` : ''}
-              <div class="summary-row"><span>Express Delivery</span><strong>${deliveryFee === 0 ? 'FREE' : '$' + deliveryFee.toFixed(2)}</strong></div>
-              
-              ${deliveryFee > 0 ? `
-                <div class="free-delivery-progress">
-                  <div class="progress-bar" style="width: ${Math.min((subtotal / 25) * 100, 100)}%"></div>
-                  <span>Add $${(25 - subtotal).toFixed(2)} more for FREE delivery</span>
+          <!-- RIGHT COLUMN -->
+          <div class="cart-right-apollo">
+            
+            <!-- OFFERS & DISCOUNTS Card -->
+            <div class="apollo-side-card">
+              <div class="asc-header">
+                <h3>OFFERS & DISCOUNTS</h3>
+              </div>
+              <div class="coupon-row-btn" id="btn-apply-coupon">
+                <div class="crb-left">
+                  <span class="coupon-icon">${icon('spark')}</span>
+                  <div>
+                    <strong>Apply Coupon</strong>
+                    <small class="text-danger">Login to apply coupons</small>
+                  </div>
                 </div>
-              ` : `
-                <div class="free-delivery-eligible">${icon('check')} <span>You're eligible for FREE Express Delivery!</span></div>
-              `}
-              
-              <div class="summary-row summary-total"><span>Total Amount</span><strong>$${total.toFixed(2)}</strong></div>
-              
-              <button class="button button-primary full-button" id="checkout-btn">Proceed to Checkout ${icon('arrow')}</button>
-              <button class="button button-quiet full-button" data-nav="pharmacy">Continue Shopping</button>
+                <span class="crb-arrow">${icon('chevron')}</span>
+              </div>
             </div>
+
+            <!-- Cart Breakdown Card -->
+            <div class="apollo-side-card">
+              <div class="asc-header">
+                <h3>Cart Breakdown</h3>
+              </div>
+              <div class="bill-breakdown-row">
+                <div class="bbr-left">
+                  ${icon('file')}
+                  <div>
+                    <strong>Total Bill</strong>
+                    <small>Incl. charges</small>
+                  </div>
+                </div>
+                <div class="bbr-right">
+                  <s>₹${(subtotal + savings).toFixed(2)}</s>
+                  <strong>₹${subtotal.toFixed(2)}</strong>
+                  <span class="bbr-arrow">${icon('chevron')}</span>
+                </div>
+              </div>
+
+              ${savings > 0 ? `
+                <div class="savings-banner-green">
+                  ${icon('check')}
+                  <span>You will save <strong>₹${savings.toFixed(2)}</strong> on this order.</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Available Payment Offers Card -->
+            <div class="apollo-side-card">
+              <div class="asc-header">
+                <h3>Available Payment Offers</h3>
+                <small>Offer auto-applies at checkout</small>
+              </div>
+              <div class="payment-offer-card">
+                <span class="special-badge">Special Launch Offer</span>
+                <div class="poc-inner">
+                  <div class="poc-left">
+                    <span class="card-icon-badge">${icon('file')}</span>
+                    <div>
+                      <strong>Apollo SBI SELECT Credit Card</strong>
+                      <span class="cashback-text">Upto ₹19 Cashback</span>
+                      <small>Offer Unlocked!</small>
+                    </div>
+                  </div>
+                  <span class="poc-arrow">${icon('chevron')}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Amount To Pay & Proceed Sticky Bottom Bar -->
+            <div class="cart-proceed-bar">
+              <div class="cpb-left">
+                <span>Amount to pay ∧</span>
+                <strong>₹${total.toFixed(2)}</strong>
+              </div>
+              <button class="button button-primary apollo-proceed-btn" id="checkout-btn">
+                Proceed
+              </button>
+            </div>
+
           </div>
+
         </div>`}
       </main>
       ${sharedFooter(ctx)}
@@ -1327,9 +1453,37 @@ export function renderCart(appRoot, ctx) {
     <div class="toast" id="toast"><span class="toast-check">${icon('check')}</span><span id="toast-text">Saved</span></div>
   `
   bindNav(appRoot, ctx)
-  appRoot.querySelectorAll('[data-qty-inc]').forEach(b => b.addEventListener('click', () => changeQty(b.dataset.qtyInc, 1)))
-  appRoot.querySelectorAll('[data-qty-dec]').forEach(b => b.addEventListener('click', () => changeQty(b.dataset.qtyDec, -1)))
+
+  // Quantity dropdown handler
+  appRoot.querySelectorAll('[data-qty-select]').forEach(sel => {
+    sel.addEventListener('change', e => {
+      const id = sel.dataset.qtySelect
+      const newQty = parseInt(sel.value, 10)
+      const currentItem = cartState.find(i => i.id === id)
+      if (currentItem) {
+        changeQty(id, newQty - currentItem.qty)
+      }
+    })
+  })
+
+  // Remove handler
   appRoot.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', () => removeFromCart(b.dataset.remove)))
+
+  // Add Last Minute Buy product handler
+  appRoot.querySelectorAll('[data-add]').forEach(b => {
+    b.addEventListener('click', e => {
+      e.stopPropagation()
+      const prod = products.find(p => p.id === b.dataset.add)
+      if (prod) addToCart(prod.id, prod)
+    })
+  })
+
+  // Address button & coupon button toast
+  const addAddrBtn = appRoot.querySelector('#btn-add-address-cart')
+  if (addAddrBtn) addAddrBtn.addEventListener('click', () => ctx.showToast('Please enter your delivery address.'))
+  const applyCouponBtn = appRoot.querySelector('#btn-apply-coupon')
+  if (applyCouponBtn) applyCouponBtn.addEventListener('click', () => ctx.showToast('Log in to view available promo codes.'))
+
   const checkoutBtn = appRoot.querySelector('#checkout-btn')
   if (checkoutBtn) checkoutBtn.addEventListener('click', () => navigate('checkout'))
 }
