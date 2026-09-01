@@ -44,7 +44,7 @@ let currentCtx = null
 function getCtx() { return currentCtx || {} }
 
 export function navigate(page, params = {}) {
-  const protectedPages = ['cart', 'checkout', 'records', 'dashboard']
+  const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
   if (protectedPages.includes(page) && !isAuthenticated()) {
     requireAuth(() => {
       currentPage = page
@@ -60,6 +60,7 @@ export function navigate(page, params = {}) {
   window.scrollTo(0, 0)
   renderPage()
 }
+window.thpNavigate = navigate
 
 export let pageRenders = {}
 

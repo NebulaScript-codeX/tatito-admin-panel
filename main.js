@@ -3,6 +3,7 @@ import { navigate, registerPages, renderPage } from './router.js'
 import { renderHome } from './home.js'
 import { renderPharmacy } from './pharmacyPage.js'
 import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle } from './pages.js'
+import { renderHospitalPortal, renderDoctorPortal, renderClinicPortal, renderDiagnosticPortal, renderPharmacyPortal } from './portals.js'
 
 registerPages({
   home: renderHome,
@@ -21,6 +22,11 @@ registerPages({
   dashboard: renderDashboard,
   prescription: renderPrescription,
   article: renderArticle,
+  'hospital-portal': renderHospitalPortal,
+  'doctor-portal': renderDoctorPortal,
+  'clinic-portal': renderClinicPortal,
+  'diagnostic-portal': renderDiagnosticPortal,
+  'pharmacy-portal': renderPharmacyPortal
 })
 
 renderPage()
