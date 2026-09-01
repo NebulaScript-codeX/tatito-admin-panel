@@ -1,4 +1,4 @@
-import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav } from './ui.js'
+import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
 import { categories, products, labTests, articles, doctors } from './data.js'
 
 function header(navigate, getCartCount) {
@@ -30,6 +30,7 @@ function header(navigate, getCartCount) {
       </div></header>
       <nav class="sub-nav"><div class="sub-nav-inner">${navItems.map(n => `<a data-nav="${n.page}">${n.label}</a>`).join('')}</div></nav>
     </div>
+    ${accountDrawerHTML()}
   `
 }
 
@@ -309,11 +310,38 @@ export function renderHome(appRoot, ctx) {
 }
 
 function bindHomeEvents(appRoot, ctx) {
-  const { navigate, getCartCount, addToCart } = ctx
+  const { navigate, getCartCount, addToCart, showToast } = ctx
 
   appRoot.querySelectorAll('[data-nav]').forEach(el => {
-    el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav) })
+    el.addEventListener('click', e => {
+      e.preventDefault()
+      closeAccountDrawer(appRoot)
+      navigate(el.dataset.nav)
+    })
   })
+
+  const profileBtn = appRoot.querySelector('.profile-button')
+  if (profileBtn) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      openAccountDrawer(appRoot)
+    })
+  }
+
+  const closeBtn = appRoot.querySelector('#close-account-drawer')
+  const overlay = appRoot.querySelector('#account-drawer-overlay')
+  if (closeBtn) closeBtn.addEventListener('click', () => closeAccountDrawer(appRoot))
+  if (overlay) overlay.addEventListener('click', () => closeAccountDrawer(appRoot))
+
+  const logoutBtn = appRoot.querySelector('#drawer-logout-btn')
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      closeAccountDrawer(appRoot)
+      showToast('Logged out successfully.')
+      navigate('home')
+    })
+  }
 
   appRoot.querySelectorAll('[data-cat-nav]').forEach(el => {
     el.addEventListener('click', () => navigate('pharmacy', { category: el.dataset.catNav }))

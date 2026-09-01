@@ -59,6 +59,88 @@ export function showToast(message) {
   window.setTimeout(() => toast.classList.remove('is-visible'), 2800)
 }
 
+export function accountDrawerHTML() {
+  return `
+    <div class="account-drawer-overlay" id="account-drawer-overlay"></div>
+    <aside class="account-drawer" id="account-drawer">
+      <div class="drawer-header">
+        <h2>My Account</h2>
+        <button class="drawer-close-btn" id="close-account-drawer" aria-label="Close My Account">${icon('cross')}</button>
+      </div>
+      <div class="drawer-profile-card">
+        ${avatar('JD', 'teal', 'drawer-user-avatar')}
+        <div class="drawer-user-info">
+          <strong>Jordan Davis</strong>
+          <span>+1 984-804-0746</span>
+        </div>
+        <button class="drawer-view-dashboard-btn" data-nav="dashboard">View Profile</button>
+      </div>
+      <div class="drawer-menu-list">
+        <button class="drawer-menu-item" data-nav="dashboard">
+          <span class="drawer-menu-icon">${icon('calendar')}</span>
+          <div class="drawer-menu-text"><strong>My Appointments</strong><span>Upcoming visits & doctors</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item" data-nav="dashboard">
+          <span class="drawer-menu-icon">${icon('pin')}</span>
+          <div class="drawer-menu-text"><strong>Address Book</strong><span>Saved delivery addresses</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item" data-nav="plans">
+          <span class="drawer-menu-icon">${icon('spark')}</span>
+          <div class="drawer-menu-text"><strong>My Memberships</strong><span>Active care subscriptions</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item" data-nav="cart">
+          <span class="drawer-menu-icon">${icon('bag')}</span>
+          <div class="drawer-menu-text"><strong>My Orders</strong><span>Medicine orders & tracking</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item" data-nav="dashboard">
+          <span class="drawer-menu-icon">${icon('file')}</span>
+          <div class="drawer-menu-text"><strong>Transactions and Payments</strong><span>Payment history & receipts</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item" data-nav="records">
+          <span class="drawer-menu-icon">${icon('shield')}</span>
+          <div class="drawer-menu-text"><strong>All Health Records</strong><span>Encrypted lab reports & Rx</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item" data-nav="emergency">
+          <span class="drawer-menu-icon">${icon('phone')}</span>
+          <div class="drawer-menu-text"><strong>Need Help</strong><span>24/7 Priority support hotline</span></div>
+          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+        </button>
+        <button class="drawer-menu-item drawer-logout-item" id="drawer-logout-btn">
+          <span class="drawer-menu-icon">${icon('cross')}</span>
+          <div class="drawer-menu-text"><strong>Logout</strong><span>Sign out of Tatito Health+</span></div>
+        </button>
+      </div>
+      <div class="drawer-footer-promo" data-nav="plans">
+        <div class="drawer-promo-icon">${icon('phone')}</div>
+        <div class="drawer-promo-text">
+          <strong>Download Tatito Health+ App</strong>
+          <span>Enhance your healthcare journey 24/7</span>
+        </div>
+      </div>
+    </aside>
+  `
+}
+
+export function openAccountDrawer(appRoot = document) {
+  const drawer = appRoot.querySelector('#account-drawer')
+  const overlay = appRoot.querySelector('#account-drawer-overlay')
+  if (drawer) drawer.classList.add('is-open')
+  if (overlay) overlay.classList.add('is-open')
+}
+
+export function closeAccountDrawer(appRoot = document) {
+  const drawer = appRoot.querySelector('#account-drawer')
+  const overlay = appRoot.querySelector('#account-drawer-overlay')
+  if (drawer) drawer.classList.remove('is-open')
+  if (overlay) overlay.classList.remove('is-open')
+}
+
 export function premiumFooter() {
   return `
     <!-- Ultra-Luxury App Download Showcase Banner -->
@@ -108,7 +190,7 @@ export function premiumFooter() {
           <p class="pf-tagline">Your Health. Connected.<br>Complete human-centered digital healthcare on one intelligent super-app platform.</p>
           <div class="pf-social">
             <a class="pf-social-btn" aria-label="Facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9h3l1-4h-4V3h-4v6H8v4h2v8h4v-8h2.5l.5-4h-3V9Z"/></svg></a>
-            <a class="pf-social-btn" aria-label="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
+            <a class="pf-social-btn" aria-label="Instagram"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="17.5" cy="6.5" r="1"/></svg></a>
             <a class="pf-social-btn" aria-label="Twitter"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 5.8c-.7.3-1.5.5-2.3.6.8-.5 1.5-1.3 1.8-2.2-.8.5-1.7.8-2.6 1A4 4 0 0 0 12 8.9c0 .3 0 .6.1.9-3.3-.2-6.3-1.8-8.3-4.2-.4.6-.6 1.3-.6 2.1 0 1.4.7 2.6 1.8 3.3-.7 0-1.3-.2-1.9-.5v.1c0 2 1.4 3.6 3.2 4-.3.1-.7.1-1 .1-.2 0-.5 0-.7-.1.5 1.6 2 2.7 3.8 2.8a8 8 0 0 1-5 1.7c-.3 0-.6 0-1 0a11.3 11.3 0 0 0 6.1 1.8c7.3 0 11.3-6 11.3-11.3v-.5c.8-.5 1.4-1.2 2-2Z"/></svg></a>
             <a class="pf-social-btn" aria-label="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3V9Z"/></svg></a>
           </div>

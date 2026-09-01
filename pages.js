@@ -1,4 +1,4 @@
-import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav } from './ui.js'
+import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
 import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages } from './data.js'
 
 export function sharedHeader(ctx, activeNav) {
@@ -28,6 +28,7 @@ export function sharedHeader(ctx, activeNav) {
       </div></header>
       <nav class="sub-nav"><div class="sub-nav-inner">${navItems.map(n => `<a data-nav="${n.page}" class="${activeNav === n.page ? 'nav-active' : ''}">${n.label}</a>`).join('')}</div></nav>
     </div>
+    ${accountDrawerHTML()}
   `
 }
 
@@ -40,10 +41,40 @@ function sharedMobileNav(ctx, active) {
 }
 
 function bindNav(appRoot, ctx) {
-  const { navigate } = ctx
-  appRoot.querySelectorAll('[data-nav]').forEach(el => { el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.nav) }) })
+  const { navigate, showToast } = ctx
+  appRoot.querySelectorAll('[data-nav]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault()
+      closeAccountDrawer(appRoot)
+      navigate(el.dataset.nav)
+    })
+  })
+
+  const profileBtn = appRoot.querySelector('.profile-button')
+  if (profileBtn) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      openAccountDrawer(appRoot)
+    })
+  }
+
+  const closeBtn = appRoot.querySelector('#close-account-drawer')
+  const overlay = appRoot.querySelector('#account-drawer-overlay')
+  if (closeBtn) closeBtn.addEventListener('click', () => closeAccountDrawer(appRoot))
+  if (overlay) overlay.addEventListener('click', () => closeAccountDrawer(appRoot))
+
+  const logoutBtn = appRoot.querySelector('#drawer-logout-btn')
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      closeAccountDrawer(appRoot)
+      showToast('Logged out successfully.')
+      navigate('home')
+    })
+  }
+
   const mm = appRoot.querySelector('#page-mobile-menu')
-  if (mm) mm.addEventListener('click', () => appRoot.querySelector('.desktop-nav').classList.toggle('mobile-open'))
+  if (mm) mm.addEventListener('click', () => appRoot.querySelector('.sub-nav-inner').classList.toggle('mobile-open'))
 }
 
 // === Product Detail Page ===
