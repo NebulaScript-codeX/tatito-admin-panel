@@ -88,45 +88,68 @@ export function renderProductDetail(appRoot, ctx) {
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx, 'pharmacy')}
-      <main id="top" class="section-wrap detail-page">
+      <main id="top" class="section-wrap detail-page product-detail-wrap">
         <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <a data-nav="pharmacy">Pharmacy</a> ${icon('chevron')} <span>${p.name}</span></div>
+        
         <div class="product-detail-layout">
           <div class="product-detail-left">
             <div class="product-detail-image-large">
               <span class="product-avatar-xl avatar-${p.color}">${p.initials}</span>
               ${discount > 0 ? `<span class="product-discount-large">-${discount}% OFF</span>` : ''}
-              ${p.rx ? '<span class="product-rx-large">Rx</span>' : ''}
+              ${p.rx ? '<span class="product-rx-large">Rx Required</span>' : ''}
+            </div>
+            <div class="product-trust-badges-grid">
+              <div class="pt-badge-item">${icon('verified')} <span>100% Genuine</span></div>
+              <div class="pt-badge-item">${icon('shield')} <span>FDA Approved</span></div>
+              <div class="pt-badge-item">${icon('clock')} <span>24-hr Express Delivery</span></div>
             </div>
           </div>
+          
           <div class="product-detail-right">
             <span class="product-manufacturer-large">${p.manufacturer}</span>
             <h1>${p.name}</h1>
-            <div class="product-detail-rating">★ ${p.rating} <span>(${p.reviews} reviews)</span></div>
+            <div class="product-detail-rating">
+              <span class="rating-star-pill">★ ${p.rating}</span>
+              <span>(${p.reviews} verified patient reviews)</span>
+            </div>
             <span class="product-pack-large">${p.pack}</span>
+            
             <div class="product-detail-price-large">
               <strong>$${p.price.toFixed(2)}</strong>
-              ${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s><span class="save-badge">Save $${(p.mrp - p.price).toFixed(2)}</span>` : ''}
+              ${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s><span class="save-badge">${icon('spark')} Save $${(p.mrp - p.price).toFixed(2)}</span>` : ''}
             </div>
-            <div class="stock-row"><span class="stock-indicator ${p.stock === 'In Stock' ? 'stock-ok' : 'stock-low'}">${icon('check')} ${p.stock}</span></div>
-            ${p.rx ? `<div class="rx-banner-detail">${icon('file')} <span>Prescription required — upload yours during checkout</span></div>` : ''}
+            
+            <div class="stock-row">
+              <span class="stock-indicator ${p.stock === 'In Stock' ? 'stock-ok' : 'stock-low'}">${icon('check')} ${p.stock}</span>
+            </div>
+            
+            ${p.rx ? `<div class="rx-banner-detail">${icon('file')} <span>Prescription required — upload your valid Rx before checkout</span></div>` : ''}
+            
             <div class="product-detail-cta">
-              <div class="qty-selector"><button id="detail-qty-dec" aria-label="Decrease">−</button><span id="detail-qty">1</span><button id="detail-qty-inc" aria-label="Increase">+</button></div>
-              <button class="button button-primary" id="detail-add-cart">${icon('bag')} Add to cart</button>
-              <button class="button button-outline" id="detail-buy-now">Buy now ${icon('arrow')}</button>
+              <div class="qty-selector">
+                <button id="detail-qty-dec" aria-label="Decrease">−</button>
+                <span id="detail-qty">1</span>
+                <button id="detail-qty-inc" aria-label="Increase">+</button>
+              </div>
+              <button class="button button-primary" id="detail-add-cart">${icon('bag')} Add to Cart</button>
+              <button class="button button-outline" id="detail-buy-now">Buy Now ${icon('arrow')}</button>
             </div>
+            
             <div class="product-detail-desc">
               <h3>About this product</h3>
               <p>${p.desc}</p>
               <div class="product-tags-large">${p.tags.map(t => `<span class="product-tag">${t}</span>`).join('')}</div>
             </div>
+            
             <div class="delivery-info">
               <div class="delivery-info-item">${icon('check')} <span><strong>Free delivery</strong> on orders over $25</span></div>
-              <div class="delivery-info-item">${icon('check')} <span><strong>2-hour delivery</strong> in select cities</span></div>
-              <div class="delivery-info-item">${icon('check')} <span><strong>100% authentic</strong> products guaranteed</span></div>
+              <div class="delivery-info-item">${icon('check')} <span><strong>Same-day delivery</strong> available in Brooklyn & NYC</span></div>
+              <div class="delivery-info-item">${icon('check')} <span><strong>Encrypted & private</strong> healthcare packaging</span></div>
             </div>
           </div>
         </div>
-        ${related.length > 0 ? `<section class="related-products"><h2>Related products</h2><div class="product-grid">${related.map(rp => relatedCard(rp)).join('')}</div></section>` : ''}
+
+        ${related.length > 0 ? `<section class="related-products"><h2>Related <em class="editorial">Healthcare</em> Products</h2><div class="product-grid">${related.map(rp => relatedCard(rp)).join('')}</div></section>` : ''}
       </main>
       ${sharedFooter(ctx)}
       ${sharedMobileNav(ctx, 'pharmacy')}
@@ -628,38 +651,70 @@ export function renderDoctorDetail(appRoot, ctx) {
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx, 'doctors')}
-      <main id="top" class="section-wrap detail-page">
+      <main id="top" class="section-wrap detail-page doctor-detail-wrap">
         <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <a data-nav="doctors">Doctors</a> ${icon('chevron')} <span>${d.name}</span></div>
+        
         <div class="doctor-detail-layout">
           <div class="doctor-detail-left">
-            <div class="doctor-detail-card">
-              ${avatar(d.initials, d.color, 'doctor-avatar-xl')}
+            <div class="doctor-detail-card hero-gradient">
+              <div class="doc-detail-avatar-wrap">
+                ${avatar(d.initials, d.color, 'doctor-avatar-xl')}
+                <span class="doc-verified-badge-xl">${icon('verified')} Verified Specialist</span>
+              </div>
               <h1>${d.name}</h1>
-              <span class="doctor-specialty-large">${d.specialty}</span>
-              <p>${d.detail}</p>
-              <div class="doctor-stats-row"><div><strong>★ ${d.rating}</strong><span>${d.reviews} reviews</span></div><div><strong>12+</strong><span>years exp</span></div><div><strong>$${d.fee}</strong><span>per visit</span></div></div>
+              <span class="doctor-specialty-large">${d.specialty} Specialist</span>
+              <p class="doc-detail-bio">${d.detail}</p>
+              
+              <div class="doctor-stats-row">
+                <div><strong>★ ${d.rating}</strong><span>${d.reviews} Patient Reviews</span></div>
+                <div><strong>12+ Yrs</strong><span>Clinical Exp.</span></div>
+                <div><strong>$${d.fee}</strong><span>Per Consultation</span></div>
+              </div>
+              
               <div class="doctor-location-large">${icon('building')} ${d.location}</div>
             </div>
+
+            <section class="doctor-about-section">
+              <h2>About <em class="editorial">${d.name}</em></h2>
+              <p>${d.name} is a highly experienced ${d.specialty.toLowerCase()} specialist with over a decade of clinical expertise. Known for a human-centered, evidence-based approach, ${d.name} provides comprehensive diagnostic evaluations, personalized treatment plans, and continuous care.</p>
+              
+              <h3>Clinical Specializations & Services</h3>
+              <div class="spec-tags">
+                <span>${icon('check')} General Consultation</span>
+                <span>${icon('check')} Chronic Condition Management</span>
+                <span>${icon('check')} Preventive Health Screening</span>
+                <span>${icon('check')} Lifestyle & Nutrition Counseling</span>
+                <span>${icon('check')} Telehealth Consultation</span>
+              </div>
+            </section>
           </div>
+          
           <div class="doctor-detail-right">
             <div class="booking-section">
-              <h2>Book an appointment</h2>
-              <div class="booking-type"><button class="booking-type-btn selected">${icon('video')} Online</button><button class="booking-type-btn">${icon('building')} In person</button></div>
-              <div class="booking-label">Select date</div>
+              <span class="section-kicker">${icon('spark')} DIRECT APPOINTMENT BOOKING</span>
+              <h2>Book a <em class="editorial">Consultation</em></h2>
+              
+              <div class="booking-type">
+                <button class="booking-type-btn selected">${icon('video')} Online Video</button>
+                <button class="booking-type-btn">${icon('building')} In Person Clinic</button>
+              </div>
+              
+              <div class="booking-label">01. Select Date</div>
               <div class="date-pills">${days.map((day, i) => `<button class="date-pill ${i === 2 ? 'selected' : ''}"><strong>${day}</strong><small>Jun ${18 + i}</small></button>`).join('')}</div>
-              <div class="booking-label">Select time slot</div>
+              
+              <div class="booking-label">02. Select Time Slot</div>
               <div class="time-slots-grid">${slots.map((s, i) => `<button class="time-slot ${i === 3 ? 'selected' : ''}">${s}</button>`).join('')}</div>
-              <div class="booking-summary"><div><span>Consultation fee</span><strong>$${d.fee}</strong></div></div>
-              <button class="button button-primary full-button" id="book-appointment-confirm">Book appointment ${icon('arrow')}</button>
+              
+              <div class="booking-summary">
+                <div><span>Consultation Fee</span><strong>$${d.fee}</strong></div>
+                <div><span>Follow-up Chat (7 Days)</span><strong class="text-success">FREE</strong></div>
+                <div class="summary-total"><span>Total Fee</span><strong>$${d.fee}</strong></div>
+              </div>
+              
+              <button class="button button-primary full-button" id="book-appointment-confirm">Confirm Appointment ${icon('arrow')}</button>
             </div>
           </div>
         </div>
-        <section class="doctor-about-section">
-          <h2>About</h2>
-          <p>${d.name} is a highly experienced ${d.specialty.toLowerCase()} specialist with over a decade of clinical expertise. Known for a patient-first approach, ${d.name} combines evidence-based medicine with compassionate care.</p>
-          <h3>Specializations</h3>
-          <div class="spec-tags"><span>General consultation</span><span>Chronic condition management</span><span>Preventive health</span><span>Lifestyle counseling</span></div>
-        </section>
       </main>
       ${sharedFooter(ctx)}
       ${sharedMobileNav(ctx, 'doctors')}
@@ -1111,28 +1166,69 @@ export function renderTestDetail(appRoot, ctx) {
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx, 'labtests')}
-      <main id="top" class="section-wrap detail-page">
+      <main id="top" class="section-wrap detail-page labtest-detail-wrap">
         <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <a data-nav="labtests">Lab Tests</a> ${icon('chevron')} <span>${t.name}</span></div>
+        
         <div class="test-detail-layout">
           <div class="test-detail-left">
-            <div class="test-detail-icon-large avatar-${t.color}">${t.initials}</div>
-            <h1>${t.name}</h1>
-            <span class="test-detail-meta">${t.tests} tests included · ${t.reportTime} report</span>
-            <div class="test-detail-price"><strong>₹${t.price}</strong><s>₹${t.mrp}</s><span class="save-badge">Save ₹${t.mrp - t.price} (${discount}% off)</span></div>
-            <h3>About this test</h3>
-            <p>${t.desc}</p>
-            <h3>What's included</h3>
-            <div class="test-includes"><div class="test-include-item">${icon('check')} Home sample collection</div><div class="test-include-item">${icon('check')} Digital report in ${t.reportTime}</div><div class="test-include-item">${icon('check')} Free consultation with report</div></div>
+            <div class="test-detail-hero-card">
+              <div class="test-detail-icon-large avatar-${t.color}">${t.initials}</div>
+              <div class="test-detail-header-info">
+                <span class="eyebrow-tag">${icon('spark')} ACCREDITED DIAGNOSTIC PANEL</span>
+                <h1>${t.name}</h1>
+                <div class="test-detail-meta-row">
+                  <span class="test-meta-badge">${icon('flask')} ${t.tests} Biomarkers Tested</span>
+                  <span class="test-meta-badge">${icon('clock')} Digital Report in ${t.reportTime}</span>
+                  <span class="test-meta-badge">${icon('pin')} Free Home Sample Collection</span>
+                </div>
+                
+                <div class="test-detail-price-row">
+                  <strong>₹${t.price}</strong>
+                  <s>₹${t.mrp}</s>
+                  <span class="save-badge">${icon('spark')} Save ₹${t.mrp - t.price} (${discount}% OFF)</span>
+                </div>
+              </div>
+            </div>
+
+            <section class="test-detail-desc-box">
+              <h3>About this diagnostic test</h3>
+              <p>${t.desc}</p>
+              
+              <h3>Included Diagnostic Parameters</h3>
+              <div class="test-includes-grid">
+                <div class="test-include-item">${icon('check')} <span><strong>Home Sample Collection</strong> — Certified phlebotomist visit</span></div>
+                <div class="test-include-item">${icon('check')} <span><strong>Digital Encrypted Report</strong> — Delivered within ${t.reportTime}</span></div>
+                <div class="test-include-item">${icon('check')} <span><strong>Free Doctor Consultation</strong> — Post-report consultation included</span></div>
+                <div class="test-include-item">${icon('check')} <span><strong>NABL & CAP Accredited</strong> — High-precision diagnostic labs</span></div>
+              </div>
+            </section>
           </div>
+          
           <div class="test-detail-right">
             <div class="booking-section">
-              <h2>Book this test</h2>
-              <div class="booking-label">Select date</div>
-              <div class="date-pills"><button class="date-pill selected"><strong>Today</strong><small>Jun 18</small></button><button class="date-pill"><strong>Tomorrow</strong><small>Jun 19</small></button><button class="date-pill"><strong>Fri</strong><small>Jun 20</small></button></div>
-              <div class="booking-label">Sample collection</div>
-              <div class="booking-type"><button class="booking-type-btn selected">${icon('pin')} Home collection</button><button class="booking-type-btn">${icon('building')} Lab visit</button></div>
-              <div class="booking-summary"><div><span>Test price</span><strong>₹${t.price}</strong></div><div><span>Collection</span><strong>FREE</strong></div><div class="summary-total"><span>Total</span><strong>₹${t.price}</strong></div></div>
-              <button class="button button-primary full-button" id="book-test-confirm">Book test ${icon('arrow')}</button>
+              <span class="section-kicker">${icon('flask')} APPOINTMENT SCHEDULE</span>
+              <h2>Book <em class="editorial">Lab Test</em></h2>
+              
+              <div class="booking-label">01. Select Date</div>
+              <div class="date-pills">
+                <button class="date-pill selected"><strong>Today</strong><small>Jun 18</small></button>
+                <button class="date-pill"><strong>Tomorrow</strong><small>Jun 19</small></button>
+                <button class="date-pill"><strong>Fri</strong><small>Jun 20</small></button>
+              </div>
+              
+              <div class="booking-label">02. Sample Collection Mode</div>
+              <div class="booking-type">
+                <button class="booking-type-btn selected">${icon('pin')} Home Collection (FREE)</button>
+                <button class="booking-type-btn">${icon('building')} Lab Visit</button>
+              </div>
+              
+              <div class="booking-summary">
+                <div><span>Test Price</span><strong>₹${t.price}</strong></div>
+                <div><span>Home Collection Fee</span><strong class="text-success">FREE</strong></div>
+                <div class="summary-total"><span>Total Amount</span><strong>₹${t.price}</strong></div>
+              </div>
+              
+              <button class="button button-primary full-button" id="book-test-confirm">Schedule Sample Collection ${icon('arrow')}</button>
             </div>
           </div>
         </div>
@@ -1160,25 +1256,67 @@ export function renderCart(appRoot, ctx) {
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx)}
-      <main id="top" class="section-wrap cart-page">
+      <main id="top" class="section-wrap cart-page cart-page-wrap">
         <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Cart</span></div>
-        <h1>Your Cart</h1>
-        ${cartState.length === 0 ? `<div class="empty-state"><div class="empty-icon">${icon('bag')}</div><h3>Your cart is empty</h3><p>Add medicines or wellness products to get started.</p><button class="button button-primary" data-nav="pharmacy">Browse pharmacy ${icon('arrow')}</button></div>` : `
+        <div class="cart-header-title">
+          <h1>Your Healthcare <em class="editorial">Cart</em></h1>
+          <span class="cart-count-badge">${cartState.length} Items</span>
+        </div>
+
+        ${cartState.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-icon">${icon('bag')}</div>
+            <h3>Your cart is empty</h3>
+            <p>Add medicines, wellness products, or lab tests to get started.</p>
+            <button class="button button-primary" data-nav="pharmacy">Browse Pharmacy ${icon('arrow')}</button>
+          </div>
+        ` : `
         <div class="cart-layout">
           <div class="cart-items-column">
-            ${hasRx ? `<div class="cart-rx-warning">${icon('file')} <span>This order includes prescription items. You'll need to upload a valid prescription before checkout.</span></div>` : ''}
-            ${cartState.map(item => `<div class="cart-item-row"><span class="cart-item-avatar avatar-${item.color}">${item.initials}</span><div class="cart-item-info"><strong>${item.name}</strong><span>${item.pack}</span>${item.rx ? '<span class="cart-rx-note">Prescription required</span>' : ''}<div class="cart-item-price">$${item.price.toFixed(2)}</div></div><div class="qty-controls"><button data-qty-dec="${item.id}" aria-label="Decrease">−</button><span>${item.qty}</span><button data-qty-inc="${item.id}" aria-label="Increase">+</button></div><strong class="cart-item-total">$${(item.price * item.qty).toFixed(2)}</strong><button class="cart-item-remove" data-remove="${item.id}" aria-label="Remove">${icon('more')}</button></div>`).join('')}
+            ${hasRx ? `<div class="cart-rx-warning">${icon('file')} <span>This order includes prescription items. You will need to upload a valid prescription during checkout.</span></div>` : ''}
+            
+            <div class="cart-items-list">
+              ${cartState.map(item => `
+                <div class="cart-item-row">
+                  <span class="cart-item-avatar avatar-${item.color}">${item.initials}</span>
+                  <div class="cart-item-info">
+                    <strong>${item.name}</strong>
+                    <span>${item.pack}</span>
+                    ${item.rx ? '<span class="cart-rx-note">Rx Prescription Required</span>' : ''}
+                    <div class="cart-item-price">$${item.price.toFixed(2)}</div>
+                  </div>
+                  <div class="qty-controls">
+                    <button data-qty-dec="${item.id}" aria-label="Decrease">−</button>
+                    <span>${item.qty}</span>
+                    <button data-qty-inc="${item.id}" aria-label="Increase">+</button>
+                  </div>
+                  <strong class="cart-item-total">$${(item.price * item.qty).toFixed(2)}</strong>
+                  <button class="cart-item-remove" data-remove="${item.id}" aria-label="Remove">${icon('more')}</button>
+                </div>
+              `).join('')}
+            </div>
           </div>
+
           <div class="cart-summary-column">
             <div class="cart-summary-card">
               <h3>Order Summary</h3>
               <div class="summary-row"><span>Subtotal (${cartState.length} items)</span><strong>$${subtotal.toFixed(2)}</strong></div>
               ${savings > 0 ? `<div class="summary-row summary-savings"><span>You save</span><strong>−$${savings.toFixed(2)}</strong></div>` : ''}
-              <div class="summary-row"><span>Delivery</span><strong>${deliveryFee === 0 ? 'FREE' : '$' + deliveryFee.toFixed(2)}</strong></div>
-              ${deliveryFee > 0 ? `<div class="free-delivery-progress"><div class="progress-bar" style="width: ${Math.min((subtotal / 25) * 100, 100)}%"></div><span>Add $${(25 - subtotal).toFixed(2)} more for free delivery</span></div>` : ''}
-              <div class="summary-row summary-total"><span>Total</span><strong>$${total.toFixed(2)}</strong></div>
-              <button class="button button-primary full-button" id="checkout-btn">Proceed to checkout ${icon('arrow')}</button>
-              <button class="button button-quiet full-button" data-nav="pharmacy">Continue shopping</button>
+              <div class="summary-row"><span>Express Delivery</span><strong>${deliveryFee === 0 ? 'FREE' : '$' + deliveryFee.toFixed(2)}</strong></div>
+              
+              ${deliveryFee > 0 ? `
+                <div class="free-delivery-progress">
+                  <div class="progress-bar" style="width: ${Math.min((subtotal / 25) * 100, 100)}%"></div>
+                  <span>Add $${(25 - subtotal).toFixed(2)} more for FREE delivery</span>
+                </div>
+              ` : `
+                <div class="free-delivery-eligible">${icon('check')} <span>You're eligible for FREE Express Delivery!</span></div>
+              `}
+              
+              <div class="summary-row summary-total"><span>Total Amount</span><strong>$${total.toFixed(2)}</strong></div>
+              
+              <button class="button button-primary full-button" id="checkout-btn">Proceed to Checkout ${icon('arrow')}</button>
+              <button class="button button-quiet full-button" data-nav="pharmacy">Continue Shopping</button>
             </div>
           </div>
         </div>`}
@@ -1209,24 +1347,98 @@ export function renderCheckout(appRoot, ctx) {
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx)}
-      <main id="top" class="section-wrap checkout-page">
+      <main id="top" class="section-wrap checkout-page checkout-page-wrap">
         <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <a data-nav="cart">Cart</a> ${icon('chevron')} <span>Checkout</span></div>
-        <h1>Checkout</h1>
+        <h1>Secure <em class="editorial">Checkout</em></h1>
+        
         <div class="checkout-layout">
           <div class="checkout-left">
-            ${hasRx ? `<div class="checkout-section"><h3>${icon('file')} Prescription Verification</h3><div class="rx-dropzone-inline" id="checkout-rx-dropzone"><div class="rx-dropzone-icon">${icon('file')}</div><strong>Upload prescription</strong><span>Click to select file · JPG, PNG or PDF</span><input type="file" id="checkout-rx-file" accept="image/*,.pdf" hidden /></div></div>` : ''}
-            <div class="checkout-section"><h3>1. Delivery Address</h3><div class="checkout-form"><label>Full name</label><input type="text" value="Jordan Davis" /><label>Phone number</label><input type="tel" value="(555) 123-4567" /><label>Address line 1</label><input type="text" value="124 Maple Street, Apt 4B" /><label>Address line 2 (optional)</label><input type="text" placeholder="Landmark, instructions..." /><div class="form-row"><div><label>City</label><input type="text" value="Brooklyn" /></div><div><label>ZIP code</label><input type="text" value="11201" /></div></div></div></div>
-            <div class="checkout-section"><h3>2. Delivery Options</h3><div class="delivery-options"><button class="delivery-option selected"><div><strong>Standard delivery</strong><span>2-3 business days</span></div><span class="delivery-price">${deliveryFee === 0 ? 'FREE' : '$3.99'}</span></button><button class="delivery-option"><div><strong>Express delivery</strong><span>Same day · Order before 2 PM</span></div><span class="delivery-price">$7.99</span></button><button class="delivery-option"><div><strong>Store pickup</strong><span>Ready in 1 hour</span></div><span class="delivery-price">FREE</span></button></div></div>
-            <div class="checkout-section"><h3>3. Payment Method</h3><div class="payment-options"><button class="payment-option selected"><div>${icon('file')} <strong>Credit / Debit card</strong></div>${icon('check')}</button><button class="payment-option"><div>${icon('shield')} <strong>Digital wallet</strong></div></button><button class="payment-option"><div>${icon('bag')} <strong>Pay on delivery</strong></div></button></div></div>
+            ${hasRx ? `
+              <div class="checkout-section rx-section">
+                <h3>${icon('file')} Prescription Verification Required</h3>
+                <div class="rx-dropzone-inline" id="checkout-rx-dropzone">
+                  <div class="rx-dropzone-icon">${icon('file')}</div>
+                  <div>
+                    <strong>Upload Doctor's Prescription</strong>
+                    <span>Click to select file · JPG, PNG or PDF (Max 10MB)</span>
+                  </div>
+                  <input type="file" id="checkout-rx-file" accept="image/*,.pdf" hidden />
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="checkout-section">
+              <h3>1. Delivery Address</h3>
+              <div class="checkout-form">
+                <label>Full Name</label>
+                <input type="text" value="Jordan Davis" />
+                <label>Phone Number</label>
+                <input type="tel" value="+1 (984) 804-0746" />
+                <label>Address Line 1</label>
+                <input type="text" value="124 Maple Street, Apt 4B" />
+                <label>Address Line 2 (Optional)</label>
+                <input type="text" placeholder="Landmark, delivery instructions..." />
+                <div class="form-row">
+                  <div><label>City</label><input type="text" value="Brooklyn" /></div>
+                  <div><label>ZIP Code</label><input type="text" value="11201" /></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="checkout-section">
+              <h3>2. Delivery Options</h3>
+              <div class="delivery-options">
+                <button class="delivery-option selected">
+                  <div><strong>Standard Delivery</strong><span>2-3 business days · Encrypted packaging</span></div>
+                  <span class="delivery-price">${deliveryFee === 0 ? 'FREE' : '$3.99'}</span>
+                </button>
+                <button class="delivery-option">
+                  <div><strong>Express Express Delivery</strong><span>Same day · Order before 2 PM</span></div>
+                  <span class="delivery-price">$7.99</span>
+                </button>
+                <button class="delivery-option">
+                  <div><strong>Store Pickup</strong><span>Ready in 1 hour at Brooklyn Pharmacy</span></div>
+                  <span class="delivery-price">FREE</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="checkout-section">
+              <h3>3. Payment Method</h3>
+              <div class="payment-options">
+                <button class="payment-option selected">
+                  <div>${icon('file')} <strong>Credit / Debit Card</strong></div>
+                  ${icon('check')}
+                </button>
+                <button class="payment-option">
+                  <div>${icon('shield')} <strong>Digital Wallet (Apple Pay / Google Pay)</strong></div>
+                </button>
+                <button class="payment-option">
+                  <div>${icon('bag')} <strong>Pay on Delivery</strong></div>
+                </button>
+              </div>
+            </div>
           </div>
+
           <div class="checkout-right">
             <div class="cart-summary-card checkout-summary">
               <h3>Order Summary</h3>
-              ${cartState.map(item => `<div class="checkout-review-item"><span class="cart-item-avatar avatar-${item.color}">${item.initials}</span><div><strong>${item.name}</strong><span>${item.qty} × $${item.price.toFixed(2)}</span></div><strong>$${(item.price * item.qty).toFixed(2)}</strong></div>`).join('')}
+              ${cartState.map(item => `
+                <div class="checkout-review-item">
+                  <span class="cart-item-avatar avatar-${item.color}">${item.initials}</span>
+                  <div>
+                    <strong>${item.name}</strong>
+                    <span>${item.qty} × $${item.price.toFixed(2)}</span>
+                  </div>
+                  <strong>$${(item.price * item.qty).toFixed(2)}</strong>
+                </div>
+              `).join('')}
+              
               <div class="summary-row"><span>Subtotal</span><strong>$${subtotal.toFixed(2)}</strong></div>
               <div class="summary-row"><span>Delivery</span><strong>${deliveryFee === 0 ? 'FREE' : '$' + deliveryFee.toFixed(2)}</strong></div>
-              <div class="summary-row summary-total"><span>Total</span><strong>$${total.toFixed(2)}</strong></div>
-              <button class="button button-primary full-button" id="place-order">Place order ${icon('arrow')}</button>
+              <div class="summary-row summary-total"><span>Total Amount</span><strong>$${total.toFixed(2)}</strong></div>
+              
+              <button class="button button-primary full-button" id="place-order">Place Order ${icon('arrow')}</button>
             </div>
           </div>
         </div>
@@ -1241,7 +1453,7 @@ export function renderCheckout(appRoot, ctx) {
   appRoot.querySelectorAll('.payment-option').forEach(b => b.addEventListener('click', () => { appRoot.querySelectorAll('.payment-option').forEach(x => x.classList.remove('selected')); b.classList.add('selected') }))
   const dropzone = appRoot.querySelector('#checkout-rx-dropzone')
   const fileInput = appRoot.querySelector('#checkout-rx-file')
-  if (dropzone && fileInput) { dropzone.addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) showToast('Prescription uploaded.') }) }
+  if (dropzone && fileInput) { dropzone.addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) showToast('Prescription uploaded successfully.') }) }
   appRoot.querySelector('#place-order').addEventListener('click', () => { cartState.length = 0; ctx.notifyCartChange(); navigate('order-success', { id: orderId, total }) })
 }
 
@@ -1251,20 +1463,22 @@ export function renderOrderSuccess(appRoot, ctx) {
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx)}
-      <main id="top" class="section-wrap order-success-page">
+      <main id="top" class="section-wrap order-success-page order-success-wrap">
         <div class="order-success-content">
           <div class="success-check-large">${icon('check')}</div>
           <h1>Order Confirmed!</h1>
-          <p>Order <strong>#${currentParams.id || 'THP000'}</strong> · Total <strong>$${(currentParams.total || 0).toFixed(2)}</strong></p>
+          <p>Order <strong>#${currentParams.id || 'THP928104'}</strong> · Total <strong>$${(currentParams.total || 42.50).toFixed(2)}</strong></p>
+          
           <div class="order-tracking-page">
-            <div class="track-step active"><span class="track-dot">${icon('check')}</span><div><strong>Order confirmed</strong><small>Just now</small></div></div>
-            <div class="track-step"><span class="track-dot">${icon('bag')}</span><div><strong>Preparing your order</strong><small>Estimated 30 mins</small></div></div>
-            <div class="track-step"><span class="track-dot">${icon('pin')}</span><div><strong>Out for delivery</strong><small>Estimated tomorrow</small></div></div>
-            <div class="track-step"><span class="track-dot">${icon('home')}</span><div><strong>Delivered</strong><small>Estimated 2-3 days</small></div></div>
+            <div class="track-step completed"><span class="track-dot">${icon('check')}</span><div><strong>Order Confirmed</strong><small>Just now</small></div></div>
+            <div class="track-step active"><span class="track-dot">${icon('bag')}</span><div><strong>Preparing Your Order</strong><small>Estimated 30 mins</small></div></div>
+            <div class="track-step"><span class="track-dot">${icon('pin')}</span><div><strong>Out for Delivery</strong><small>Estimated Today</small></div></div>
+            <div class="track-step"><span class="track-dot">${icon('home')}</span><div><strong>Delivered</strong><small>Estimated 5:30 PM</small></div></div>
           </div>
+          
           <div class="order-success-actions">
-            <button class="button button-primary" data-nav="dashboard">View my orders ${icon('arrow')}</button>
-            <button class="button button-outline" data-nav="pharmacy">Continue shopping</button>
+            <button class="button button-primary" data-nav="dashboard">View My Orders ${icon('arrow')}</button>
+            <button class="button button-outline" data-nav="pharmacy">Continue Shopping</button>
           </div>
         </div>
       </main>
@@ -1310,7 +1524,55 @@ export function renderEmergency(appRoot, ctx) {
 // === Simple placeholder pages ===
 export function renderRecords(appRoot, ctx) {
   const { navigate } = ctx
-  appRoot.innerHTML = `<div class="app-shell">${sharedHeader(ctx, 'records')}<main id="top" class="section-wrap"><div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Health Records</span></div><h1>Health Records</h1><p class="page-desc">Your encrypted, organized health history — all in one place.</p><div class="records-grid"><div class="record-type-card"><div class="record-type-icon activity-mint">${icon('flask')}</div><strong>Lab Reports</strong><span>3 reports</span></div><div class="record-type-card"><div class="record-type-icon activity-blue">${icon('file')}</div><strong>Prescriptions</strong><span>5 records</span></div><div class="record-type-card"><div class="record-type-icon activity-peach">${icon('heart')}</div><strong>Vaccinations</strong><span>2 records</span></div><div class="record-type-card"><div class="record-type-icon activity-mint">${icon('shield')}</div><strong>Allergies</strong><span>1 record</span></div></div></main>${sharedFooter(ctx)}${sharedMobileNav(ctx)}</div><div class="toast" id="toast"><span class="toast-check">${icon('check')}</span><span id="toast-text">Saved</span></div>`
+  appRoot.innerHTML = `
+    <div class="app-shell">
+      ${sharedHeader(ctx, 'records')}
+      <main id="top" class="section-wrap records-page-wrap">
+        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Health Records</span></div>
+        
+        <div class="records-hero-box">
+          <div class="rh-left">
+            <span class="eyebrow-tag">${icon('shield')} ENCRYPTED HEALTH VAULT</span>
+            <h1>Digital Health <em class="editorial">Records</em></h1>
+            <p>Your encrypted, organized medical history — lab reports, prescriptions, and immunizations stored securely.</p>
+          </div>
+          <div class="rh-right">
+            <span class="rh-security-pill">${icon('verified')} 256-Bit Encrypted · HIPAA Compliant</span>
+          </div>
+        </div>
+
+        <div class="records-grid">
+          <div class="record-type-card">
+            <div class="record-type-icon activity-mint">${icon('flask')}</div>
+            <strong>Lab Reports</strong>
+            <span>3 Reports Available</span>
+            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Reports</button>
+          </div>
+          <div class="record-type-card">
+            <div class="record-type-icon activity-blue">${icon('file')}</div>
+            <strong>Prescriptions</strong>
+            <span>5 Saved Prescriptions</span>
+            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Prescriptions</button>
+          </div>
+          <div class="record-type-card">
+            <div class="record-type-icon activity-peach">${icon('heart')}</div>
+            <strong>Vaccinations</strong>
+            <span>2 Immunization Records</span>
+            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Immunizations</button>
+          </div>
+          <div class="record-type-card">
+            <div class="record-type-icon activity-mint">${icon('shield')}</div>
+            <strong>Allergies & Vitals</strong>
+            <span>1 Active Allergy Record</span>
+            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Vitals</button>
+          </div>
+        </div>
+      </main>
+      ${sharedFooter(ctx)}
+      ${sharedMobileNav(ctx)}
+    </div>
+    <div class="toast" id="toast"><span class="toast-check">${icon('check')}</span><span id="toast-text">Saved</span></div>
+  `
   bindNav(appRoot, ctx)
 }
 
