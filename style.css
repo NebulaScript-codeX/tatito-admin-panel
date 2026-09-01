@@ -1738,3 +1738,224 @@ h4 { font-size: 1.05rem; }
   .account-drawer { max-width: 100%; }
 }
 
+/* ==========================================================================
+   MY DASHBOARD COMMAND CENTER STYLES
+   ========================================================================== */
+.dashboard-main-wrap { padding-bottom: 60px; }
+
+.dash-hero-banner {
+  background: linear-gradient(135deg, #033328 0%, #064e3b 60%, #043e32 100%);
+  color: white;
+  border-radius: var(--radius-lg);
+  padding: 32px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 12px 32px rgba(4, 62, 50, 0.2);
+}
+.dash-user-badge-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.dash-vip-tag {
+  background: rgba(167, 243, 208, 0.2);
+  border: 1px solid rgba(167, 243, 208, 0.4);
+  color: #a7f3d0;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dash-vip-tag .icon { width: 14px; height: 14px; color: #a7f3d0; }
+.dash-id-tag { font-size: 0.78rem; color: rgba(255, 255, 255, 0.7); font-family: monospace; }
+.dash-hero-left h1 { font-size: 2rem; color: white; margin-bottom: 6px; }
+.dash-hero-left h1 .editorial { color: #a7f3d0; }
+.dash-hero-left p { font-size: 0.95rem; color: rgba(255, 255, 255, 0.85); margin-bottom: 16px; }
+.dash-patient-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+.patient-pill {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.patient-pill .icon { width: 14px; height: 14px; color: #a7f3d0; }
+
+.dash-hero-actions { display: flex; flex-direction: column; gap: 10px; min-width: 180px; }
+
+/* 4 Vitals Grid */
+.vitals-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 28px; }
+.vital-card {
+  background: var(--cream-card);
+  border: 1px solid var(--border-sage);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+.vital-card:hover { transform: translateY(-2px); border-color: var(--primary); }
+.vital-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.vital-icon { width: 40px; height: 40px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
+.vital-icon .icon { width: 20px; height: 20px; color: inherit; }
+.vital-status { font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); background: var(--mint-surface); color: var(--primary-dark); }
+.vital-val { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.vital-val strong { font-size: 1.6rem; color: var(--primary-dark); font-weight: 800; }
+.vital-val small { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+.vital-label { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+
+/* Dashboard Navigation Tabs */
+.dash-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-sage);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.dash-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.dash-tab-btn:hover { color: var(--primary-dark); }
+.dash-tab-btn.active { color: var(--primary-dark); border-bottom-color: var(--primary); }
+.dash-tab-btn .icon { width: 16px; height: 16px; color: inherit; }
+
+/* Tab Content Components */
+.dash-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+.dash-featured-card { border-color: var(--primary); background: var(--mint-surface); }
+.dash-card-bottom { margin-top: 18px; display: flex; gap: 10px; }
+.dash-score-sub { font-size: 0.84rem; color: var(--text-muted); margin-top: 14px; display: flex; align-items: center; gap: 6px; }
+.dash-score-sub .icon { width: 14px; height: 14px; color: var(--primary); flex-shrink: 0; }
+
+.dash-mini-order { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.dash-mini-order-row { display: flex; align-items: center; gap: 12px; }
+.dash-mini-order-row strong { display: block; font-size: 0.9rem; color: var(--text-main); }
+.dash-mini-order-row span { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Section Box */
+.dash-section-box {
+  background: var(--cream-card);
+  border: 1px solid var(--border-sage);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
+}
+.dash-box-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.dash-box-head h3 { font-size: 1.25rem; color: var(--primary-dark); display: flex; align-items: center; gap: 8px; }
+.dash-box-head h3 .icon { width: 20px; height: 20px; color: var(--primary); }
+
+/* Appointments list */
+.dash-appointments-list { display: flex; flex-direction: column; gap: 16px; }
+.dash-appointment-card {
+  background: var(--mint-surface);
+  border: 1px solid var(--border-sage);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.dash-appointment-card.main-appointment { border-color: var(--primary); background: var(--cream-card); }
+.dash-apt-left { display: flex; align-items: center; gap: 18px; }
+.dash-apt-date-badge {
+  background: var(--primary-dark);
+  color: white;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+}
+.dash-apt-date-badge.date-teal { background: var(--primary); }
+.dash-apt-date-badge strong { font-size: 1.4rem; line-height: 1; }
+.dash-apt-date-badge span { font-size: 0.7rem; letter-spacing: 0.05em; font-weight: 700; opacity: 0.9; }
+.dash-apt-date-badge small { font-size: 0.68rem; opacity: 0.8; margin-top: 2px; }
+
+.dash-apt-doc-info { display: flex; align-items: center; gap: 14px; }
+.dash-doc-avatar { width: 48px; height: 48px; font-size: 1.1rem; }
+.dash-apt-spec { font-size: 0.76rem; font-weight: 800; text-transform: uppercase; color: var(--primary); letter-spacing: 0.06em; }
+.dash-apt-doc-info h4 { font-size: 1.1rem; color: var(--primary-dark); margin-bottom: 2px; }
+.dash-apt-loc { font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.dash-apt-loc .icon { width: 14px; height: 14px; color: var(--primary); }
+.dash-apt-actions { display: flex; align-items: center; gap: 10px; }
+
+/* 4-Step Live Tracking Timeline */
+.dash-order-card { background: var(--mint-surface); border: 1px solid var(--border-sage); border-radius: var(--radius); padding: 24px; }
+.dash-order-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.dash-order-head strong { display: block; font-size: 1.1rem; color: var(--primary-dark); }
+.dash-order-head span { font-size: 0.84rem; color: var(--text-muted); }
+
+.dash-timeline { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; position: relative; }
+.timeline-step { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; opacity: 0.5; }
+.timeline-step.completed, .timeline-step.active { opacity: 1; }
+.timeline-dot { width: 36px; height: 36px; border-radius: 50%; background: var(--cream-card); border: 2px solid var(--border-sage); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; z-index: 2; }
+.timeline-step.completed .timeline-dot { background: var(--primary-dark); border-color: var(--primary-dark); color: white; }
+.timeline-step.active .timeline-dot { background: var(--primary); border-color: var(--primary); color: white; box-shadow: 0 0 0 4px rgba(11, 110, 93, 0.2); }
+.timeline-dot .icon { width: 16px; height: 16px; color: inherit; }
+.timeline-step strong { font-size: 0.84rem; color: var(--primary-dark); margin-bottom: 2px; }
+.timeline-step small { font-size: 0.72rem; color: var(--text-muted); }
+
+.dash-order-items { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border-sage); padding-top: 18px; }
+.dash-order-item-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.dash-order-item-row strong { font-size: 0.88rem; color: var(--text-main); }
+.dash-order-item-row span { font-size: 0.78rem; color: var(--text-muted); display: block; }
+
+/* Records file list */
+.records-file-list { display: flex; flex-direction: column; gap: 12px; }
+.record-file-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; background: var(--mint-surface); border: 1px solid var(--border-sage); border-radius: var(--radius); flex-wrap: wrap; }
+.rf-left { display: flex; align-items: center; gap: 14px; }
+.rf-icon { width: 40px; height: 40px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.rf-icon .icon { width: 20px; height: 20px; color: inherit; }
+.rf-left strong { display: block; font-size: 0.92rem; color: var(--primary-dark); margin-bottom: 2px; }
+.rf-left span { font-size: 0.78rem; color: var(--text-muted); }
+.rf-actions { display: flex; gap: 8px; }
+
+/* Address Cards Grid */
+.address-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.address-card { background: var(--mint-surface); border: 1px solid var(--border-sage); border-radius: var(--radius); padding: 20px; position: relative; }
+.address-card.default { border-color: var(--primary); background: var(--cream-card); }
+.address-badge { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--primary); background: var(--mint-surface); border: 1px solid var(--border-sage); padding: 2px 10px; border-radius: var(--radius-full); display: inline-block; margin-bottom: 12px; }
+.address-card h4 { font-size: 1.05rem; color: var(--primary-dark); margin-bottom: 6px; }
+.address-card p { font-size: 0.86rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
+.address-card-actions { display: flex; gap: 8px; }
+
+/* Payment Cards Grid */
+.payment-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+.payment-method-card { background: linear-gradient(135deg, #033328 0%, #064e3b 100%); color: white; border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between; min-height: 150px; }
+.pm-top { display: flex; align-items: center; justify-content: space-between; }
+.pm-type { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.05em; color: #a7f3d0; }
+.pm-number { font-size: 1.15rem; font-family: monospace; letter-spacing: 0.1em; color: white; margin: 16px 0; }
+.pm-bottom { display: flex; justify-content: space-between; font-size: 0.78rem; opacity: 0.8; }
+
+@media (max-width: 768px) {
+  .dash-hero-banner { flex-direction: column; text-align: center; padding: 24px; }
+  .dash-hero-left h1 { font-size: 1.6rem; }
+  .dash-user-badge-row, .dash-patient-pills { justify-content: center; }
+  .dash-hero-actions { width: 100%; }
+  .dash-timeline { grid-template-columns: 1fr 1fr; gap: 20px; }
+}
+
+

@@ -1326,9 +1326,477 @@ export function renderPlans(appRoot, ctx) {
 }
 
 export function renderDashboard(appRoot, ctx) {
-  const { navigate } = ctx
-  appRoot.innerHTML = `<div class="app-shell">${sharedHeader(ctx)}<main id="top" class="section-wrap"><div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>My Dashboard</span></div><h1>Welcome back, Jordan</h1><p class="page-desc">Here's your health at a glance.</p><div class="dashboard-grid"><div class="dashboard-card"><div class="dashboard-card-head"><div><span class="mini-label">Upcoming appointment</span><h3>Primary care visit</h3></div><span class="status-badge status-confirmed">Confirmed</span></div><div class="appointment-content"><div class="date-block"><strong>18</strong><span>JUN<br>2025</span></div><div class="appointment-info">${avatar('MC', 'coral')}<div><strong>Dr. Maya Chen</strong><span>Internal Medicine · In person</span></div></div></div></div><div class="dashboard-card"><div class="dashboard-card-head"><div><span class="mini-label">Health score</span><h3>86 / 100</h3></div></div><div class="wellness-bars"><span><i style="height:72%"></i><small>May</small></span><span><i style="height:58%"></i><small>Jun 1</small></span><span><i style="height:86%"></i><small>Jun 8</small></span><span class="bar-active"><i style="height:96%"></i><small>Today</small></span></div></div><div class="dashboard-card"><div class="dashboard-card-head"><div><span class="mini-label">Recent activity</span><h3>Health activity</h3></div></div><div class="activity-list"><div class="activity-item"><span class="activity-icon activity-blue">${icon('file')}</span><div><strong>Blood pressure check</strong><span>2 days ago</span></div></div><div class="activity-item"><span class="activity-icon activity-peach">${icon('bag')}</span><div><strong>Wellness essentials order</strong><span>Out for delivery</span></div></div><div class="activity-item"><span class="activity-icon activity-mint">${icon('flask')}</span><div><strong>Annual health panel</strong><span>Report ready</span></div></div></div></div></div></main>${sharedFooter(ctx)}${sharedMobileNav(ctx)}</div><div class="toast" id="toast"><span class="toast-check">${icon('check')}</span><span id="toast-text">Saved</span></div>`
+  const { navigate, showToast } = ctx
+  let activeTab = 'overview' // overview, appointments, orders, records, addresses, payments
+
+  function renderTabContent() {
+    if (activeTab === 'appointments') {
+      return `
+        <div class="dash-section-box">
+          <div class="dash-box-head">
+            <h3>${icon('calendar')} Scheduled Consultations</h3>
+            <button class="button button-small button-primary" data-nav="doctors">Book New Doctor ${icon('arrow')}</button>
+          </div>
+          <div class="dash-appointments-list">
+            <div class="dash-appointment-card main-appointment">
+              <div class="dash-apt-left">
+                <div class="dash-apt-date-badge">
+                  <strong>18</strong>
+                  <span>JUN 2026</span>
+                  <small>10:30 AM</small>
+                </div>
+                <div class="dash-apt-doc-info">
+                  ${avatar('MC', 'coral', 'dash-doc-avatar')}
+                  <div>
+                    <span class="dash-apt-spec">Internal Medicine</span>
+                    <h4>Dr. Maya Chen</h4>
+                    <span class="dash-apt-loc">${icon('building')} St. Jude Health Center · In-Person</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dash-apt-actions">
+                <span class="status-badge status-confirmed">${icon('check')} Confirmed</span>
+                <button class="button button-small button-primary" id="btn-get-directions">${icon('pin')} Get Directions</button>
+                <button class="button button-small button-outline" id="btn-reschedule-1">Reschedule</button>
+              </div>
+            </div>
+
+            <div class="dash-appointment-card">
+              <div class="dash-apt-left">
+                <div class="dash-apt-date-badge date-teal">
+                  <strong>20</strong>
+                  <span>JUN 2026</span>
+                  <small>04:15 PM</small>
+                </div>
+                <div class="dash-apt-doc-info">
+                  ${avatar('SJ', 'teal', 'dash-doc-avatar')}
+                  <div>
+                    <span class="dash-apt-spec">Dermatology</span>
+                    <h4>Dr. Sarah Jenkins</h4>
+                    <span class="dash-apt-loc">${icon('video')} Online Video Consultation</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dash-apt-actions">
+                <span class="status-badge status-confirmed">${icon('video')} Video Ready</span>
+                <button class="button button-small button-primary" id="btn-join-call">${icon('video')} Join Call</button>
+                <button class="button button-small button-outline" id="btn-reschedule-2">Reschedule</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    if (activeTab === 'orders') {
+      return `
+        <div class="dash-section-box">
+          <div class="dash-box-head">
+            <h3>${icon('bag')} Medicine Orders & Tracking</h3>
+            <button class="button button-small button-outline" data-nav="pharmacy">Browse Pharmacy ${icon('arrow')}</button>
+          </div>
+          <div class="dash-order-card">
+            <div class="dash-order-head">
+              <div>
+                <strong>Order #THP-928104</strong>
+                <span>Placed on Jun 17, 2026 · 2 items · Total $42.50</span>
+              </div>
+              <span class="status-badge status-confirmed">${icon('pin')} Out for Delivery</span>
+            </div>
+
+            <!-- 4-Step Live Tracking Timeline -->
+            <div class="dash-timeline">
+              <div class="timeline-step completed">
+                <span class="timeline-dot">${icon('check')}</span>
+                <strong>Order Placed</strong>
+                <small>Jun 17, 9:30 AM</small>
+              </div>
+              <div class="timeline-step completed">
+                <span class="timeline-dot">${icon('check')}</span>
+                <strong>Prescription Verified</strong>
+                <small>Jun 17, 10:15 AM</small>
+              </div>
+              <div class="timeline-step active">
+                <span class="timeline-dot">${icon('bag')}</span>
+                <strong>Out for Delivery</strong>
+                <small>Today, 2:00 PM</small>
+              </div>
+              <div class="timeline-step">
+                <span class="timeline-dot">${icon('home')}</span>
+                <strong>Delivered</strong>
+                <small>Est. Today, 5:30 PM</small>
+              </div>
+            </div>
+
+            <div class="dash-order-items">
+              <div class="dash-order-item-row">
+                <span class="cart-item-avatar avatar-teal">AM</span>
+                <div>
+                  <strong>Amoxicillin 500mg (21 Capsules)</strong>
+                  <span>Rx Medicine · 1 Pack</span>
+                </div>
+                <strong>$18.50</strong>
+              </div>
+              <div class="dash-order-item-row">
+                <span class="cart-item-avatar avatar-blue">VC</span>
+                <div>
+                  <strong>Vitamin C 1000mg Immunity Boost</strong>
+                  <span>Wellness Supplement · 1 Bottle</span>
+                </div>
+                <strong>$24.00</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    if (activeTab === 'records') {
+      return `
+        <div class="dash-section-box">
+          <div class="dash-box-head">
+            <h3>${icon('shield')} Encrypted Health Records & Lab Reports</h3>
+            <button class="button button-small button-outline" id="btn-upload-record">${icon('plus')} Upload Record</button>
+          </div>
+          <div class="records-file-list">
+            <div class="record-file-row">
+              <div class="rf-left">
+                <div class="rf-icon avatar-teal">${icon('flask')}</div>
+                <div>
+                  <strong>Comprehensive Complete Blood Count (CBC)</strong>
+                  <span>St. Jude Diagnostic Labs · Verified PDF · Jun 12, 2026</span>
+                </div>
+              </div>
+              <div class="rf-actions">
+                <button class="button button-small button-outline btn-dl-report">${icon('file')} Download PDF</button>
+                <button class="button button-small button-quiet btn-share-report">${icon('arrow')} Share</button>
+              </div>
+            </div>
+
+            <div class="record-file-row">
+              <div class="rf-left">
+                <div class="rf-icon avatar-blue">${icon('heart')}</div>
+                <div>
+                  <strong>Lipid Profile & Cholesterol Panel</strong>
+                  <span>Metropolis Diagnostics · Verified PDF · May 28, 2026</span>
+                </div>
+              </div>
+              <div class="rf-actions">
+                <button class="button button-small button-outline btn-dl-report">${icon('file')} Download PDF</button>
+                <button class="button button-small button-quiet btn-share-report">${icon('arrow')} Share</button>
+              </div>
+            </div>
+
+            <div class="record-file-row">
+              <div class="rf-left">
+                <div class="rf-icon avatar-gold">${icon('ecg')}</div>
+                <div>
+                  <strong>12-Lead Electrocardiogram (ECG) Report</strong>
+                  <span>Northshore Medical Center · Verified PDF · May 10, 2026</span>
+                </div>
+              </div>
+              <div class="rf-actions">
+                <button class="button button-small button-outline btn-dl-report">${icon('file')} Download PDF</button>
+                <button class="button button-small button-quiet btn-share-report">${icon('arrow')} Share</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    if (activeTab === 'addresses') {
+      return `
+        <div class="dash-section-box">
+          <div class="dash-box-head">
+            <h3>${icon('pin')} Saved Delivery Address Book</h3>
+            <button class="button button-small button-primary" id="btn-add-address">${icon('plus')} Add New Address</button>
+          </div>
+          <div class="address-cards-grid">
+            <div class="address-card default">
+              <span class="address-badge">Default Address</span>
+              <h4>Jordan Davis (Home)</h4>
+              <p>124 Maple Street, Apt 4B<br>Brooklyn, NY 11201<br>Phone: +1 984-804-0746</p>
+              <div class="address-card-actions">
+                <button class="button button-small button-outline btn-edit-addr">Edit</button>
+                <button class="button button-small button-quiet text-danger btn-del-addr">Remove</button>
+              </div>
+            </div>
+
+            <div class="address-card">
+              <span class="address-badge secondary">Office</span>
+              <h4>Jordan Davis (Work)</h4>
+              <p>500 Fifth Avenue, Suite 1200<br>New York, NY 10110<br>Phone: +1 984-804-0746</p>
+              <div class="address-card-actions">
+                <button class="button button-small button-outline btn-edit-addr">Edit</button>
+                <button class="button button-small button-quiet text-danger btn-del-addr">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    if (activeTab === 'payments') {
+      return `
+        <div class="dash-section-box">
+          <div class="dash-box-head">
+            <h3>${icon('file')} Payment Methods & Invoices</h3>
+            <button class="button button-small button-primary" id="btn-add-payment">${icon('plus')} Add Payment Method</button>
+          </div>
+          <div class="payment-cards-grid">
+            <div class="payment-method-card active">
+              <div class="pm-top">
+                <span class="pm-type">VISA</span>
+                <span class="status-badge status-confirmed">Default</span>
+              </div>
+              <strong class="pm-number">•••• •••• •••• 4242</strong>
+              <div class="pm-bottom">
+                <span>Expires 12/28</span>
+                <span>Jordan Davis</span>
+              </div>
+            </div>
+
+            <div class="payment-method-card">
+              <div class="pm-top">
+                <span class="pm-type">Apple Pay</span>
+              </div>
+              <strong class="pm-number">jordan.davis@appleid.com</strong>
+              <div class="pm-bottom">
+                <span>Connected</span>
+                <span>Touch ID / Face ID</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    // Default: Overview tab
+    return `
+      <div class="dash-overview-grid">
+        <!-- Upcoming appointment card -->
+        <div class="dashboard-card dash-featured-card">
+          <div class="dashboard-card-head">
+            <div>
+              <span class="mini-label">${icon('calendar')} Next Appointment</span>
+              <h3>Primary Care Consult</h3>
+            </div>
+            <span class="status-badge status-confirmed">${icon('check')} Confirmed</span>
+          </div>
+          <div class="appointment-content">
+            <div class="date-block">
+              <strong>18</strong>
+              <span>JUN<br>2026</span>
+            </div>
+            <div class="appointment-info">
+              ${avatar('MC', 'coral', 'dash-doc-avatar')}
+              <div>
+                <strong>Dr. Maya Chen</strong>
+                <span>Internal Medicine · In person</span>
+                <small class="apt-time">${icon('clock')} Today at 10:30 AM</small>
+              </div>
+            </div>
+          </div>
+          <div class="dash-card-bottom">
+            <button class="button button-small button-primary" id="btn-get-directions">${icon('pin')} Get Directions</button>
+            <button class="button button-small button-outline" id="btn-reschedule-1">Reschedule</button>
+          </div>
+        </div>
+
+        <!-- Health Score Ring Card -->
+        <div class="dashboard-card">
+          <div class="dashboard-card-head">
+            <div>
+              <span class="mini-label">${icon('spark')} Health Score</span>
+              <h3>88 / 100</h3>
+            </div>
+            <span class="status-badge status-confirmed">Optimal</span>
+          </div>
+          <div class="wellness-bars">
+            <span><i style="height:72%"></i><small>May</small></span>
+            <span><i style="height:65%"></i><small>Jun 1</small></span>
+            <span><i style="height:82%"></i><small>Jun 8</small></span>
+            <span class="bar-active"><i style="height:96%"></i><small>Today</small></span>
+          </div>
+          <p class="dash-score-sub">${icon('check')} Great job! Your vitals and active lifestyle metrics are 14% higher than last month.</p>
+        </div>
+
+        <!-- Active Order Status Card -->
+        <div class="dashboard-card">
+          <div class="dashboard-card-head">
+            <div>
+              <span class="mini-label">${icon('bag')} Active Medicine Order</span>
+              <h3>Order #THP-928104</h3>
+            </div>
+            <span class="status-badge status-confirmed">Out for Delivery</span>
+          </div>
+          <div class="dash-mini-order">
+            <div class="dash-mini-order-row">
+              <span class="cart-item-avatar avatar-teal">AM</span>
+              <div>
+                <strong>Amoxicillin 500mg</strong>
+                <span>Expected by 5:30 PM Today</span>
+              </div>
+            </div>
+            <button class="button button-small button-outline full-button" id="btn-track-order">${icon('pin')} Track Order</button>
+          </div>
+        </div>
+      </div>
+    `
+  }
+
+  appRoot.innerHTML = `
+    <div class="app-shell">
+      ${sharedHeader(ctx)}
+      <main id="top" class="section-wrap dashboard-main-wrap">
+        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>My Dashboard</span></div>
+        
+        <!-- Hero Command Banner -->
+        <div class="dash-hero-banner">
+          <div class="dash-hero-left">
+            <div class="dash-user-badge-row">
+              <span class="dash-vip-tag">${icon('spark')} TATITO PREMIUM MEMBER</span>
+              <span class="dash-id-tag">Patient ID: THP-884920</span>
+            </div>
+            <h1>Welcome back, <em class="editorial">Jordan Davis</em> 👋</h1>
+            <p>Your complete health snapshot is active. You have 1 upcoming consultation today.</p>
+            
+            <div class="dash-patient-pills">
+              <span class="patient-pill">${icon('user')} Age: 32</span>
+              <span class="patient-pill">${icon('heart')} Blood: O+</span>
+              <span class="patient-pill">${icon('shield')} Emergency: +1 (555) 019-2831</span>
+            </div>
+          </div>
+          <div class="dash-hero-actions">
+            <button class="button button-primary" data-nav="doctors">${icon('video')} Consult Doctor</button>
+            <button class="button button-outline" data-nav="pharmacy">${icon('bag')} Order Medicine</button>
+            <button class="button button-quiet" data-nav="prescription">${icon('file')} Upload Rx</button>
+          </div>
+        </div>
+
+        <!-- 4 Vital Metric Cards -->
+        <div class="vitals-grid">
+          <div class="vital-card">
+            <div class="vital-top">
+              <span class="vital-icon avatar-teal">${icon('pulse')}</span>
+              <span class="vital-status status-good">Normal</span>
+            </div>
+            <div class="vital-val">
+              <strong>72</strong>
+              <small>BPM</small>
+            </div>
+            <span class="vital-label">Resting Heart Rate</span>
+          </div>
+
+          <div class="vital-card">
+            <div class="vital-top">
+              <span class="vital-icon avatar-blue">${icon('ecg')}</span>
+              <span class="vital-status status-good">Optimal</span>
+            </div>
+            <div class="vital-val">
+              <strong>120/80</strong>
+              <small>mmHg</small>
+            </div>
+            <span class="vital-label">Blood Pressure</span>
+          </div>
+
+          <div class="vital-card">
+            <div class="vital-top">
+              <span class="vital-icon avatar-gold">${icon('spark')}</span>
+              <span class="vital-status status-good">+14%</span>
+            </div>
+            <div class="vital-val">
+              <strong>88</strong>
+              <small>/100</small>
+            </div>
+            <span class="vital-label">Health Score</span>
+          </div>
+
+          <div class="vital-card">
+            <div class="vital-top">
+              <span class="vital-icon avatar-peach">${icon('shield')}</span>
+              <span class="vital-status status-good">Active</span>
+            </div>
+            <div class="vital-val">
+              <strong>3</strong>
+              <small>Free Consults</small>
+            </div>
+            <span class="vital-label">Tatito Care Plan</span>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="dash-tabs-bar">
+          <button class="dash-tab-btn ${activeTab === 'overview' ? 'active' : ''}" data-tab="overview">${icon('compass')} Overview</button>
+          <button class="dash-tab-btn ${activeTab === 'appointments' ? 'active' : ''}" data-tab="appointments">${icon('calendar')} Appointments</button>
+          <button class="dash-tab-btn ${activeTab === 'orders' ? 'active' : ''}" data-tab="orders">${icon('bag')} My Orders</button>
+          <button class="dash-tab-btn ${activeTab === 'records' ? 'active' : ''}" data-tab="records">${icon('shield')} Health Records</button>
+          <button class="dash-tab-btn ${activeTab === 'addresses' ? 'active' : ''}" data-tab="addresses">${icon('pin')} Address Book</button>
+          <button class="dash-tab-btn ${activeTab === 'payments' ? 'active' : ''}" data-tab="payments">${icon('file')} Payments</button>
+        </div>
+
+        <!-- Tab Content Container -->
+        <div class="dash-tab-content" id="dash-tab-container">
+          ${renderTabContent()}
+        </div>
+
+      </main>
+      ${sharedFooter(ctx)}
+      ${sharedMobileNav(ctx)}
+    </div>
+    <div class="toast" id="toast"><span class="toast-check">${icon('check')}</span><span id="toast-text">Saved</span></div>
+  `
+
   bindNav(appRoot, ctx)
+
+  // Bind Dashboard Tab Switches & Action Buttons
+  appRoot.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab
+      appRoot.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      const container = appRoot.querySelector('#dash-tab-container')
+      if (container) {
+        container.innerHTML = renderTabContent()
+        bindNav(appRoot, ctx)
+        bindTabActions()
+      }
+    })
+  })
+
+  function bindTabActions() {
+    const btnGetDirections = appRoot.querySelector('#btn-get-directions')
+    if (btnGetDirections) btnGetDirections.addEventListener('click', () => showToast('Opening directions to St. Jude Health Center...'))
+
+    const btnJoinCall = appRoot.querySelector('#btn-join-call')
+    if (btnJoinCall) btnJoinCall.addEventListener('click', () => showToast('Connecting to secure video consultation...'))
+
+    const btnTrackOrder = appRoot.querySelector('#btn-track-order')
+    if (btnTrackOrder) btnTrackOrder.addEventListener('click', () => {
+      activeTab = 'orders'
+      appRoot.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'))
+      const ordTab = appRoot.querySelector('[data-tab="orders"]')
+      if (ordTab) ordTab.classList.add('active')
+      const container = appRoot.querySelector('#dash-tab-container')
+      if (container) {
+        container.innerHTML = renderTabContent()
+        bindNav(appRoot, ctx)
+        bindTabActions()
+      }
+    })
+
+    appRoot.querySelectorAll('.btn-dl-report').forEach(b => b.addEventListener('click', () => showToast('Downloading encrypted PDF report...')))
+    appRoot.querySelectorAll('.btn-share-report').forEach(b => b.addEventListener('click', () => showToast('Report share link copied to clipboard.')))
+    
+    const addAddrBtn = appRoot.querySelector('#btn-add-address')
+    if (addAddrBtn) addAddrBtn.addEventListener('click', () => showToast('Enter new delivery address details.'))
+
+    const addPayBtn = appRoot.querySelector('#btn-add-payment')
+    if (addPayBtn) addPayBtn.addEventListener('click', () => showToast('Redirecting to secure payment card gateway...'))
+  }
+
+  bindTabActions()
 }
 
 export function renderPrescription(appRoot, ctx) {
