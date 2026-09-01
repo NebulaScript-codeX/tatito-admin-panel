@@ -800,13 +800,13 @@ export function renderLabTests(appRoot, ctx) {
       <article class="lab-package-card" data-package="${pkg.id}">
         <div class="pkg-header">
           <span class="pkg-badge">${pkg.badge}</span>
-          <span class="pkg-report-time">${icon('check')} ${pkg.reportTime}</span>
+          <span class="pkg-report-time">${icon('check')} ${pkg.reportTime} Delivery</span>
         </div>
         <div class="pkg-body">
           <div class="pkg-icon avatar-${pkg.color}">${pkg.initials}</div>
           <div class="pkg-details">
             <h3>${pkg.name}</h3>
-            <span class="pkg-test-count">${pkg.tests} Tests Included</span>
+            <span class="pkg-test-count">${pkg.tests} Biomarkers Included</span>
             <p class="pkg-included">${pkg.testsIncluded}</p>
           </div>
         </div>
@@ -824,7 +824,7 @@ export function renderLabTests(appRoot, ctx) {
 
   function renderSingleTestsList() {
     const tests = getFilteredSingleTests()
-    if (tests.length === 0) return `<div class="empty-state"><p>No tests found.</p></div>`
+    if (tests.length === 0) return `<div class="empty-state"><p>No diagnostic tests found.</p></div>`
     return tests.map(t => `
       <article class="lab-single-test-card" data-test="${t.id}">
         <div class="single-test-head">
@@ -839,7 +839,7 @@ export function renderLabTests(appRoot, ctx) {
           <div class="single-test-price">
             <strong>₹${t.price}</strong>
             <s>₹${t.mrp}</s>
-            <span class="single-test-discount">60% off</span>
+            <span class="single-test-discount">60% OFF</span>
           </div>
           <button class="button button-small button-primary" data-book-test="${t.id}">${icon('plus')} Add</button>
         </div>
@@ -854,17 +854,17 @@ export function renderLabTests(appRoot, ctx) {
 
         <!-- Top Diagnostic Search & Header Banner -->
         <section class="section-wrap lab-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Lab Tests</span></div>
+          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Lab Tests & Diagnostics</span></div>
 
           <div class="lab-hero-card">
             <div class="lab-hero-content">
-              <span class="lab-kicker">${icon('spark')} 01 / DIAGNOSTICS — Verified Phlebotomists & NABL Accredited Labs</span>
-              <h1>Blood Test at Home | <em class="editorial">Fast</em> Diagnostic Reports</h1>
-              <p>Safe sample collection from home within 30 minutes. Digital reports delivered in 10-24 hours.</p>
+              <span class="lab-kicker">${icon('spark')} 01 / DIAGNOSTIC EXCELLENCE — NABL, CAP & ISO 15189 Certified Labs</span>
+              <h1>Blood Test at Home | <em class="editorial">Guaranteed 10-Hour Reports</em></h1>
+              <p>Safe, hygienic sample collection at your doorstep in 30 mins by certified phlebotomists. 256-bit encrypted digital lab reports.</p>
               <div class="lab-search-bar">
                 ${icon('search')}
                 <input id="lab-search-input" placeholder="Search for CBC, HbA1c, Thyroid, Lipid Profile, Full Body Package..." />
-                <button class="button button-primary" id="lab-search-btn">Search</button>
+                <button class="button button-primary" id="lab-search-btn">Search Tests</button>
               </div>
             </div>
 
@@ -875,8 +875,8 @@ export function renderLabTests(appRoot, ctx) {
                 <span>Annual Tests Delivered</span>
               </div>
               <div class="stat-item">
-                <strong>40 Years</strong>
-                <span>Healthcare Legacy</span>
+                <strong>100% Free</strong>
+                <span>Home Sample Collection</span>
               </div>
               <div class="stat-item">
                 <strong>140+</strong>
@@ -884,7 +884,7 @@ export function renderLabTests(appRoot, ctx) {
               </div>
               <div class="stat-item">
                 <strong>2,000+</strong>
-                <span>Collection Centres</span>
+                <span>Collection Centers</span>
               </div>
             </div>
           </div>
