@@ -42,6 +42,7 @@ export function getCartTotal() { return cartState.reduce((s, i) => s + i.price *
 
 let currentCtx = null
 function getCtx() { return currentCtx || {} }
+export function getCurrentContext() { return currentCtx || {} }
 
 export function navigate(page, params = {}) {
   const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']

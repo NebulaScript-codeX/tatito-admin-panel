@@ -1,6 +1,7 @@
 import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
 import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages } from './data.js'
 import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js'
+import { openAuthModal } from './authPages.js'
 
 export function sharedHeader(ctx, activeNav) {
   const { navigate, getCartCount } = ctx
@@ -29,7 +30,8 @@ export function sharedHeader(ctx, activeNav) {
           ${isAuth ? `
             <button class="profile-button">${avatar(user ? user.initials : 'JD', 'teal')}<span>${user ? user.name.split(' ')[0] : 'User'}</span>${icon('chevron')}</button>
           ` : `
-            <button class="profile-button auth-login-trigger">${icon('heart')}<span>Login / Sign Up</span></button>
+            <button class="auth-nav-button auth-login-button auth-modal-trigger" data-auth-mode="login">${icon('user')}<span>Login</span></button>
+            <button class="auth-nav-button auth-register-button auth-modal-trigger" data-auth-mode="register"><span>Register</span></button>
           `}
           <button class="mobile-menu" id="page-mobile-menu" aria-label="Open menu">${icon('menu')}</button>
         </div>
@@ -56,6 +58,10 @@ function bindNav(appRoot, ctx) {
       closeAccountDrawer(appRoot)
       navigate(el.dataset.nav)
     })
+  })
+
+  appRoot.querySelectorAll('.auth-modal-trigger').forEach(el => {
+    el.addEventListener('click', () => openAuthModal(el.dataset.authMode, ctx))
   })
 
   const profileBtn = appRoot.querySelector('.profile-button')
@@ -556,6 +562,8 @@ function bindDoctorEvents(appRoot, ctx, state) {
       if (finderSelect) finderSelect.value = state.selectedSpecialty.get()
       if (sidebarSelect) sidebarSelect.value = state.selectedSpecialty.get()
       state.update()
+      const listings = appRoot.querySelector('.doctor-list-wrap')
+      if (listings) listings.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   })
 
@@ -671,7 +679,7 @@ export function renderDoctorDetail(appRoot, ctx) {
           <div class="doctor-detail-left">
             <div class="doctor-detail-card hero-gradient">
               <div class="doc-detail-avatar-wrap">
-                ${avatar(d.initials, d.color, 'doctor-avatar-xl')}
+                ${d.photo ? `<img class="doctor-profile-photo" src="${d.photo}" alt="${d.name}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="doctor-photo-fallback" hidden>${d.initials}</span>` : avatar(d.initials, d.color, 'doctor-avatar-xl')}
                 <span class="doc-verified-badge-xl">${icon('verified')} Verified Specialist</span>
               </div>
               <h1>${d.name}</h1>

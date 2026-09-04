@@ -1,6 +1,7 @@
 import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
 import { categories, products, labTests, articles, doctors } from './data.js'
 import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js'
+import { openAuthModal } from './authPages.js'
 
 function header(navigate, getCartCount) {
   const navItems = [
@@ -31,7 +32,8 @@ function header(navigate, getCartCount) {
           ${isAuth ? `
             <button class="profile-button">${avatar(user ? user.initials : 'JD', 'teal')}<span>${user ? user.name.split(' ')[0] : 'User'}</span>${icon('chevron')}</button>
           ` : `
-            <button class="profile-button auth-login-trigger">${icon('heart')}<span>Login / Sign Up</span></button>
+            <button class="auth-nav-button auth-login-button auth-modal-trigger" data-auth-mode="login">${icon('user')}<span>Login</span></button>
+            <button class="auth-nav-button auth-register-button auth-modal-trigger" data-auth-mode="register"><span>Register</span></button>
           `}
           <button class="mobile-menu" id="home-mobile-menu" aria-label="Open menu">${icon('menu')}</button>
         </div>
@@ -326,6 +328,10 @@ function bindHomeEvents(appRoot, ctx) {
       closeAccountDrawer(appRoot)
       navigate(el.dataset.nav)
     })
+  })
+
+  appRoot.querySelectorAll('.auth-modal-trigger').forEach(el => {
+    el.addEventListener('click', () => openAuthModal(el.dataset.authMode, ctx))
   })
 
   const profileBtn = appRoot.querySelector('.profile-button')

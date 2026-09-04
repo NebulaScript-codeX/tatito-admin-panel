@@ -1,9 +1,10 @@
 import './style.css'
-import { navigate, registerPages, renderPage } from './router.js'
+import { navigate, registerPages, renderPage, getCurrentContext } from './router.js'
 import { renderHome } from './home.js'
 import { renderPharmacy } from './pharmacyPage.js'
 import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle } from './pages.js'
 import { renderHospitalPortal, renderDoctorPortal, renderClinicPortal, renderDiagnosticPortal, renderPharmacyPortal } from './portals.js'
+import { openAuthModal } from './authPages.js'
 
 registerPages({
   home: renderHome,
@@ -28,5 +29,7 @@ registerPages({
   'diagnostic-portal': renderDiagnosticPortal,
   'pharmacy-portal': renderPharmacyPortal
 })
+
+window.addEventListener('thp-auth-required', () => openAuthModal('login', getCurrentContext()))
 
 renderPage()
