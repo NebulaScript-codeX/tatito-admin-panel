@@ -168,7 +168,19 @@ const translations = {
     saved: 'Saved',
     signedOut: 'Signed out',
     removedWishlist: 'Removed from wishlist',
-    savedWishlist: 'Saved to wishlist'
+    savedWishlist: 'Saved to wishlist',
+
+    home: 'Home',
+    findDoctors: 'Find Doctors',
+    talkToDoctor: 'Talk to a Doctor for',
+    instant: 'Instant',
+    advice: 'advice',
+    doctorHeroDescription: 'Connect with top-rated specialists within 15 minutes. 24/7 video consultation, private & secure care.',
+    consultNow: 'Consult Now',
+    specialties: 'Specialties',
+    browseBy: 'Browse by',
+    medical: 'Medical',
+    specialtiesDescription: 'Choose from 24+ medical specialties for targeted health care',
   },
 
 

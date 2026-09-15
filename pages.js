@@ -4,6 +4,7 @@ import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js
 import { openAuthModal } from './authPages.js'
 import { languages, getLanguage, setLanguage, t } from './translations.js'
 
+
 export function sharedHeader(ctx, activeNav) {
   const { navigate, getCartCount } = ctx
 
@@ -542,16 +543,16 @@ export function renderDoctors(appRoot, ctx) {
         
         <!-- Layer 01: Hero — Find Your Doctor -->
         <section class="section-wrap doctor-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Find Doctors</span></div>
+          <div class="breadcrumb"><a data-nav="home">${t('home')}</a> ${icon('chevron')} <span>${t('findDoctors')}</span></div>
           
           <div class="doctor-promo-banner">
             <div class="promo-banner-content">
               <span class="promo-badge">${icon('spark')} Get 5% Off | Use Code CC50</span>
-              <h1>Talk to a Doctor for <em class="editorial">Instant</em> advice</h1>
-              <p>Connect with top-rated specialists within 15 minutes. 24/7 video consultation, private & secure care.</p>
+              <h1>${t('talkToDoctor')} <em class="editorial">${t('instant')}</em> ${t('advice')}</h1>
+              <p>${t('doctorHeroDescription')}</p>
               
               <div class="promo-cta-row">
-                <button class="button button-primary" id="instant-consult-btn">${icon('video')} Consult Now</button>
+                <button class="button button-primary" id="instant-consult-btn">${icon('video')} ${t('consultNow')}</button>
                 <span class="promo-trust">${icon('verified')} 4,000+ Verified Doctors</span>
                 <span class="promo-trust">${icon('clock')} 24/7 Priority Care</span>
               </div>
@@ -567,9 +568,9 @@ export function renderDoctors(appRoot, ctx) {
         <section class="section-wrap specialties-wrap">
           <div class="section-heading">
             <div>
-              <span class="section-kicker">01 / SPECIALTIES</span>
-              <h2>Browse by <em class="editorial">Medical</em> Specialties</h2>
-              <p class="section-subtext">Choose from 24+ medical specialties for targeted health care</p>
+              <span class="section-kicker">01 / ${t('specialties')}</span>
+              <h2>${t('browseBy')} <em class="editorial">${t('medical')}</em> ${t('specialties')}</h2>
+              <p class="section-subtext">${t('specialtiesDescription')}</p>
             </div>
           </div>
           <div class="specialties-grid" id="specialties-grid">
