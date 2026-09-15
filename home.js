@@ -138,7 +138,7 @@ function header(navigate, getCartCount) {
             <!-- LOCATION -->
             <button class="location-button">
               ${icon('pin')}
-              <span>${t('location')}</span>
+              <span id="home-location-text">Detecting location...</span>
               ${icon('chevron')}
             </button>
 
@@ -1685,8 +1685,8 @@ export function renderHome(appRoot, ctx) {
     </div>
 
   `
-
   bindHomeEvents(appRoot, ctx)
+  detectUserLocation(appRoot)
 }
 
 
@@ -2488,4 +2488,54 @@ function bindHomeEvents(appRoot, ctx) {
 
   }
 
+}
+/* =======================================================
+   IP LOCATION
+======================================================= */
+
+async function detectUserLocation(appRoot) {
+  const locationElement =
+    appRoot.querySelector('#home-location-text')
+
+  if (!locationElement) return
+
+  try {
+    const savedLocation =
+      localStorage.getItem('thp_location')
+
+    if (savedLocation) {
+      locationElement.textContent = savedLocation
+    }
+
+    const response =
+      await fetch('https://ipapi.co/json/')
+
+    if (!response.ok) {
+      throw new Error('Location request failed')
+    }
+
+    const data = await response.json()
+
+    if (data.city) {
+      const location =
+        data.region
+          ? `${data.city}, ${data.region}`
+          : data.city
+
+      locationElement.textContent = location
+
+      localStorage.setItem(
+        'thp_location',
+        location
+      )
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to detect user location:',
+      error
+    )
+
+    locationElement.textContent =
+      'Location unavailable'
+  }
 }
