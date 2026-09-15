@@ -2,42 +2,150 @@ import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, account
 import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages, internshipPrograms } from './data.js'
 import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js'
 import { openAuthModal } from './authPages.js'
+import { languages, getLanguage, setLanguage, t } from './translations.js'
 
 export function sharedHeader(ctx, activeNav) {
   const { navigate, getCartCount } = ctx
+
   const navItems = [
-    { label: 'Doctors', page: 'doctors' },
-    { label: 'Pharmacy', page: 'pharmacy' },
-    { label: 'Lab Tests', page: 'labtests' },
-    { label: 'Health Plans', page: 'plans' },
-    { label: 'Health Records', page: 'records' },
-    { label: 'Internships', page: 'internships' },
-    { label: 'Track Your Orders', page: 'trackyourorders' }
+    { label: t('doctors'), page: 'doctors' },
+    { label: t('pharmacy'), page: 'pharmacy' },
+    { label: t('labTests'), page: 'labtests' },
+    { label: t('healthPlans'), page: 'plans' },
+    { label: t('healthRecords'), page: 'records' },
+    { label: t('internships'), page: 'internships' },
+    { label: t('trackOrders'), page: 'trackyourorders' }
   ]
+
   const isAuth = isAuthenticated()
   const user = getAuthUser()
+  const currentLanguage = getLanguage()
 
   return `
-    <div class="announcement"><span class="announcement-dot"></span> Care that moves with you <span class="announcement-divider"></span><span>24/7 virtual care is now available</span></div>
-    <div class="sticky-header-group">
-      <header class="site-header"><div class="site-header-inner">
-        <a class="brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em>Health+</em></span></a>
-        <div class="header-search-bar">${icon('search')}<input id="global-search" placeholder="Search doctors, medicines, lab tests..." /><button data-nav="pharmacy">Search</button></div>
-        <div class="header-actions">
-          <button class="location-button">${icon('pin')} <span>Brooklyn, NY</span> ${icon('chevron')}</button>
-          <button class="icon-button" aria-label="Notifications">${icon('bell')}<span class="notification-dot"></span></button>
-          <button class="cart-button" data-nav="cart">${icon('bag')}<span>Cart</span><span class="cart-count">${getCartCount()}</span></button>
-          ${isAuth ? `
-            <button class="profile-button">${avatar(user ? user.initials : 'JD', 'teal')}<span>${user ? user.name.split(' ')[0] : 'User'}</span>${icon('chevron')}</button>
-          ` : `
-            <button class="auth-nav-button auth-login-button auth-modal-trigger" data-auth-mode="login">${icon('user')}<span>Login</span></button>
-            <button class="auth-nav-button auth-register-button auth-modal-trigger" data-auth-mode="register"><span>Register</span></button>
-          `}
-          <button class="mobile-menu" id="page-mobile-menu" aria-label="Open menu">${icon('menu')}</button>
+    <div class="announcement">
+      <span class="announcement-dot"></span>
+
+      <div class="announcement-slider">
+        <div class="announcement-track">
+          <span>${t('announcementOne')}</span>
+          <span>${t('announcementTwo')}</span>
         </div>
-      </div></header>
-      <nav class="sub-nav"><div class="sub-nav-inner">${navItems.map(n => `<a data-nav="${n.page}" class="${activeNav === n.page ? 'nav-active' : ''}">${n.label}</a>`).join('')}</div></nav>
+      </div>
     </div>
+
+    <div class="sticky-header-group">
+      <header class="site-header">
+        <div class="site-header-inner">
+
+          <a class="brand" data-nav="home" aria-label="Tatito Health+ home">
+            <img src="/tatito-logo.png" alt="Tatito Health+" class="brand-logo">
+          </a>
+
+          <div class="header-search-bar">
+            ${icon('search')}
+            <input
+              id="global-search"
+              placeholder="${t('searchPlaceholder')}"
+            />
+            <button data-search-btn>${t('search')}</button>
+          </div>
+
+          <div class="header-actions">
+
+            <div class="language-selector">
+              <button
+                class="language-button"
+                id="language-button"
+                type="button"
+                aria-label="Select language"
+              >
+                🌐
+                <span>
+                  ${languages.find(lang => lang.code === currentLanguage)?.nativeName || 'English'}
+                </span>
+                ${icon('chevron')}
+              </button>
+
+              <div class="language-menu" id="language-menu">
+                ${languages.map(lang => `
+                  <button
+                    type="button"
+                    class="language-option ${lang.code === currentLanguage ? 'active' : ''}"
+                    data-language="${lang.code}"
+                  >
+                    <span>${lang.nativeName}</span>
+                    <small>${lang.name}</small>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <button class="location-button">
+              ${icon('pin')}
+              <span id="site-location-text">Detecting location...</span>
+              ${icon('chevron')}
+            </button>
+
+            <button class="icon-button" aria-label="${t('notifications')}">
+              ${icon('bell')}
+              <span class="notification-dot"></span>
+            </button>
+
+            <button class="cart-button" data-nav="cart">
+              ${icon('bag')}
+              <span>${t('cart')}</span>
+              <span class="cart-count">${getCartCount()}</span>
+            </button>
+
+            ${isAuth ? `
+              <button class="profile-button">
+                ${avatar(user ? user.initials : 'JD', 'teal')}
+                <span>${user ? user.name.split(' ')[0] : 'User'}</span>
+                ${icon('chevron')}
+              </button>
+            ` : `
+              <button
+                class="auth-nav-button auth-login-button auth-modal-trigger"
+                data-auth-mode="login"
+              >
+                ${icon('user')}
+                <span>${t('login')}</span>
+              </button>
+
+              <button
+                class="auth-nav-button auth-register-button auth-modal-trigger"
+                data-auth-mode="register"
+              >
+                <span>${t('register')}</span>
+              </button>
+            `}
+
+            <button
+              class="mobile-menu"
+              id="page-mobile-menu"
+              aria-label="Open menu"
+            >
+              ${icon('menu')}
+            </button>
+
+          </div>
+        </div>
+      </header>
+
+      <nav class="sub-nav">
+        <div class="sub-nav-inner">
+          ${navItems.map(n => `
+            <a
+              data-nav="${n.page}"
+              class="${activeNav === n.page ? 'nav-active' : ''}"
+            >
+              ${n.label}
+            </a>
+          `).join('')}
+        </div>
+      </nav>
+    </div>
+
     ${accountDrawerHTML()}
   `
 }
@@ -63,6 +171,28 @@ export function bindNav(appRoot, ctx) {
   appRoot.querySelectorAll('.auth-modal-trigger').forEach(el => {
     el.addEventListener('click', () => openAuthModal(el.dataset.authMode, ctx))
   })
+
+    // Language selector
+  const languageButton = appRoot.querySelector('#language-button')
+  const languageMenu = appRoot.querySelector('#language-menu')
+
+  if (languageButton && languageMenu) {
+    languageButton.addEventListener('click', (e) => {
+      e.stopPropagation()
+      languageMenu.classList.toggle('is-open')
+    })
+
+    appRoot.querySelectorAll('[data-language]').forEach(el => {
+      el.addEventListener('click', () => {
+        setLanguage(el.dataset.language)
+        languageMenu.classList.remove('is-open')
+      })
+    })
+
+    document.addEventListener('click', () => {
+      languageMenu.classList.remove('is-open')
+    })
+  }
 
   const profileBtn = appRoot.querySelector('.profile-button')
   if (profileBtn) {
@@ -94,6 +224,7 @@ export function bindNav(appRoot, ctx) {
 
   const mm = appRoot.querySelector('#page-mobile-menu')
   if (mm) mm.addEventListener('click', () => appRoot.querySelector('.sub-nav-inner').classList.toggle('mobile-open'))
+  detectSiteLocation(appRoot)
 }
 
 // === Product Detail Page ===
@@ -3918,5 +4049,41 @@ export function renderInternships(appRoot, ctx) {
       showToast(`Thank you ${name}! Your application has been submitted for review.`)
       closeModal()
     })
+  }
+}
+
+async function detectSiteLocation(appRoot) {
+  const locationElement = appRoot.querySelector('#site-location-text')
+
+  if (!locationElement) return
+
+  try {
+    const savedLocation = localStorage.getItem('thp_location')
+
+    if (savedLocation) {
+      locationElement.textContent = savedLocation
+    }
+
+    const response = await fetch('https://ipapi.co/json/')
+
+    if (!response.ok) {
+      throw new Error('Location request failed')
+    }
+
+    const data = await response.json()
+
+    if (data.city) {
+      const location = data.region
+        ? `${data.city}, ${data.region}`
+        : data.city
+
+      locationElement.textContent = location
+
+      localStorage.setItem('thp_location', location)
+    }
+  } catch (error) {
+    console.warn('Unable to detect user location:', error)
+
+    locationElement.textContent = 'Location unavailable'
   }
 }
