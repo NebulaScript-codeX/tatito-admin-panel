@@ -34,6 +34,9 @@ registerPages({
 
 window.addEventListener('thp-auth-required', () => openAuthModal('login', getCurrentContext()))
 
+window.addEventListener('thp-language-change', () => {
+  renderPage()
+})
+
 renderPage()
 initChatbot()
-
