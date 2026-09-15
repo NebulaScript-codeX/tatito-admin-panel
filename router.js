@@ -98,4 +98,6 @@ export function renderPage() {
   window.thpShowToast = ctx.showToast
   currentCtx = ctx
   render(app, ctx)
+  if (window.thpInitChatbot) window.thpInitChatbot()
 }
+

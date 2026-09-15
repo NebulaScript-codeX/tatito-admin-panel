@@ -46,7 +46,47 @@ function header(navigate, getCartCount) {
 
 function productCard(p, ctx) {
   const discount = Math.round((1 - p.price / p.mrp) * 100)
-  return `<article class="product-card" data-product="${p.id}"><div class="product-image"><span class="product-avatar avatar-${p.color}">${p.initials}</span>${discount > 0 ? `<span class="product-discount">-${discount}%</span>` : ''}${p.rx ? '<span class="product-rx">Rx</span>' : ''}${p.stock === 'Low Stock' ? '<span class="product-low-stock">Low</span>' : ''}</div><div class="product-info"><span class="product-manufacturer">${p.manufacturer}</span><h4 class="product-name">${p.name}</h4><span class="product-pack">${p.pack}</span><div class="product-rating">★ ${p.rating} <span>(${p.reviews})</span></div><div class="product-price-row"><div class="product-price"><strong>$${p.price.toFixed(2)}</strong>${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s>` : ''}</div><button class="add-to-cart-btn" data-add="${p.id}">${icon('plus')} Add</button></div></div></article>`
+  const wishlist = new Set(JSON.parse(localStorage.getItem('thp_wishlist') || '[]'))
+  const isWishlisted = wishlist.has(p.id)
+  const cartItem = ctx && ctx.cartState ? ctx.cartState.find(i => i.id === p.id) : null
+
+  return `
+    <article class="product-card" data-product="${p.id}">
+      <div class="product-image">
+        <span class="product-avatar avatar-${p.color}">${p.initials}</span>
+        ${discount > 0 ? `<span class="product-discount">-${discount}% OFF</span>` : ''}
+        ${p.rx ? '<span class="product-rx">Rx Required</span>' : ''}
+        ${p.stock === 'Low Stock' ? '<span class="product-low-stock">Low Stock</span>' : ''}
+        <button class="wishlist-btn ${isWishlisted ? 'active' : ''}" data-wishlist="${p.id}" aria-label="Save to Wishlist">
+          ${icon('heart')}
+        </button>
+      </div>
+      <div class="product-info">
+        <div class="product-manufacturer-row">
+          <span class="product-manufacturer">${p.manufacturer}</span>
+          <button class="quickview-trigger-link" data-quick-nav="${p.id}">Quick View</button>
+        </div>
+        <h4 class="product-name">${p.name}</h4>
+        <span class="product-pack">${p.pack}</span>
+        <div class="product-rating">★ ${p.rating} <span>(${p.reviews} reviews)</span></div>
+        <div class="product-price-row">
+          <div class="product-price">
+            <strong>$${p.price.toFixed(2)}</strong>
+            ${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s>` : ''}
+          </div>
+          ${cartItem ? `
+            <div class="card-qty-controller">
+              <button data-qty-dec="${p.id}" aria-label="Decrease quantity">−</button>
+              <span>${cartItem.qty}</span>
+              <button data-qty-inc="${p.id}" aria-label="Increase quantity">+</button>
+            </div>
+          ` : `
+            <button class="add-to-cart-btn" data-add="${p.id}">${icon('plus')} Add</button>
+          `}
+        </div>
+      </div>
+    </article>
+  `
 }
 
 function labTestCard(t, ctx) {
@@ -76,7 +116,10 @@ export function renderHome(appRoot, ctx) {
           <div class="hero-banner section-wrap">
             <div class="hero-banner-grid">
               <div class="hero-banner-left">
-                <span class="hero-kicker">${icon('spark')} 01 / DIGITAL HEALTH ECOSYSTEM</span>
+                <div class="hero-status-pills">
+                  <span class="hero-kicker">${icon('spark')} 01 / DIGITAL HEALTH ECOSYSTEM</span>
+                  <span class="hero-live-pill"><span class="hero-live-dot"></span> 24/7 Virtual Care Active</span>
+                </div>
                 <h1>Complete healthcare,<br><span>one <em class="editorial">platform.</em></span></h1>
                 <p>Consult top doctors, order authentic medicines, book lab tests & imaging, and manage your health records — all in one connected super-app.</p>
                 
@@ -84,6 +127,14 @@ export function renderHome(appRoot, ctx) {
                   ${icon('search')}
                   <input id="home-search" placeholder="Search doctors, medicines, lab tests, imaging, conditions..." />
                   <button class="button button-primary" data-search-btn>Search</button>
+                </div>
+
+                <div class="hero-search-tags">
+                  <span class="hst-label">Popular Searches:</span>
+                  <button class="hst-tag" data-tag-search="Amoxilin">Amoxilin</button>
+                  <button class="hst-tag" data-tag-search="Vitamin D3">Vitamin D3</button>
+                  <button class="hst-tag" data-tag-search="HbA1c">HbA1c</button>
+                  <button class="hst-tag" data-tag-search="Thermometer">Thermometer</button>
                 </div>
                 
                 <div class="hero-quick-links">
@@ -97,8 +148,8 @@ export function renderHome(appRoot, ctx) {
               <div class="hero-banner-right">
                 <div class="hero-visual-card">
                   <div class="hero-visual-head">
-                    <span class="hero-badge-pill">${icon('verified')} Certified Platform</span>
-                    <span class="hero-live-dot"></span> Live 24/7 Care
+                    <span class="hero-badge-pill">${icon('verified')} WHO-GMP Certified</span>
+                    <span class="hero-express-badge">${icon('clock')} 30-Min Dispatch</span>
                   </div>
                   <div class="hero-visual-body">
                     <div class="hero-stat-box">
@@ -107,7 +158,7 @@ export function renderHome(appRoot, ctx) {
                     </div>
                     <div class="hero-stat-box">
                       <span class="hero-stat-icon">${icon('pills')}</span>
-                      <div><strong>2-Hour Delivery</strong><span>Authentic Medicines</span></div>
+                      <div><strong>30-Min Express</strong><span>Authentic Medicines</span></div>
                     </div>
                     <div class="hero-stat-box">
                       <span class="hero-stat-icon">${icon('flask')}</span>
@@ -115,7 +166,7 @@ export function renderHome(appRoot, ctx) {
                     </div>
                   </div>
                   <div class="hero-visual-foot">
-                    <button class="button button-small button-outline full-button" data-nav="records">${icon('shield')} View Encrypted Records</button>
+                    <button class="button button-small button-outline full-button" data-nav="records">${icon('shield')} View Encrypted Health Records</button>
                   </div>
                 </div>
               </div>
@@ -127,7 +178,7 @@ export function renderHome(appRoot, ctx) {
         <section class="section-wrap quick-actions-section">
           <div class="quick-actions">
             <button class="quick-action-tile" data-nav="doctors"><span class="qa-icon qa-mint">${icon('video')}</span><div><strong>Consult Doctor</strong><span>Online & in-person</span></div></button>
-            <button class="quick-action-tile" data-nav="pharmacy"><span class="qa-icon qa-peach">${icon('bag')}</span><div><strong>Buy Medicines</strong><span>2 hour express delivery</span></div></button>
+            <button class="quick-action-tile" data-nav="pharmacy"><span class="qa-icon qa-peach">${icon('bag')}</span><div><strong>Buy Medicines</strong><span>30-min express delivery</span></div></button>
             <button class="quick-action-tile" data-nav="labtests"><span class="qa-icon qa-blue">${icon('flask')}</span><div><strong>Book Lab Tests</strong><span>Sample home collection</span></div></button>
             <button class="quick-action-tile" data-nav="prescription"><span class="qa-icon qa-lavender">${icon('file')}</span><div><strong>Upload Rx</strong><span>Snap & order medicines</span></div></button>
             <button class="quick-action-tile" data-nav="labtests"><span class="qa-icon qa-mint">${icon('ecg')}</span><div><strong>X-Ray & Imaging</strong><span>CT Scan, MRI & Radiology</span></div></button>
@@ -142,12 +193,17 @@ export function renderHome(appRoot, ctx) {
           <div class="home-rx-banner">
             <div class="rx-banner-info">
               <span class="eyebrow-tag">${icon('file')} PRESCRIPTION ASSISTANT</span>
-              <h2>Have a <em class="editorial">Prescription?</em></h2>
-              <p>Upload your doctor's prescription image or PDF. Our certified pharmacists will verify it and prepare your order in minutes.</p>
+              <h2>Have a Doctor's <em class="editorial">Prescription?</em></h2>
+              <p>Upload your doctor's prescription image or PDF. Our certified pharmacists will verify it, cross-check dosages, and dispatch your order in 30 minutes.</p>
+              <div class="rx-steps-mini">
+                <div class="rsm-step"><span class="rsm-num">1</span> <span>Snap or Drag Rx</span></div>
+                <div class="rsm-step"><span class="rsm-num">2</span> <span>Pharmacist Verification</span></div>
+                <div class="rsm-step"><span class="rsm-num">3</span> <span>Doorstep Delivery</span></div>
+              </div>
               <div class="rx-trust-badges">
-                <span>${icon('check')} Verified Pharmacists</span>
+                <span>${icon('check')} Licensed Pharmacists</span>
                 <span>${icon('shield')} 100% Authentic</span>
-                <span>${icon('clock')} 2-Hour Delivery</span>
+                <span>${icon('clock')} 30-Min Delivery</span>
               </div>
             </div>
             <div class="rx-dropzone-tile" id="rx-home-upload">
@@ -236,7 +292,7 @@ export function renderHome(appRoot, ctx) {
             </div>
             <button class="text-button" data-nav="pharmacy">Browse all medicines ${icon('arrow')}</button>
           </div>
-          <div class="product-grid home-product-grid">
+          <div class="product-grid home-product-grid" id="home-trending-grid">
             ${trendingProducts.map(p => productCard(p, ctx)).join('')}
           </div>
         </section>
@@ -282,7 +338,7 @@ export function renderHome(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Health Articles & Articles -->
+        <!-- Health Articles -->
         <section class="section-wrap home-section">
           <div class="section-heading">
             <div>
@@ -302,7 +358,7 @@ export function renderHome(appRoot, ctx) {
             <div class="emergency-banner-content">
               <span class="emergency-badge">24/7</span>
               <div>
-                <h3>Emergency & Urgent Care</h3>
+                <h3>Emergency & Urgent Care Hotline</h3>
                 <p>Need immediate medical assistance or ambulance dispatch? Our care team is active round the clock.</p>
               </div>
             </div>
@@ -320,7 +376,19 @@ export function renderHome(appRoot, ctx) {
 }
 
 function bindHomeEvents(appRoot, ctx) {
-  const { navigate, getCartCount, addToCart, showToast } = ctx
+  const { navigate, getCartCount, addToCart, changeQty, showToast } = ctx
+
+  function refreshHomeGrid() {
+    const grid = appRoot.querySelector('#home-trending-grid')
+    if (grid) {
+      const trendingProducts = products.slice(0, 12)
+      grid.innerHTML = trendingProducts.map(p => productCard(p, ctx)).join('')
+    }
+  }
+
+  if (ctx.onCartChange) {
+    ctx.onCartChange(() => refreshHomeGrid())
+  }
 
   appRoot.querySelectorAll('[data-nav]').forEach(el => {
     el.addEventListener('click', e => {
@@ -366,12 +434,61 @@ function bindHomeEvents(appRoot, ctx) {
     el.addEventListener('click', () => navigate('pharmacy', { category: el.dataset.catNav }))
   })
 
-  appRoot.querySelectorAll('[data-product]').forEach(el => {
-    el.addEventListener('click', e => { if (!e.target.closest('[data-add]')) navigate('product', { id: el.dataset.product }) })
+  appRoot.querySelectorAll('[data-tag-search]').forEach(el => {
+    el.addEventListener('click', () => navigate('pharmacy', { search: el.dataset.tagSearch }))
   })
 
-  appRoot.querySelectorAll('[data-add]').forEach(el => {
-    el.addEventListener('click', e => { e.stopPropagation(); const p = products.find(p => p.id === el.dataset.add); if (p) addToCart(p.id, p) })
+  appRoot.addEventListener('click', e => {
+    const wishBtn = e.target.closest('[data-wishlist]')
+    if (wishBtn) {
+      e.stopPropagation()
+      const pid = wishBtn.dataset.wishlist
+      const wishlist = new Set(JSON.parse(localStorage.getItem('thp_wishlist') || '[]'))
+      if (wishlist.has(pid)) {
+        wishlist.delete(pid)
+        showToast('Removed from Wishlist')
+      } else {
+        wishlist.add(pid)
+        showToast('Saved to Wishlist!')
+      }
+      localStorage.setItem('thp_wishlist', JSON.stringify([...wishlist]))
+      refreshHomeGrid()
+      return
+    }
+
+    const incBtn = e.target.closest('[data-qty-inc]')
+    if (incBtn) {
+      e.stopPropagation()
+      changeQty(incBtn.dataset.qtyInc, 1)
+      return
+    }
+
+    const decBtn = e.target.closest('[data-qty-dec]')
+    if (decBtn) {
+      e.stopPropagation()
+      changeQty(decBtn.dataset.qtyDec, -1)
+      return
+    }
+
+    const addBtn = e.target.closest('[data-add]')
+    if (addBtn) {
+      e.stopPropagation()
+      const p = products.find(p => p.id === addBtn.dataset.add)
+      if (p) addToCart(p.id, p)
+      return
+    }
+
+    const quickNav = e.target.closest('[data-quick-nav]')
+    if (quickNav) {
+      e.stopPropagation()
+      navigate('product', { id: quickNav.dataset.quickNav })
+      return
+    }
+
+    const productCardEl = e.target.closest('[data-product]')
+    if (productCardEl && !e.target.closest('[data-add]') && !e.target.closest('[data-qty-inc]') && !e.target.closest('[data-qty-dec]') && !e.target.closest('[data-wishlist]') && !e.target.closest('[data-quick-nav]')) {
+      navigate('product', { id: productCardEl.dataset.product })
+    }
   })
 
   appRoot.querySelectorAll('[data-test]').forEach(el => {
@@ -401,3 +518,4 @@ function bindHomeEvents(appRoot, ctx) {
   const mobileMenu = appRoot.querySelector('#home-mobile-menu')
   if (mobileMenu) mobileMenu.addEventListener('click', () => appRoot.querySelector('.sub-nav-inner').classList.toggle('mobile-open'))
 }
+
