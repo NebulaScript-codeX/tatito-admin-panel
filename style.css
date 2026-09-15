@@ -171,30 +171,35 @@ h4 { font-size: 1.05rem; }
 
 /* Announcement Bar — Normal Document Flow (Scrolls Away) */
 .announcement {
-  position: relative;
-  z-index: 101;
-  background: linear-gradient(90deg, var(--primary-darker) 0%, var(--primary-dark) 100%);
-  color: var(--text-light);
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-align: center;
-  padding: 8px 24px;
+  overflow: hidden;
+}
+
+.announcement-slider {
+  overflow: hidden;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.announcement-track {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  width: max-content;
+  gap: 120px;
+  animation: announcement-marquee 18s linear infinite;
 }
-.announcement-dot {
-  width: 8px;
-  height: 8px;
-  background: #a7f3d0;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #a7f3d0;
-  animation: pulse-ring 2s infinite;
+
+.announcement-track span {
+  flex-shrink: 0;
 }
-.announcement-divider { width: 1px; height: 14px; background: rgba(255,255,255,0.3); }
+
+@keyframes announcement-marquee {
+  from {
+    transform: translateX(100vw);
+  }
+
+  to {
+    transform: translateX(calc(-100% - 120px));
+  }
+}
 
 /* STICKY HEADER GROUP — Sticks both Site Header & Sub-Nav together at top: 0 */
 .sticky-header-group {
@@ -8431,4 +8436,12 @@ h4 { font-size: 1.05rem; }
 .fcb-left span {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.8);
+}
+
+.brand-logo {
+  width: 150px;
+  height: 80px;
+  object-fit: contain;
+  display: block;
+  mix-blend-mode: multiply;
 }

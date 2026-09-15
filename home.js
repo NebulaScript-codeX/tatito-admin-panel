@@ -17,13 +17,20 @@ function header(navigate, getCartCount) {
   const user = getAuthUser()
 
   return `
-    <div class="announcement"><span class="announcement-dot"></span> Care that moves with you <span class="announcement-divider"></span><span>24/7 virtual care & emergency support ready</span></div>
+<div class="announcement">
+  <span class="announcement-dot"></span>
+  <div class="announcement-slider">
+    <div class="announcement-track">
+      <span>Care that moves with you</span>
+      <span>24/7 virtual care & emergency support ready</span>
+    </div>
+  </div>
+</div>
     <div class="sticky-header-group">
       <header class="site-header"><div class="site-header-inner">
-        <a class="brand" data-nav="home" aria-label="Tatito Health+ home">
-          <span class="brand-mark">${icon('heart')}</span>
-          <span><strong>Tatito</strong><em>Health+</em></span>
-        </a>
+          <a class="brand" data-nav="home" aria-label="Tatito Health+ home">
+            <img src="/tatito-logo.png" alt="Tatito Health+" class="brand-logo">
+          </a>
         <div class="header-search-bar">${icon('search')}<input id="global-search" placeholder="Search doctors, medicines, lab tests, imaging..." /><button data-search-btn>Search</button></div>
         <div class="header-actions">
           <button class="location-button">${icon('pin')} <span>Brooklyn, NY</span> ${icon('chevron')}</button>
@@ -517,5 +524,7 @@ function bindHomeEvents(appRoot, ctx) {
 
   const mobileMenu = appRoot.querySelector('#home-mobile-menu')
   if (mobileMenu) mobileMenu.addEventListener('click', () => appRoot.querySelector('.sub-nav-inner').classList.toggle('mobile-open'))
-}
+
+
+  }
 
