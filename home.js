@@ -377,7 +377,7 @@ export function renderHome(appRoot, ctx) {
           <div class="section-heading">
             <div>
               <span class="section-kicker">07 / MEDICAL INSIGHTS</span>
-              <h2>Health Articles <em class="editorial">for You</em></h2>
+              <h2>Health Blogs <em class="editorial">for You</em></h2>
             </div>
             <button class="text-button">Read all articles ${icon("arrow")}</button>
           </div>

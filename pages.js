@@ -542,63 +542,11 @@ export function renderDoctors(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Layer 02: Browse by Specialties Discovery Grid (24 Specialties) -->
-        <section class="section-wrap specialties-wrap">
-          <div class="section-heading">
-            <div>
-              <span class="section-kicker">01 / SPECIALTIES</span>
-              <h2>Browse by <em class="editorial">Medical</em> Specialties</h2>
-              <p class="section-subtext">Choose from 24+ medical specialties for targeted health care</p>
-            </div>
-          </div>
-          <div class="specialties-grid" id="specialties-grid">
-            ${renderSpecialtiesGrid()}
-          </div>
-        </section>
-
-        <!-- Layer 03: 3-Step Quick Appointment Finder -->
-        <section class="section-wrap finder-widget-wrap">
-          <div class="finder-widget-card">
-            <div class="finder-widget-head">
-              <span class="section-kicker">02 / THREE-STEP BOOKING</span>
-              <h3>${icon("compass")} Find a Doctor in 3 <em class="editorial">easy</em> steps</h3>
-              <span>Quick appointment booking with top medical experts</span>
-            </div>
-            <div class="finder-widget-form">
-              <div class="finder-field">
-                <label>01. Select Speciality*</label>
-                <select id="finder-spec-select" class="finder-select">
-                  <option value="all">Enter or Select Speciality</option>
-                  ${doctorSpecialties.map((s) => `<option value="${s.name}" ${selectedSpecialty === s.name ? "selected" : ""}>${s.name}</option>`).join("")}
-                </select>
-              </div>
-              <div class="finder-field">
-                <label>02. Select Date*</label>
-                <select id="finder-date-select" class="finder-select">
-                  <option value="today">Today (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})</option>
-                  <option value="tomorrow">Tomorrow</option>
-                  <option value="next3">Within 3 Days</option>
-                </select>
-              </div>
-              <div class="finder-field">
-                <label>03. Preferred Location/Pincode*</label>
-                <div class="finder-input-wrap">
-                  <input id="finder-location-input" placeholder="Search location or city..." value="${selectedCity !== "all" ? selectedCity : ""}" />
-                  <button class="location-pin-btn" id="detect-loc-btn" title="Detect location">${icon("pin")}</button>
-                </div>
-              </div>
-              <div class="finder-field finder-btn-field">
-                <button class="button button-primary finder-submit-btn" id="finder-submit-btn">${icon("search")} Submit</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Layer 04: Tatito AI Health Intelligence Interface -->
+        <!-- Layer 02: Tatito AI Health Intelligence Interface -->
         <section class="section-wrap ai-banner-wrap">
           <div class="ai-banner-card">
             <div class="ai-banner-content">
-              <span class="ai-badge">${icon("spark")} 03 / INTELLIGENCE — Tatito AI</span>
+              <span class="ai-badge">${icon("spark")} 01 / INTELLIGENCE — Tatito AI</span>
               <h2>Ask anything about your <em class="editorial">health.</em></h2>
               <p>Get instant, trusted guidance powered by AI and verified medical protocols.</p>
               <div class="ai-input-row">
@@ -619,10 +567,27 @@ export function renderDoctors(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Layer 05: Verified Doctor Directory & Filters -->
+        <!-- Layer 03: Browse by Specialties Discovery Grid (24 Specialties) -->
+        <section class="section-wrap specialties-wrap">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">02 / SPECIALTIES</span>
+              <h2>Browse by <em class="editorial">Medical</em> Specialties</h2>
+              <p class="section-subtext">Choose from 24+ medical specialties for targeted health care</p>
+            </div>
+          </div>
+          <div class="specialties-grid" id="specialties-grid">
+            ${renderSpecialtiesGrid()}
+          </div>
+        </section>
+
+        <!-- Layer 03: Verified Doctor Directory & Filters -->
         <section class="section-wrap doctor-list-wrap">
           <div class="doctor-list-container">
-                      <div class="doctor-toolbar">
+            <div class="doctor-toolbar-heading">
+              <span class="section-kicker">03 / VERIFIED DOCTORS</span>
+            </div>
+            <div class="doctor-toolbar">
               <div class="doctor-toolbar-meta">
                 <span id="doctor-count-text">Showing ${getFilteredDoctors().length} verified doctor${getFilteredDoctors().length !== 1 ? "s" : ""}</span>
               </div>
@@ -670,12 +635,12 @@ export function renderDoctors(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Layer 06: Editorial Health Articles -->
+        <!-- Layer 04: Editorial Health Blogs -->
         <section class="section-wrap doctor-articles-section">
           <div class="section-heading">
             <div>
-              <span class="section-kicker">05 / MEDICAL INSIGHTS</span>
-              <h2>Health Articles <em class="editorial">for You</em></h2>
+              <span class="section-kicker">04 / MEDICAL INSIGHTS</span>
+              <h2>Health Blogs <em class="editorial">for You</em></h2>
             </div>
             <button class="text-button" data-nav="article" data-args='{"id":"a1"}'>View all articles ${icon("arrow")}</button>
           </div>
@@ -697,36 +662,10 @@ export function renderDoctors(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Layer 07: Find Doctors By City Grid -->
-        <section class="section-wrap city-section">
-          <div class="section-heading">
-            <div>
-              <span class="section-kicker">06 / LOCATION DISCOVERY</span>
-              <h2>Find Doctors By <em class="editorial">City</em></h2>
-              <p class="section-subtext">Consult top doctors in your city for online & clinic consultations</p>
-            </div>
-          </div>
-          <div class="city-accordion-grid">
-            ${doctorCities
-              .map(
-                (city) => `
-              <button class="city-accordion-card ${selectedCity === city ? "active" : ""}" data-city-card="${city}">
-                <div class="city-card-left">
-                  <span class="city-pin-icon">${icon("pin")}</span>
-                  <strong>${city}</strong>
-                </div>
-                <span class="city-card-arrow">${icon("chevron")}</span>
-              </button>
-            `,
-              )
-              .join("")}
-          </div>
-        </section>
-
-        <!-- Layer 08: Specialty Education Guide -->
+        <!-- Layer 05: Specialty Education Guide -->
         <section class="section-wrap edu-guide-section">
           <div class="edu-guide-card">
-            <span class="section-kicker">07 / KNOWLEDGE BASE</span>
+            <span class="section-kicker">05 / KNOWLEDGE BASE</span>
             <h2>Specialities — Expertise You Can <em class="editorial">Trust</em></h2>
             <p class="edu-intro">
               A medical specialty is a specific area of medical practice that mainly focuses on a defined set of diseases, patients, philosophy, or skills. Tatito Health+ offers advanced consultation services across 24+ medical specialties.
