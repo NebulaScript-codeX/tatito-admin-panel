@@ -44,6 +44,8 @@ export const icons = {
   verified: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.4 2.6 3.5-.4 1.1 3.3 3.3 1.2-.4 3.5 2.6 2.4-2.6 2.4.4 3.5-3.3 1.2-1.1 3.3-3.5-.4L12 22l-2.4-2.6-3.5.4-1.1-3.3-3.3-1.2.4-3.5L1.5 12l2.6-2.4-.4-3.5 3.3-1.2 1.1-3.3 3.5.4L12 2Z"/><path d="m9 12 2 2 4-4"/></svg>',
   doctorCare: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/><path d="M12 11v4M10 13h4"/></svg>',
   emergency: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 7v10M7 12h10"/></svg>',
+  graduationCap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
   cross: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
 }
 
