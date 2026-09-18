@@ -2,9 +2,10 @@ import './style.css'
 import { navigate, registerPages, renderPage, getCurrentContext } from './router.js'
 import { renderHome } from './home.js'
 import { renderPharmacy } from './pharmacyPage.js'
-import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle } from './pages.js'
+import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle, renderInternships } from './pages.js'
 import { renderHospitalPortal, renderDoctorPortal, renderClinicPortal, renderDiagnosticPortal, renderPharmacyPortal } from './portals.js'
 import { openAuthModal } from './authPages.js'
+import { initChatbot } from './chatbot.js'
 
 registerPages({
   home: renderHome,
@@ -20,6 +21,7 @@ registerPages({
   emergency: renderEmergency,
   records: renderRecords,
   plans: renderPlans,
+  internships: renderInternships,
   dashboard: renderDashboard,
   prescription: renderPrescription,
   article: renderArticle,
@@ -33,3 +35,5 @@ registerPages({
 window.addEventListener('thp-auth-required', () => openAuthModal('login', getCurrentContext()))
 
 renderPage()
+initChatbot()
+
