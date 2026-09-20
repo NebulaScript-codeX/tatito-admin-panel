@@ -217,13 +217,17 @@ function header(navigate, getCartCount) {
               ${t(item.key)}
             </a>
           `).join('')}
+          <button class="floating-consult-fab" id="fab-instant-consult">
+          <span class="fab-icon">${icon('phone')}</span>
+          <span>Instant Consult 24/7</span>
+          </button>
         </div>
       </nav>
 
     </div>
 
     ${accountDrawerHTML()}
-  `
+  `;
 }
 
 
@@ -389,7 +393,7 @@ function productCard(p, ctx) {
       </div>
 
     </article>
-  `
+  `;
 }
 
 
@@ -2486,6 +2490,15 @@ function bindHomeEvents(appRoot, ctx) {
       }
     )
 
+  }
+
+  // Instant Consult 24/7 button — lives in the sub-nav bar
+  const fabBtn = appRoot.querySelector("#fab-instant-consult");
+
+  if (fabBtn) {
+    fabBtn.addEventListener("click", () =>
+      showToast("Connecting to 24/7 Instant Doctor...")
+    );
   }
 
 }
