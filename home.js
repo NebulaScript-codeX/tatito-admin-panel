@@ -5,13 +5,14 @@ import { openAuthModal } from './authPages.js'
 
 function header(navigate, getCartCount) {
   const navItems = [
-    { label: 'Doctors', page: 'doctors' },
-    { label: 'Pharmacy', page: 'pharmacy' },
-    { label: 'Lab Tests', page: 'labtests' },
-    { label: 'Health Plans', page: 'plans' },
-    { label: 'Health Records', page: 'records' },
-    { label: 'Internships', page: 'internships' },
-    { label: 'Track Your Orders', page: 'trackyourorders' }
+    { label: 'Home', page: 'home', icon: 'home' },
+    { label: 'Doctors', page: 'doctors', icon: 'doctorCare' },
+    { label: 'Pharmacy', page: 'pharmacy', icon: 'bag' },
+    { label: 'Lab Tests', page: 'labtests', icon: 'flask' },
+    { label: 'Health Plans', page: 'plans', icon: 'shield' },
+    { label: 'Health Records', page: 'records', icon: 'file' },
+    { label: 'Internships', page: 'internships', icon: 'calendar' },
+    { label: 'Track Your Orders', page: 'trackyourorders', icon: 'clock' }
   ]
   const isAuth = isAuthenticated()
   const user = getAuthUser()
@@ -38,7 +39,7 @@ function header(navigate, getCartCount) {
           <button class="mobile-menu" id="home-mobile-menu" aria-label="Open menu">${icon('menu')}</button>
         </div>
       </div></header>
-      <nav class="sub-nav"><div class="sub-nav-inner">${navItems.map(n => `<a data-nav="${n.page}">${n.label}</a>`).join('')}</div></nav>
+      <nav class="sub-nav"><div class="sub-nav-inner">${navItems.map(n => `<a data-nav="${n.page}">${n.icon ? icon(n.icon) : ''}${n.label}</a>`).join('')}</div></nav>
     </div>
     ${accountDrawerHTML()}
   `

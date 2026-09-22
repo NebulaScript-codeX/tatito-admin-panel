@@ -8,6 +8,41 @@ export let currentParams = {}
 const app = document.querySelector('#app')
 const listeners = { cartChange: [] }
 
+const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
+
+function routeToUrl(page, params = {}) {
+  const qs = new URLSearchParams()
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return
+    if (Array.isArray(value)) value.forEach(item => qs.append(key, String(item)))
+    else qs.append(key, String(value))
+  })
+  const query = qs.toString()
+  return `#/${page}${query ? `?${query}` : ''}`
+}
+
+function urlToRoute() {
+  const hash = (window.location.hash || '').replace(/^#/, '').replace(/^\/+/, '')
+  const qIndex = hash.indexOf('?')
+  const page = (qIndex >= 0 ? hash.slice(0, qIndex) : hash) || 'home'
+  const query = qIndex >= 0 ? hash.slice(qIndex + 1) : ''
+  const params = Object.fromEntries(new URLSearchParams(query))
+  return { page, params }
+}
+
+function renderFromLocation() {
+  const { page, params } = urlToRoute()
+  if (protectedPages.includes(page) && !isAuthenticated()) {
+    currentPage = 'home'
+    currentParams = {}
+  } else {
+    currentPage = page
+    currentParams = params
+  }
+  window.scrollTo(0, 0)
+  renderPage()
+}
+
 export function onCartChange(fn) { listeners.cartChange.push(fn) }
 export function notifyCartChange() { listeners.cartChange.forEach(fn => fn()) }
 
@@ -45,21 +80,26 @@ function getCtx() { return currentCtx || {} }
 export function getCurrentContext() { return currentCtx || {} }
 
 export function navigate(page, params = {}) {
-  const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
+  const go = () => {
+    const target = routeToUrl(page, params)
+    const currentHash = (window.location.hash || '').replace(/^#/, '')
+    if (currentHash === target.replace(/^#/, '')) {
+      window.history.replaceState({ page, params }, '', target)
+    } else {
+      window.history.pushState({ page, params }, '', target)
+    }
+    currentPage = page
+    currentParams = params
+    window.scrollTo(0, 0)
+    renderPage()
+  }
+
   if (protectedPages.includes(page) && !isAuthenticated()) {
-    requireAuth(() => {
-      currentPage = page
-      currentParams = params
-      window.scrollTo(0, 0)
-      renderPage()
-    }, `OPEN_${page.toUpperCase()}`)
+    requireAuth(go, `OPEN_${page.toUpperCase()}`)
     return
   }
 
-  currentPage = page
-  currentParams = params
-  window.scrollTo(0, 0)
-  renderPage()
+  go()
 }
 window.thpNavigate = navigate
 
@@ -99,5 +139,11 @@ export function renderPage() {
   currentCtx = ctx
   render(app, ctx)
   if (window.thpInitChatbot) window.thpInitChatbot()
+}
+
+window.addEventListener('popstate', renderFromLocation)
+
+export function bootRouter() {
+  renderFromLocation()
 }
 
