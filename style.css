@@ -13639,3 +13639,737 @@ em.editorial {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.8);
 }
+
+/* ==========================================================================
+   DOCTOR REGISTRATION, LOCATION, COMBOBOX & PDF MODAL STYLES
+   ========================================================================== */
+
+.doctor-upload-control { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 8px; align-items: center; min-height: 54px; margin-top: 7px; padding: 8px 12px; border: 1px dashed var(--border-highlight); border-radius: 9px; color: var(--primary-dark); background: #f7fcf9; cursor: pointer; overflow: hidden; }
+.doctor-upload-control .icon { grid-row: span 2; width: 20px; height: 20px; flex-shrink: 0; }
+.doctor-upload-control .upload-btn-label { font-size: .73rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+.doctor-upload-control small { color: var(--text-faint); font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+
+/* Doctor Stage Header & Footer Layout */
+.doctor-stage-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.doctor-stage-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  width: 22px;
+  height: 22px;
+}
+.doctor-stage-title-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+.doctor-stage-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+.doctor-field-desc {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  font-weight: 500;
+  margin-top: 1px;
+}
+.doctor-stage-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}
+.doctor-signin-hint {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+.doctor-signin-link {
+  color: var(--primary);
+  font-weight: 800;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.doctor-signin-link:hover {
+  color: var(--primary-light);
+}
+
+/* Doctor Location & Availability Step Styles */
+.doctor-location-step-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.doctor-location-card {
+  background: #fbfdfc;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 8px;
+}
+
+.doctor-section-subtitle {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--text-main);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.doctor-address-textarea {
+  width: 100%;
+  border-radius: 9px;
+  resize: vertical;
+  min-height: 72px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  color: var(--text-main);
+  margin-top: 7px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.doctor-address-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(11, 110, 93, 0.12);
+}
+
+.doctor-same-address-wrap {
+  margin: 8px 0 10px 2px;
+}
+
+.doctor-custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.doctor-custom-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.doctor-custom-checkbox .checkbox-box {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--border-highlight);
+  border-radius: 5px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.doctor-custom-checkbox input[type="checkbox"]:checked + .checkbox-box {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.doctor-custom-checkbox input[type="checkbox"]:checked + .checkbox-box::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.doctor-option-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.doctor-field-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.doctor-pills-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.doctor-pills-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.doctor-pill-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  transition: all 0.15s ease;
+}
+
+.doctor-pill-checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.doctor-pill-checkbox .pill-checkbox-indicator {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-highlight);
+  border-radius: 4px;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.doctor-pill-checkbox.is-checked,
+.doctor-pill-checkbox:has(input:checked) {
+  border-color: var(--primary);
+  background: #f0fdf4;
+  color: var(--primary-dark);
+}
+
+.doctor-pill-checkbox.is-checked .pill-checkbox-indicator,
+.doctor-pill-checkbox input[type="checkbox"]:checked + .pill-checkbox-indicator {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.doctor-pill-checkbox.is-checked .pill-checkbox-indicator::after,
+.doctor-pill-checkbox input[type="checkbox"]:checked + .pill-checkbox-indicator::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-0.5px, -0.5px);
+}
+
+.auth-text-input.is-synced {
+  background-color: #f3f4f6 !important;
+  color: var(--text-muted) !important;
+  cursor: not-allowed;
+}
+
+.doctor-review-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.doctor-review-group-title {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary-dark);
+  margin: 0 0 8px 2px;
+}
+
+.doctor-review-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+.doctor-review-pdf-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(11, 110, 93, 0.05) 0%, rgba(20, 184, 166, 0.08) 100%);
+  border: 1px solid rgba(11, 110, 93, 0.18);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.doctor-review-pdf-details {
+  flex: 1;
+}
+
+.doctor-review-pdf-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--primary);
+  background: white;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 110, 93, 0.2);
+  margin-bottom: 6px;
+}
+
+.doctor-review-pdf-pill .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.doctor-review-pdf-details h4 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 4px;
+}
+
+.doctor-review-pdf-details p {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.doctor-btn-view-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: white;
+  border: 1.5px solid var(--primary);
+  padding: 9px 15px;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.doctor-btn-view-pdf:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(11, 110, 93, 0.2);
+}
+
+.doctor-btn-view-pdf .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Doctor PDF Preview Modal */
+.doctor-pdf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: pdfFadeIn 0.2s ease-out;
+}
+
+@keyframes pdfFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.doctor-pdf-modal-container {
+  width: min(100%, 960px);
+  height: min(92vh, 860px);
+  background: white;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: pdfSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pdfSlideUp {
+  from { transform: scale(0.96) translateY(12px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.doctor-pdf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-soft);
+  background: #ffffff;
+}
+
+.doctor-pdf-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.doctor-pdf-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(11, 110, 93, 0.1);
+  color: var(--primary);
+  border-radius: 8px;
+}
+
+.doctor-pdf-icon-badge .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.doctor-pdf-modal-title h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.doctor-pdf-modal-title p {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.doctor-pdf-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.doctor-pdf-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 6px;
+}
+
+.doctor-pdf-download-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.doctor-pdf-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doctor-pdf-modal-close:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.doctor-pdf-modal-close .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.doctor-pdf-modal-body {
+  flex: 1;
+  background: #525659;
+  position: relative;
+  overflow: hidden;
+}
+
+.doctor-pdf-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #ffffff;
+}
+
+.doctor-pdf-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-soft);
+  background: #fbfdfc;
+}
+
+.doctor-pdf-modal-footer span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.doctor-pdf-back-btn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .doctor-review-pdf-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .doctor-btn-view-pdf {
+    justify-content: center;
+  }
+  .doctor-pdf-modal-container {
+    height: 96vh;
+    padding: 0;
+  }
+  .doctor-pdf-modal-footer {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+    text-align: center;
+  }
+}
+
+/* Doctor Education Searchable Combobox */
+.doctor-combobox-wrapper {
+  position: relative;
+}
+
+.doctor-combobox-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 7px;
+}
+
+.doctor-combobox-wrapper .auth-text-input.doctor-combobox-input {
+  margin-top: 0;
+  padding-right: 36px;
+  cursor: text;
+}
+
+.doctor-combobox-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.doctor-combobox-arrow:hover {
+  color: var(--primary);
+}
+
+.doctor-combobox-arrow svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.doctor-combobox-arrow.is-open svg {
+  transform: rotate(180deg);
+}
+
+.doctor-combobox-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #ffffff;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(4, 62, 50, 0.12), 0 2px 6px rgba(4, 62, 50, 0.04);
+  max-height: 210px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.doctor-combobox-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.doctor-combobox-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(11, 110, 93, 0.25);
+  border-radius: 3px;
+}
+
+.doctor-combobox-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 110, 93, 0.4);
+}
+
+.doctor-combobox-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.doctor-combobox-item {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-main);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background-color 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+
+.doctor-combobox-item:last-child {
+  border-bottom: none;
+}
+
+.doctor-combobox-item:hover,
+.doctor-combobox-item.is-selected,
+.doctor-combobox-item.is-focused {
+  background: #eaf6f0;
+  color: var(--primary-darker);
+  font-weight: 600;
+}
+
+.doctor-combobox-match {
+  background: rgba(253, 224, 71, 0.45);
+  color: var(--primary-darker);
+  font-weight: 700;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.doctor-combobox-empty {
+  padding: 14px 12px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Doctor Multi-Select Chips Component */
+.doctor-multi-select-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.doctor-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 0;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.doctor-chips-container:empty {
+  display: none;
+}
+
+.doctor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eaf6f0;
+  color: var(--primary-darker);
+  border: 1px solid rgba(11, 110, 93, 0.28);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  animation: authStageIn 0.2s ease;
+}
+
+.doctor-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 110, 93, 0.12);
+  border: none;
+  color: var(--primary-darker);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.doctor-chip-remove:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.15);
+}
+
+.doctor-chip-other-input-wrap {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.doctor-chip-other-input-wrap .auth-text-input {
+  margin-top: 0;
+  flex: 1;
+}
+
+.doctor-chip-other-btn {
+  padding: 10px 16px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  border-radius: 8px;
+  white-space: nowrap;
+}
