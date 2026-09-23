@@ -1,5 +1,5 @@
 import './style.css'
-import { navigate, registerPages, renderPage, getCurrentContext } from './router.js'
+import { navigate, registerPages, bootRouter, getCurrentContext } from './router.js'
 import { renderHome } from './home.js'
 import { renderPharmacy } from './pharmacyPage.js'
 import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle, renderInternships } from './pages.js'
@@ -34,6 +34,6 @@ registerPages({
 
 window.addEventListener('thp-auth-required', () => openAuthModal('login', getCurrentContext()))
 
-renderPage()
+bootRouter()
 initChatbot()
 

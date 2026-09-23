@@ -30,16 +30,19 @@ import {
 } from "./auth.js";
 import { openAuthModal } from "./authPages.js";
 
+let specialtiesCarouselTimer = null
+
 export function sharedHeader(ctx, activeNav) {
   const { navigate, getCartCount } = ctx;
   const navItems = [
-    { label: "Doctors", page: "doctors" },
-    { label: "Pharmacy", page: "pharmacy" },
-    { label: "Lab Tests", page: "labtests" },
-    { label: "Health Plans", page: "plans" },
-    { label: "Health Records", page: "records" },
-    { label: "Internships", page: "internships" },
-    { label: "Track Your Orders", page: "trackyourorders" },
+    { label: "Home", page: "home", icon: "home" },
+    { label: "Doctors", page: "doctors", icon: "doctorCare" },
+    { label: "Pharmacy", page: "pharmacy", icon: "bag" },
+    { label: "Lab Tests", page: "labtests", icon: "flask" },
+    { label: "Health Plans", page: "plans", icon: "shield" },
+    { label: "Health Records", page: "records", icon: "file" },
+    { label: "Internships", page: "internships", icon: "calendar" },
+    { label: "Track Your Orders", page: "trackyourorders", icon: "clock" },
   ];
   const isAuth = isAuthenticated();
   const user = getAuthUser();
@@ -67,7 +70,7 @@ export function sharedHeader(ctx, activeNav) {
           <button class="mobile-menu" id="page-mobile-menu" aria-label="Open menu">${icon("menu")}</button>
         </div>
       </div></header>
-      <nav class="sub-nav"><div class="sub-nav-inner">${navItems.map((n) => `<a data-nav="${n.page}" class="${activeNav === n.page ? "nav-active" : ""}">${n.label}</a>`).join("")}
+<nav class="sub-nav"><div class="sub-nav-inner">${navItems.map((n) => `<a data-nav="${n.page}" class="${activeNav === n.page ? "nav-active" : ""}">${n.icon ? icon(n.icon) : ""}${n.label}</a>`).join("")}
         <button class="floating-consult-fab" id="fab-instant-consult">
           <span class="fab-icon">${icon("phone")}</span>
           <span>Instant Consult 24/7</span>
@@ -165,13 +168,6 @@ export function renderProductDetail(appRoot, ctx) {
         
         <!-- BREADCRUMB & HERO WRAPPER -->
         <section class="section-wrap">
-          <div class="breadcrumb">
-            <a data-nav="home">Home</a> ${icon("chevron")} 
-            <a data-nav="pharmacy">Pharmacy</a> ${icon("chevron")} 
-            <span>${p.category || "Supplements"}</span> ${icon("chevron")} 
-            <span>${p.name}</span>
-          </div>
-
           <!-- MAIN DUAL-COLUMN PRODUCT CARD -->
           <div class="product-detail-card">
             
@@ -484,14 +480,27 @@ export function renderDoctors(appRoot, ctx) {
   }
 
   function renderSpecialtiesGrid() {
-    return doctorSpecialties
+    const groups = [];
+    for (let i = 0; i < doctorSpecialties.length; i += 4)
+      groups.push(doctorSpecialties.slice(i, i + 4));
+    return groups
       .map(
-        (s) => `
-      <div class="specialty-card ${selectedSpecialty === s.name ? "active" : ""}" data-spec-name="${s.name}">
-        <div class="specialty-card-icon avatar-${s.color}">${icon(s.icon)}</div>
-        <div class="specialty-card-info">
-          <h4>${s.name}</h4>
-          <span>${s.desc}</span>
+        (group, gi) => `
+      <div class="spec-slider-slide" data-slide-index="${gi}">
+        <div class="spec-slider-slide-grid">
+          ${group
+            .map(
+              (s) => `
+            <div class="specialty-card ${selectedSpecialty === s.name ? "active" : ""}" data-spec-name="${s.name}">
+              <div class="specialty-card-icon avatar-${s.color}">${icon(s.icon)}</div>
+              <div class="specialty-card-info">
+                <h4>${s.name}</h4>
+                <span>${s.desc}</span>
+              </div>
+            </div>
+          `,
+            )
+            .join("")}
         </div>
       </div>
     `,
@@ -521,8 +530,6 @@ export function renderDoctors(appRoot, ctx) {
         
         <!-- Layer 01: Hero — Find Your Doctor -->
         <section class="section-wrap doctor-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>Find Doctors</span></div>
-          
           <div class="doctor-promo-banner">
             <div class="promo-banner-content">
               <span class="promo-badge">${icon("spark")} Get 5% Off | Use Code CC50</span>
@@ -542,7 +549,67 @@ export function renderDoctors(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Layer 02: Tatito AI Health Intelligence Interface -->
+        <!-- Layer 02: Browse by Medical Specialties — 4-Card Grouped Carousel -->
+        <section class="section-wrap specialties-wrap">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">01 / SPECIALTIES</span>
+              <h2>Browse by <em class="editorial">Medical</em> Specialties</h2>
+              <p class="section-subtext">Choose from 24+ medical specialties for targeted health care</p>
+            </div>
+            <span class="spec-slider-counter" id="spec-slider-counter">1 / 6</span>
+          </div>
+          <div class="spec-slider">
+            <button class="spec-slider-arrow spec-slider-arrow-prev" id="spec-slider-prev" type="button" aria-label="Previous specialties">${icon("chevron", "spec-chevron-left")}</button>
+            <div class="spec-slider-viewport" id="spec-slider-viewport">
+              <div class="spec-slider-track" id="spec-slider-track">
+                ${renderSpecialtiesGrid()}
+              </div>
+            </div>
+            <button class="spec-slider-arrow spec-slider-arrow-next" id="spec-slider-next" type="button" aria-label="Next specialties">${icon("chevron")}</button>
+          </div>
+          <div class="spec-slider-dots" id="spec-slider-dots"></div>
+        </section>
+
+        <!-- Layer 03: 3-Step Quick Appointment Finder -->
+        <section class="section-wrap finder-widget-wrap">
+          <div class="finder-widget-card">
+            <div class="finder-widget-head">
+              <span class="section-kicker">02 / THREE-STEP BOOKING</span>
+              <h3>${icon("compass")} Find a Doctor in 3 <em class="editorial">easy</em> steps</h3>
+              <span>Quick appointment booking with top medical experts</span>
+            </div>
+            <div class="finder-widget-form">
+              <div class="finder-field">
+                <label>01. Select Speciality*</label>
+                <select id="finder-spec-select" class="finder-select">
+                  <option value="all">Enter or Select Speciality</option>
+                  ${doctorSpecialties.map((s) => `<option value="${s.name}" ${selectedSpecialty === s.name ? "selected" : ""}>${s.name}</option>`).join("")}
+                </select>
+              </div>
+              <div class="finder-field">
+                <label>02. Select Date*</label>
+                <select id="finder-date-select" class="finder-select">
+                  <option value="today">Today (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})</option>
+                  <option value="tomorrow">Tomorrow</option>
+                  <option value="next3">Within 3 Days</option>
+                </select>
+              </div>
+              <div class="finder-field">
+                <label>03. Preferred Location/Pincode*</label>
+                <div class="finder-input-wrap">
+                  <input id="finder-location-input" placeholder="Search location or city..." value="${selectedCity !== "all" ? selectedCity : ""}" />
+                  <button class="location-pin-btn" id="detect-loc-btn" title="Detect location">${icon("pin")}</button>
+                </div>
+              </div>
+              <div class="finder-field finder-btn-field">
+                <button class="button button-primary finder-submit-btn" id="finder-submit-btn">${icon("search")} Submit</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Layer 04: Tatito AI Health Intelligence Interface -->
         <section class="section-wrap ai-banner-wrap">
           <div class="ai-banner-card">
             <div class="ai-banner-content">
@@ -564,20 +631,6 @@ export function renderDoctors(appRoot, ctx) {
                 ${icon("shield")} <span>AI guidance for informational support — consult a qualified medical professional for diagnosis or treatment.</span>
               </div>
             </div>
-          </div>
-        </section>
-
-        <!-- Layer 03: Browse by Specialties Discovery Grid (24 Specialties) -->
-        <section class="section-wrap specialties-wrap">
-          <div class="section-heading">
-            <div>
-              <span class="section-kicker">02 / SPECIALTIES</span>
-              <h2>Browse by <em class="editorial">Medical</em> Specialties</h2>
-              <p class="section-subtext">Choose from 24+ medical specialties for targeted health care</p>
-            </div>
-          </div>
-          <div class="specialties-grid" id="specialties-grid">
-            ${renderSpecialtiesGrid()}
           </div>
         </section>
 
@@ -639,7 +692,7 @@ export function renderDoctors(appRoot, ctx) {
         <section class="section-wrap doctor-articles-section">
           <div class="section-heading">
             <div>
-              <span class="section-kicker">04 / MEDICAL INSIGHTS</span>
+<span class="section-kicker">04 / MEDICAL INSIGHTS</span>
               <h2>Health Blogs <em class="editorial">for You</em></h2>
             </div>
             <button class="text-button" data-nav="article" data-args='{"id":"a1"}'>View all articles ${icon("arrow")}</button>
@@ -654,6 +707,7 @@ export function renderDoctors(appRoot, ctx) {
                   <span class="article-category">${a.category}</span>
                   <h4>${a.title}</h4>
                   <span class="article-meta">${a.author} · ${a.date}</span>
+                  <span class="article-link">Know More ${icon('arrow')}</span>
                 </div>
               </article>
             `,
@@ -765,6 +819,46 @@ function doctorCard(d) {
 function bindDoctorEvents(appRoot, ctx, state) {
   const { navigate, showToast } = ctx;
   bindNav(appRoot, ctx);
+
+  // Specialties slider: 4 cards per slide (2×2), prev/next arrows, dots + counter, 10 s auto-advance (continuous loop)
+  if (specialtiesCarouselTimer) { clearInterval(specialtiesCarouselTimer); specialtiesCarouselTimer = null }
+  const specTrack = appRoot.querySelector('#spec-slider-track')
+  const specViewport = appRoot.querySelector('#spec-slider-viewport')
+  const specPrev = appRoot.querySelector('#spec-slider-prev')
+  const specNext = appRoot.querySelector('#spec-slider-next')
+  const specCounter = appRoot.querySelector('#spec-slider-counter')
+  const specDots = appRoot.querySelector('#spec-slider-dots')
+  if (specTrack && specViewport && specPrev && specNext) {
+    const slides = specTrack.querySelectorAll('.spec-slider-slide')
+    const specTotal = slides.length
+    let specIndex = 0
+    const renderSpecDots = () => {
+      if (!specDots) return
+      specDots.innerHTML = Array.from({ length: specTotal }, (_, i) =>
+        `<button class="spec-slider-dot ${i === specIndex ? 'active' : ''}" data-spec-dot="${i}" type="button" aria-label="Go to specialty ${i + 1}"></button>`).join('')
+    }
+    const goToSpecialty = (i) => {
+      specIndex = ((i % specTotal) + specTotal) % specTotal
+      specTrack.style.transform = `translateX(-${specIndex * 100}%)`
+      if (specCounter) specCounter.textContent = `${specIndex + 1} / ${specTotal}`
+      renderSpecDots()
+    }
+    const startSpecAutoAdvance = () => {
+      if (specialtiesCarouselTimer) clearInterval(specialtiesCarouselTimer)
+      specialtiesCarouselTimer = setInterval(() => {
+        if (!specTrack.isConnected) { clearInterval(specialtiesCarouselTimer); specialtiesCarouselTimer = null; return }
+        goToSpecialty(specIndex + 1)
+      }, 10000)
+    }
+    specPrev.addEventListener('click', () => { goToSpecialty(specIndex - 1); startSpecAutoAdvance() })
+    specNext.addEventListener('click', () => { goToSpecialty(specIndex + 1); startSpecAutoAdvance() })
+    if (specDots) specDots.addEventListener('click', e => {
+      const dot = e.target.closest('[data-spec-dot]')
+      if (dot) { goToSpecialty(Number(dot.dataset.specDot)); startSpecAutoAdvance() }
+    })
+    renderSpecDots()
+    startSpecAutoAdvance()
+  }
 
   // Specialty card selection
   appRoot.querySelectorAll("[data-spec-name]").forEach((card) => {
@@ -1092,7 +1186,6 @@ export function renderDoctorDetail(appRoot, ctx) {
     <div class="app-shell">
       ${sharedHeader(ctx, "doctors")}
       <main id="top" class="section-wrap detail-page doctor-detail-wrap">
-        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <a data-nav="doctors">Doctors</a> ${icon("chevron")} <span>${d.name}</span></div>
         
         <div class="doctor-detail-layout">
           <div class="doctor-detail-left">
@@ -1372,8 +1465,6 @@ export function renderLabTests(appRoot, ctx) {
 
         <!-- Top Diagnostic Search & Header Banner -->
         <section class="section-wrap lab-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>Lab Tests & Diagnostics</span></div>
-
           <div class="lab-hero-card">
             <div class="lab-hero-content">
               <span class="lab-kicker">${icon("spark")} 01 / DIAGNOSTIC EXCELLENCE — NABL, CAP & ISO 15189 Certified Labs</span>
@@ -1824,7 +1915,6 @@ export function renderTestDetail(appRoot, ctx) {
     <div class="app-shell">
       ${sharedHeader(ctx, "labtests")}
       <main id="top" class="section-wrap detail-page labtest-detail-wrap">
-        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <a data-nav="labtests">Lab Tests</a> ${icon("chevron")} <span>${t.name}</span></div>
         
         <div class="test-detail-layout">
           <div class="test-detail-left">
@@ -2214,7 +2304,6 @@ export function renderCheckout(appRoot, ctx) {
     <div class="app-shell">
       ${sharedHeader(ctx)}
       <main id="top" class="section-wrap checkout-page checkout-page-wrap">
-        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <a data-nav="cart">Cart</a> ${icon("chevron")} <span>Checkout</span></div>
         <h1>Secure <em class="editorial">Checkout</em></h1>
         
         <div class="checkout-layout">
@@ -2426,7 +2515,6 @@ export function renderRecords(appRoot, ctx) {
     <div class="app-shell">
       ${sharedHeader(ctx, "records")}
       <main id="top" class="section-wrap records-page-wrap">
-        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>Health Records</span></div>
         
         <div class="records-hero-box">
           <div class="rh-left">
@@ -2712,8 +2800,6 @@ export function renderPlans(appRoot, ctx) {
         
         <!-- HERO BANNER -->
         <section class="section-wrap plans-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>Health Subscription Plans</span></div>
-
           <div class="plans-hero-card">
             <div class="plans-hero-content">
               <span class="eyebrow-tag">${icon("spark")} TATITO HEALTH PLUS MEMBERSHIP</span>
@@ -3433,7 +3519,6 @@ export function renderDashboard(appRoot, ctx) {
     <div class="app-shell">
       ${sharedHeader(ctx)}
       <main id="top" class="section-wrap dashboard-main-wrap">
-        <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>My Dashboard</span></div>
         
         <!-- Hero Command Banner -->
         <div class="dash-hero-banner">
@@ -3627,8 +3712,6 @@ export function renderPrescription(appRoot, ctx) {
         
         <!-- HERO BANNER SECTION -->
         <section class="section-wrap rx-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <a data-nav="pharmacy">Pharmacy</a> ${icon("chevron")} <span>Upload Prescription</span></div>
-          
           <div class="rx-hero-card">
             <div class="rx-hero-content">
               <span class="rx-hero-badge">${icon("shield")} 256-BIT ENCRYPTED & HIPAA COMPLIANT</span>
@@ -3944,13 +4027,13 @@ export function renderPrescription(appRoot, ctx) {
 }
 
 export function renderArticle(appRoot, ctx) {
-  const { navigate, currentParams } = ctx;
+const { navigate, currentParams } = ctx;
   const a = articles.find((a) => a.id === currentParams.id);
   if (!a) {
     navigate("home");
     return;
   }
-  appRoot.innerHTML = `<div class="app-shell">${sharedHeader(ctx)}<main id="top" class="section-wrap"><div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>${a.title}</span></div><div class="article-page"><span class="article-category-large">${a.category}</span><h1>${a.title}</h1><span class="article-meta-large">${a.author} · ${a.date}</span><div class="article-body"><p>Regular health check-ups are vital for a healthy life because they help in detecting diseases at the earliest, allowing for timely treatment. At Tatito Health+, we believe preventive care is the foundation of long-term wellness.</p><h3>Why early detection matters</h3><p>Many health conditions develop silently over time. Regular screenings and lab tests can catch warning signs before symptoms appear, giving you and your care team the best chance to address issues early.</p><h3>What you can do</h3><p>Schedule annual check-ups, maintain a balanced diet, stay physically active, and don't ignore persistent symptoms. Your health is your most valuable asset — invest in it wisely.</p></div></div></main>${sharedFooter(ctx)}${sharedMobileNav(ctx)}</div><div class="toast" id="toast"><span class="toast-check">${icon("check")}</span><span id="toast-text">Saved</span></div>`;
+  appRoot.innerHTML = `<div class="app-shell">${sharedHeader(ctx)}<main id="top" class="section-wrap"><div class="article-page"><span class="article-category-large">${a.category}</span><h1>${a.title}</h1><span class="article-meta-large">${a.author} · ${a.date}</span><div class="article-body"><p>Regular health check-ups are vital for a healthy life because they help in detecting diseases at the earliest, allowing for timely treatment. At Tatito Health+, we believe preventive care is the foundation of long-term wellness.</p><h3>Why early detection matters</h3><p>Many health conditions develop silently over time. Regular screenings and lab tests can catch warning signs before symptoms appear, giving you and your care team the best chance to address issues early.</p><h3>What you can do</h3><p>Schedule annual check-ups, maintain a balanced diet, stay physically active, and don't ignore persistent symptoms. Your health is your most valuable asset — invest in it wisely.</p></div></div></main>${sharedFooter(ctx)}${sharedMobileNav(ctx)}</div><div class="toast" id="toast"><span class="toast-check">${icon("check")}</span><span id="toast-text">Saved</span></div>`;
   bindNav(appRoot, ctx);
 }
 
@@ -4074,8 +4157,6 @@ export function renderInternships(appRoot, ctx) {
         
         <!-- HERO BANNER SECTION -->
         <section class="section-wrap intern-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon("chevron")} <span>Clinical & Tech Internships</span></div>
-
           <div class="intern-hero-card">
             <div class="intern-hero-content">
               <span class="eyebrow-tag">${icon("spark")} 01 / GLOBAL ACADEMIC & CLINICAL ECOSYSTEM</span>
