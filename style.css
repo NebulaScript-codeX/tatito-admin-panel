@@ -14283,3 +14283,11 @@ em.editorial {
   border-radius: 8px;
   white-space: nowrap;
 }
+
+/* Fix Tatito logo size */
+.brand-logo {
+  width: 150px !important;
+  height: 80px !important;
+  object-fit: contain !important;
+  display: block;
+}
