@@ -1,12 +1,12 @@
 import './style.css'
-import { navigate, registerPages, renderPage, getCurrentContext } from './router.js'
+import { navigate, registerPages, bootRouter, renderPage, getCurrentContext } from './router.js'
 import { renderHome } from './home.js'
 import { renderPharmacy } from './pharmacyPage.js'
 import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle, renderInternships } from './pages.js'
 import { renderHospitalPortal, renderDoctorPortal, renderClinicPortal, renderDiagnosticPortal, renderPharmacyPortal } from './portals.js'
 import { openAuthModal } from './authPages.js'
 import { initChatbot } from './chatbot.js'
-
+[]
 registerPages({
   home: renderHome,
   pharmacy: renderPharmacy,

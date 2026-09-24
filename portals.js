@@ -2,6 +2,7 @@ import { icon } from './ui.js'
 import { sharedHeader, bindNav } from './pages.js'
 
 const portalDetails = {
+  user: ['User portal', 'Book appointments, manage prescriptions, and track health.'],
   hospital: ['Hospital portal', 'Coordinate care teams, admissions, and patient handoffs.'],
   doctor: ['Doctor portal', 'Manage consultations, prescriptions, and follow-ups.'],
   clinic: ['Clinic portal', 'Keep appointments, staff, and patient records moving.'],
@@ -10,6 +11,7 @@ const portalDetails = {
 }
 
 export const portalOptions = [
+  { value: 'user', label: 'User', icon: 'user', detail: 'Care & consultations' },
   { value: 'hospital', label: 'Hospital', icon: 'building', detail: 'Care teams & admissions' },
   { value: 'doctor', label: 'Doctor', icon: 'stethoscope', detail: 'Consultations & patients' },
   { value: 'clinic', label: 'Clinic', icon: 'home', detail: 'Appointments & staff' },

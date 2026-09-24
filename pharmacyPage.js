@@ -36,7 +36,6 @@ export function renderPharmacy(appRoot, ctx) {
         
         <!-- HERO BANNER -->
         <section class="section-wrap pharmacy-hero-section">
-          <div class="breadcrumb"><a data-nav="home">Home</a> ${icon('chevron')} <span>Pharmacy & Medicines</span></div>
           <div class="pharmacy-hero-bar">
             <div class="pharmacy-hero-content">
               <span class="eyebrow-tag">${icon('pills')} 100% GENUINE MEDICINES & WELLNESS</span>

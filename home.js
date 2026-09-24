@@ -41,7 +41,7 @@ import {
 
 function header(navigate, getCartCount) {
   const navItems = [
-    { key: 'doctors', page: 'doctors' },
+    { key: 'doctors', page: 'doctors', icon: 'doctorCare' },
     { key: 'pharmacy', page: 'pharmacy' },
     { key: 'labTests', page: 'labtests' },
     { key: 'healthPlans', page: 'plans' },
