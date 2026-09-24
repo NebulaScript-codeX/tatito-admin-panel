@@ -43,9 +43,14 @@ export const portalRegistrationFields = {
   diagnostic: [
     ['name', 'Contact person', 'text', 'Full name'],
     ['organisation', 'Diagnostic centre name', 'text', 'Registered centre name'],
-    ['accreditation', 'Accreditation number', 'text', 'Enter accreditation ID'],
     ['email', 'Official email', 'email', 'admin@diagnostics.com'],
-    ['password', 'Create password', 'password', 'At least 8 characters']
+    ['phone', 'Mobile number', 'tel', '10-digit mobile number'],
+    ['password', 'Create password', 'password', 'At least 8 characters'],
+    ['confirmPassword', 'Confirm password', 'password', 'Re-enter password'],
+    ['accreditation', 'Accreditation number', 'text', 'Enter accreditation ID'],
+    ['profilePhoto', 'Profile photo', 'file-image', 'Click to upload profile photo'],
+    ['logo', 'Centre logo', 'file-image', 'Click to upload centre logo'],
+    ['licenseCertificate', 'License certificate', 'file', 'Click to upload license certificate']
   ],
   pharmacy: [
     ['name', 'Pharmacist name', 'text', 'Full name'],
