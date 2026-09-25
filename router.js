@@ -8,7 +8,26 @@ export let currentParams = {}
 const app = document.querySelector('#app')
 const listeners = { cartChange: [] }
 
-const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
+const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'doctor-profile', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
+
+// Routes restricted to a specific account role. Guards run for both direct
+// hash loads and programmatic navigations so a patient can never sneak into
+// the doctor dashboard (and an anonymous visitor must hit the login flow).
+const rolePages = {
+  'doctor-dashboard': 'doctor',
+}
+
+function guardPage(page) {
+  const required = rolePages[page]
+  if (!required) return page
+  if (!isAuthenticated()) {
+    requireAuth(() => {}, `OPEN_${String(page).toUpperCase()}`)
+    return 'home'
+  }
+  const user = getAuthUser()
+  if (!user || user.role !== required) return 'home'
+  return page
+}
 
 function routeToUrl(page, params = {}) {
   const qs = new URLSearchParams()
@@ -32,7 +51,11 @@ function urlToRoute() {
 
 function renderFromLocation() {
   const { page, params } = urlToRoute()
-  if (protectedPages.includes(page) && !isAuthenticated()) {
+  const target = guardPage(page)
+  if (target !== page) {
+    currentPage = 'home'
+    currentParams = {}
+  } else if (protectedPages.includes(page) && !isAuthenticated()) {
     currentPage = 'home'
     currentParams = {}
   } else {
@@ -94,6 +117,12 @@ export function navigate(page, params = {}) {
     renderPage()
   }
 
+  const target = guardPage(page)
+  if (target !== page) {
+    navigate(target, target === 'home' ? {} : params)
+    return
+  }
+
   if (protectedPages.includes(page) && !isAuthenticated()) {
     requireAuth(go, `OPEN_${page.toUpperCase()}`)
     return
@@ -138,8 +167,30 @@ export function renderPage() {
   window.thpShowToast = ctx.showToast
   currentCtx = ctx
   render(app, ctx)
+  syncFixedHeader()
   if (window.thpInitChatbot) window.thpInitChatbot()
 }
+
+// The site header is position:fixed, so it is removed from document flow.
+// Every page that renders it wraps its content in <main id="top">, which
+// reserves space via --thp-header-h. Measuring the real header height here
+// keeps that clearance exact on every page and breakpoint (the value also
+// drives the sticky booking card offset and anchor scroll margins).
+function syncFixedHeader() {
+  const root = document.documentElement
+  const header = app.querySelector('.sticky-header-group')
+  if (!header) {
+    root.style.removeProperty('--thp-header-h')
+    return
+  }
+  const height = Math.ceil(header.getBoundingClientRect().height)
+  root.style.setProperty('--thp-header-h', `${height + 2}px`)
+}
+
+// Keep the clearance correct when the header's contents change height at
+// runtime (login/logout swaps the auth buttons, for example).
+window.addEventListener('resize', syncFixedHeader)
+window.addEventListener('thp-auth-changed', syncFixedHeader)
 
 window.addEventListener('popstate', renderFromLocation)
 

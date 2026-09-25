@@ -1,6 +1,7 @@
 import { doctors, doctorSpecialties, products, labTests, labPackages } from './data.js'
 import { icon, avatar, showToast } from './ui.js'
 import { navigate, addToCart } from './router.js'
+import { feeText, getDoctors as cachedDoctors } from './doctorCache.js'
 
 const STORAGE_KEY = 'tatito_ai_chat_history'
 const POS_STORAGE_KEY = 'tatito_chatbot_pos'
@@ -307,6 +308,10 @@ function parseMarkdownText(text) {
 function renderCardHTML(card) {
   if (card.type === 'doctor') {
     const doc = card.data
+    const fee = feeText(doc)
+    const feeHtml = fee
+      ? `<strong class="doc-fee">${fee}</strong>`
+      : `<span class="doc-fee doc-fee-logged-out">₹•••</span>`
     return `
       <div class="chat-card chat-doctor-card">
         <div class="chat-card-header">
@@ -324,7 +329,7 @@ function renderCardHTML(card) {
           </div>
           <div class="chat-card-row">
             <span>Consultation Fee:</span>
-            <strong class="doc-fee">$${doc.fee}</strong>
+            ${feeHtml}
           </div>
           <div class="chat-card-row highlight">
             <span>Next Available:</span>
