@@ -183,7 +183,9 @@ export function premiumFooter() {
     <footer class="premium-footer">
       <div class="pf-top">
         <div class="pf-brand-col">
-          <a class="brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em class="brand-sub">Health+</em></span></a>
+          <a class="brand footer-brand-logo" data-nav="home" aria-label="Tatito Health+ home">
+            <img src="/tatito-logo.png" alt="Tatito Health+" class="footer-logo">
+          </a>
           <p class="pf-tagline">Your Health. Connected.<br>Complete human-centered digital healthcare on one intelligent super-app platform.</p>
           <div class="pf-social">
             <a class="pf-social-btn" aria-label="Facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9h3l1-4h-4V3h-4v6H8v4h2v8h4v-8h2.5l.5-4h-3V9Z"/></svg></a>
