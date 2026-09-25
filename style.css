@@ -310,7 +310,8 @@ em.editorial {
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  max-width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
   margin: 0 !important;
   z-index: 900 !important;
   background: rgba(229, 242, 235, 0.97);
@@ -578,6 +579,7 @@ main#top {
   position: relative;
   width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
   margin-left: 0;
   margin-right: 0;
   transform: none;
@@ -585,19 +587,22 @@ main#top {
   border-bottom: none;
 }
 .sub-nav-inner {
+  /* NO overflow-x rail: the pill row must never be a horizontally scrollable
+     surface, or a trackpad swipe / touch drag over the nav pans the pills and
+     the visible row translates left/right while window.scrollX stays 0.
+     Pills WRAP onto more lines at narrow widths instead — nothing can ever
+     translate, every item stays visible and clickable. */
   width: 100%;
-  max-width: min(1320px, 100%);
+  max-width: 100%;
   box-sizing: border-box;
-  margin: 0 auto;
+  margin-left: 0;
+  margin-right: 0;
   padding: 6px clamp(20px, 4vw, 64px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.sub-nav-inner::-webkit-scrollbar {
-  display: none;
 }
 .sub-nav-inner a {
   white-space: nowrap;
