@@ -7886,51 +7886,6 @@ main#top {
 }
 .booking-section { position: sticky; top: calc(var(--thp-header-h, 0px) + 16px); padding: 24px; border: 1px solid var(--border-sage); border-radius: 18px; background: #fff; box-shadow: 0 16px 36px rgba(4, 62, 50, .1); }
 .booking-section h2 { margin: 0 0 15px; color: var(--primary-dark); }
-
-/* Doctor identity header inside the booking card — large circular photo that
-   is fully visible (object-fit: cover; object-position: center; border-radius:
-   50%) and never crops the face. Fallback is a deterministic placeholder. */
-.booking-doctor {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
-  padding: 12px 12px 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  background: var(--mint-surface);
-}
-.booking-doctor-photo { flex: 0 0 auto; }
-.booking-doctor-photo img,
-.booking-doctor-photo .booking-doc-fallback {
-  display: block;
-  width: 104px;
-  height: 104px;
-  object-fit: cover;
-  object-position: center;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  background: var(--mint-surface);
-  box-shadow: 0 8px 20px rgba(4, 62, 50, 0.18);
-}
-.booking-doctor-photo .booking-doc-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary-dark);
-}
-.booking-doctor-photo .booking-doc-fallback .icon { width: 40px; height: 40px; }
-.booking-doctor-info { min-width: 0; display: grid; gap: 2px; }
-.booking-doctor-info strong {
-  font-size: 1.02rem;
-  letter-spacing: -0.02em;
-  color: var(--primary-dark);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.booking-doctor-info span { color: var(--text-muted); font-size: .76rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.booking-doctor-info span:last-child { color: var(--text-faint); font-size: .7rem; }
 .booking-type { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; padding: 4px; border-radius: 11px; background: var(--mint-surface); }
 .booking-type-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border-radius: 8px; color: var(--text-muted); font-size: .72rem; font-weight: 800; }
 .booking-type-btn .icon { width: 16px; height: 16px; }
@@ -8189,15 +8144,6 @@ main#top {
   .time-slots-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .booking-doctor { gap: 12px; padding: 10px 12px 12px; }
-  .booking-doctor-photo img,
-  .booking-doctor-photo .booking-doc-fallback {
-    width: 80px;
-    height: 80px;
-    border-width: 2px;
-  }
-  .booking-doctor-info strong { font-size: .94rem; }
-  .booking-doctor-info span { font-size: .72rem; }
 }
 
 /* Auth registration polish */

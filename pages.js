@@ -1628,19 +1628,6 @@ function createDoctorBooking(d, ctx) {
       <div class="booking-section">
         <h2>Book an <em class="editorial">Appointment</em></h2>
 
-        <div class="booking-doctor">
-          <div class="booking-doctor-photo">
-            ${d.photo
-              ? `<img src="${escAttr(d.photo)}" alt="${escAttr(d.name)}" loading="lazy" onerror="this.onerror=null;this.hidden=true;this.nextElementSibling.hidden=false"><span class="booking-doc-fallback" hidden>${icon("doctorCare")}</span>`
-              : `<img src="${doctorPlaceholderSrc(d)}" alt="${escAttr(d.name)}">`}
-          </div>
-          <div class="booking-doctor-info">
-            <strong>${escAttr(d.name)}</strong>
-            <span>${escAttr(d.specialty)} Specialist</span>
-            <span>${escAttr(d.detail)}</span>
-          </div>
-        </div>
-
         <div class="booking-type">
           <button type="button" class="booking-type-btn ${type === "Online Video" ? "selected" : ""}" data-booking-type="Online Video">${icon("video")} Online Video</button>
           <button type="button" class="booking-type-btn ${type === "In Person Clinic" ? "selected" : ""}" data-booking-type="In Person Clinic">${icon("building")} In Person Clinic</button>
