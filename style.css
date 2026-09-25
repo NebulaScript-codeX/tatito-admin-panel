@@ -15085,3 +15085,18 @@ main#top {
     margin-left: -120px;
   }
 }
+
+/* Keep the global navigation visible while scrolling */
+#global-header {
+  position: fixed;
+  top: 48px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+/* The header is already inside a fixed container */
+#global-header .sticky-header-group {
+  position: relative;
+  top: 0;
+}
