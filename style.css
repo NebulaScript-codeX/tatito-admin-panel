@@ -310,6 +310,8 @@ em.editorial {
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
   z-index: 900 !important;
   background: rgba(229, 242, 235, 0.97);
   /* No backdrop-filter and no transition on the fixed element: WebKit/Safari
@@ -573,11 +575,19 @@ main#top {
 
 /* Secondary Navigation Bar */
 .sub-nav {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  transform: none;
   background: transparent;
   border-bottom: none;
 }
 .sub-nav-inner {
-  max-width: 1320px;
+  width: 100%;
+  max-width: min(1320px, 100%);
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 6px clamp(20px, 4vw, 64px);
   display: flex;
@@ -15832,5 +15842,51 @@ main#top {
   }
   .dsh-slot-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ==========================================================================
+   VIEWPORT-ANCHOR LOCK — root-cause horizontal-overflow fixes
+   The nav row (.sub-nav / .sub-nav-inner) is structurally fixed to the
+   viewport. These rules eliminate the ONLY in-flow elements that widened the
+   page canvas at narrow widths — the footer's 5-column grid and the article
+   card grid — so document/body scrollWidth can never exceed clientWidth and
+   no browser can pan the page horizontally (which would let the fixed nav row
+   appear to drift left/right). No overflow-x hiding is used; the oversized
+   grids are given real responsive layouts instead.
+   ========================================================================== */
+@media (max-width: 760px) {
+  .pf-top {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px 24px;
+  }
+  .pf-brand-col,
+  .pf-newsletter {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 480px) {
+  .pf-top {
+    grid-template-columns: 1fr;
+  }
+}
+.article-info {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+@media (max-width: 720px) {
+  .article-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .article-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 992px) {
+  .doctor-sidebar .filter-list {
+    width: 100%;
+    flex-wrap: wrap;
   }
 }
