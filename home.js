@@ -11,6 +11,11 @@ import {
 } from "./ui.js";
 import { categories, products, labTests, articles, doctors } from "./data.js";
 import {
+  getDoctors as cachedDoctors,
+  feeText,
+  ensureLive,
+} from "./doctorCache.js";
+import {
   isAuthenticated,
   getAuthUser,
   requireAuth,
@@ -33,8 +38,8 @@ function header(navigate, getCartCount) {
   const user = getAuthUser();
 
   return `
-    <div class="announcement"><span class="announcement-dot"></span> Care that moves with you <span class="announcement-divider"></span><span>24/7 virtual care & emergency support ready</span></div>
     <div class="sticky-header-group">
+      <div class="announcement"><span class="announcement-dot"></span> Care that moves with you <span class="announcement-divider"></span><span>24/7 virtual care & emergency support ready</span></div>
       <header class="site-header"><div class="site-header-inner">
         <a class="brand" data-nav="home" aria-label="Tatito Health+ home">
           <span class="brand-mark">${icon("heart")}</span>
@@ -65,7 +70,7 @@ function header(navigate, getCartCount) {
         </button>
       </div></nav>
     </div>
-    ${accountDrawerHTML()}
+    ${accountDrawerHTML(getAuthUser())}
   `;
 }
 
@@ -131,7 +136,30 @@ function articleCard(a) {
 }
 
 function doctorCard(d) {
-  return `<article class="doctor-card" data-doctor="${d.id}"><div class="doctor-card-top">${avatar(d.initials, d.color, "doctor-avatar")}<span class="rating">★ ${d.rating}</span></div><div class="doctor-card-content"><h3>${d.name}</h3><span>${d.specialty}</span><p>${d.detail}</p><span class="doctor-location">${icon("building")} ${d.location}</span><div class="doctor-bottom"><div><span class="consultation-fee">$${d.fee}</span><small>per visit</small></div><div class="next-slot"><small>Next</small><strong>${d.next}</strong></div></div><button class="button button-small button-outline full-button" data-doctor="${d.id}">Book appointment ${icon("arrow")}</button></div></article>`;
+  const fee = feeText(d);
+  const feeCell = fee
+    ? `<span class="consultation-fee">${fee}</span>`
+    : `<span class="consultation-fee consultation-fee-masked" title="Log in to view the consultation fee">₹•••</span>`;
+  const offer = String(d.offerText || "").trim();
+  const offerRow = offer
+    ? `<div class="doctor-offer-row">${icon("spark")} <span>${offer}</span></div>`
+    : "";
+  const photo = d.photo
+    ? `<img class="doctor-card-photo" src="${d.photo}" alt="${d.name}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">${avatar(d.initials, d.color, "doctor-avatar doctor-photo-fallback")}`
+    : avatar(d.initials, d.color, "doctor-avatar");
+  return `<article class="doctor-card" data-doctor="${d.id}"><div class="doctor-card-top">${photo}</div><div class="doctor-card-content"><div class="doc-header-row"><h3>${d.name}</h3><span class="doc-verified-badge">${icon("verified")} Verified</span></div><span class="doctor-spec-chip">${d.specialty}</span><p>${d.detail}</p><span class="doctor-location">${icon("building")} ${d.location}</span>${offerRow}<div class="doctor-bottom"><div class="doctor-fee-cell"><span class="consultation-fee-label">Consulting Fee</span>${feeCell}<small>no hidden charges</small></div><div class="next-slot"><small>${icon("clock")} Next Slot</small><strong>${d.next}</strong></div></div><button class="button button-small button-outline full-button" data-doctor="${d.id}">Book appointment ${icon("arrow")}</button></div></article>`;
+}
+
+function bindDoctorCards(appRoot, ctx) {
+  appRoot.querySelectorAll("[data-doctor]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("[data-auth-fee]") || e.target.closest(".fee-login-link")) {
+        e.stopPropagation();
+        return;
+      }
+      navigate("doctor", { id: el.dataset.doctor });
+    });
+  });
 }
 
 export function renderHome(appRoot, ctx) {
@@ -338,8 +366,8 @@ export function renderHome(appRoot, ctx) {
             </div>
             <button class="text-button" data-nav="doctors">Find all doctors ${icon("arrow")}</button>
           </div>
-          <div class="doctor-grid home-doctor-grid">
-            ${doctors
+          <div class="doctor-grid home-doctor-grid" id="home-doctor-grid">
+            ${cachedDoctors()
               .slice(0, 4)
               .map((d) => doctorCard(d))
               .join("")}
@@ -556,11 +584,7 @@ function bindHomeEvents(appRoot, ctx) {
     });
   });
 
-  appRoot.querySelectorAll("[data-doctor]").forEach((el) => {
-    el.addEventListener("click", () =>
-      navigate("doctor", { id: el.dataset.doctor }),
-    );
-  });
+  bindDoctorCards(appRoot, ctx);
 
   appRoot.querySelectorAll("[data-article]").forEach((el) => {
     el.addEventListener("click", () =>
@@ -590,7 +614,7 @@ function bindHomeEvents(appRoot, ctx) {
   const mobileMenu = appRoot.querySelector("#home-mobile-menu");
   if (mobileMenu)
     mobileMenu.addEventListener("click", () =>
-      appRoot.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
+      document.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
     );
 
   // Instant Consult 24/7 button — lives in the sub-nav bar (below Register)
@@ -599,4 +623,17 @@ function bindHomeEvents(appRoot, ctx) {
     fabBtn.addEventListener("click", () =>
       showToast("Connecting to 24/7 Instant Doctor..."),
     );
+
+  ensureLive()
+    .then(() => {
+      const docGrid = appRoot.querySelector("#home-doctor-grid");
+      if (docGrid && docGrid.isConnected) {
+        docGrid.innerHTML = cachedDoctors()
+          .slice(0, 4)
+          .map((d) => doctorCard(d))
+          .join("");
+        bindDoctorCards(appRoot, ctx);
+      }
+    })
+    .catch(() => {});
 }

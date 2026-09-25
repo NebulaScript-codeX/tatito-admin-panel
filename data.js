@@ -133,6 +133,70 @@ export const doctors = [
   { id: 'd10', name: 'Dr. Siddharth Joshi', specialty: 'ENT Specialist', city: 'Vellore', detail: 'MS ENT · 13 years experience', location: 'Medical Super Center, Vellore', rating: '4.7', reviews: '118', fee: 380, initials: 'SJ', color: 'navy', next: 'Tomorrow, 3:00 PM', type: 'Online & In-Person' },
 ]
 
+// Sample/demo patient reviews keyed by doctor id (no backend; demo content only).
+export const doctorReviews = {
+  d1: [
+    { name: 'Rohan Menon', rating: 5, date: '2 weeks ago', text: 'Clear explanation of my symptoms and a practical treatment plan. I felt genuinely listened to.' },
+    { name: 'Lena Fischer', rating: 5, date: '1 month ago', text: 'Very thorough general check-up. She took time to go through my full history before advising.' },
+    { name: 'Arjun Kapoor', rating: 4, date: '3 days ago', text: 'Efficient consultation. The seven-day follow-up chat made it easy to clarify a doubt the next day.' },
+    { name: 'Meera Iyer', rating: 5, date: 'Yesterday', text: 'Calm and reassuring manner. I left the consultation feeling confident about the next steps.' },
+  ],
+  d2: [
+    { name: 'David Osei', rating: 5, date: '2 weeks ago', text: 'Explained my ECG results clearly and adjusted my medication with a solid rationale.' },
+    { name: 'Priya Subramanian', rating: 5, date: '1 month ago', text: 'Meticulous review of my blood-pressure readings and stress report. A very professional cardiologist.' },
+    { name: 'Hassan Ali', rating: 4, date: '5 days ago', text: 'Thorough consultation for chest discomfort. The advice was solid and easy to act on.' },
+    { name: 'Nadia Rehman', rating: 5, date: '3 weeks ago', text: 'Felt safe discussing my heart concerns. The lifestyle plan he shared was simple to follow.' },
+  ],
+  d3: [
+    { name: 'Aisha Khan', rating: 5, date: '1 week ago', text: 'Finally got my persistent skin issue diagnosed after months. The skincare routine she shared was clear.' },
+    { name: 'Tom Becker', rating: 5, date: '3 weeks ago', text: 'Kind and patient during the video consult. The prescribed cream worked within days.' },
+    { name: 'Sunita Rao', rating: 4, date: '2 months ago', text: 'Good session for my acne concerns. The treatment steps were explained at every stage.' },
+    { name: 'Elaheh Moradi', rating: 5, date: 'Yesterday', text: 'Loved how she explained possible causes before jumping to a treatment. Gentle and knowledgeable.' },
+  ],
+  d4: [
+    { name: 'Grace Okafor', rating: 5, date: '2 weeks ago', text: 'Wonderful with my toddler during the virtual visit. Fever dosing was explained clearly.' },
+    { name: 'Neha Gupta', rating: 5, date: '1 month ago', text: 'Patient and reassuring with a worried first-time parent. The follow-up chat was prompt.' },
+    { name: 'Peter Mancha', rating: 4, date: '6 days ago', text: 'Good growth assessment for my son, with clear vaccination guidance.' },
+    { name: 'Ama Owusu', rating: 5, date: '3 weeks ago', text: 'Gentle approach and honest advice about feeding concerns. Highly recommended for families.' },
+  ],
+  d5: [
+    { name: 'Daniel Stone', rating: 5, date: '1 week ago', text: 'Created a safe space to open up. Her guidance on managing anxiety has been helpful.' },
+    { name: 'Isha Verma', rating: 5, date: '2 weeks ago', text: 'Non-judgmental and warm. We adjusted sleep and stress routines gradually, step by step.' },
+    { name: 'Marcus Webb', rating: 4, date: '1 month ago', text: 'Structured session with practical coping tools. Already booked a follow-up.' },
+    { name: 'Faye Adeyemi', rating: 5, date: 'Yesterday', text: 'Finally felt heard. The medication review was careful and everything was explained.' },
+  ],
+  d6: [
+    { name: 'Jai Malhotra', rating: 5, date: '2 weeks ago', text: 'Precise diagnosis of my knee pain. The rehab exercises he prescribed made a real difference.' },
+    { name: 'Vanessa Cruz', rating: 5, date: '1 month ago', text: 'Very clear about surgical options without ever pushing one. I felt fully informed.' },
+    { name: 'Omar Saeed', rating: 4, date: '5 days ago', text: 'Good session for my shoulder issue and a smooth in-clinic visit.' },
+    { name: "Rhea D'Souza", rating: 5, date: '3 weeks ago', text: 'Explained my scan results in plain language. Follow-up care has been consistent.' },
+  ],
+  d7: [
+    { name: 'Tara Raman', rating: 5, date: '2 weeks ago', text: 'Compassionate during my first appointment. Every pregnancy question was answered patiently.' },
+    { name: 'Emily Ng', rating: 5, date: '1 month ago', text: 'Very reassuring and thorough with my antenatal checks. Highly recommend her.' },
+    { name: 'Kiran Bhat', rating: 4, date: '4 days ago', text: 'Professional consultation for hormonal concerns. The clinic was well organized.' },
+    { name: 'Mina Chowdhury', rating: 5, date: 'Yesterday', text: 'Made me comfortable discussing sensitive topics. Follow-up guidance was clear.' },
+  ],
+  d8: [
+    { name: 'Aditya Rao', rating: 5, date: '2 weeks ago', text: 'Careful evaluation of my migraines. The prevention plan has noticeably reduced episodes.' },
+    { name: 'Bianca Hall', rating: 5, date: '1 month ago', text: 'Listened attentively and explained my nerve-conduction study in simple terms.' },
+    { name: 'Rajat Verma', rating: 4, date: '6 days ago', text: 'Detailed review of my MRI. The consultation was quick but the diagnosis was spot on.' },
+    { name: 'Sneha Pillai', rating: 5, date: '3 weeks ago', text: 'Genuinely invested in understanding my symptoms. Follow-up chat response was quick.' },
+  ],
+  d9: [
+    { name: 'Manish Joshi', rating: 5, date: '2 weeks ago', text: 'Helped me finally get on top of chronic acidity. The diet plan was practical and specific.' },
+    { name: 'Lily Chen', rating: 5, date: '1 month ago', text: 'Very thorough with my endoscopy results and explained everything without jargon.' },
+    { name: 'Devansh Shah', rating: 4, date: '5 days ago', text: 'Good consultation for IBS. The detailed dietary checklist was a big help.' },
+    { name: 'Amara Okafor', rating: 5, date: 'Yesterday', text: 'Warm and clear. Her follow-up message summarizing next steps was thoughtful.' },
+  ],
+  d10: [
+    { name: 'Karthik Suresh', rating: 5, date: '2 weeks ago', text: 'Resolved a long-standing sinus issue. The medication plan worked quickly.' },
+    { name: 'Mara Silva', rating: 5, date: '1 month ago', text: 'Clear explanation of the hearing-test results. Courteous and professional throughout.' },
+    { name: 'Iqbal Hassan', rating: 4, date: '6 days ago', text: 'Good ENT visit for my throat concern. The clinic slot was quick and easy.' },
+    { name: 'Divya Nandini', rating: 5, date: '3 weeks ago', text: 'Patient with a nervous first-timer. The follow-up care plan was excellent.' },
+  ],
+}
+
 export const cart = []
 
 export const internshipPrograms = [
