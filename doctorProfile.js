@@ -221,7 +221,3 @@ export function renderDoctorProfile(appRoot, ctx, mode = 'profile') {
     }
   }
 }
-
-export function renderDoctorDashboard(appRoot, ctx) {
-  renderDoctorProfile(appRoot, ctx, 'dashboard')
-}

@@ -6,7 +6,8 @@ import { renderPharmacy } from './pharmacyPage.js'
 import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle, renderInternships } from './pages.js'
 import { renderHospitalPortal, renderDoctorPortal, renderClinicPortal, renderDiagnosticPortal, renderPharmacyPortal } from './portals.js'
 import { openAuthModal } from './authPages.js'
-import { renderDoctorProfile, renderDoctorDashboard } from './doctorProfile.js'
+import { renderDoctorProfile } from './doctorProfile.js'
+import { renderDoctorConsole } from './doctorConsole.js'
 import { initChatbot } from './chatbot.js'
 
 registerPages({
@@ -28,7 +29,7 @@ registerPages({
   prescription: renderPrescription,
   article: renderArticle,
   'doctor-profile': renderDoctorProfile,
-  'doctor-dashboard': renderDoctorDashboard,
+  'doctor-dashboard': renderDoctorConsole,
   'hospital-portal': renderHospitalPortal,
   'doctor-portal': renderDoctorPortal,
   'clinic-portal': renderClinicPortal,
