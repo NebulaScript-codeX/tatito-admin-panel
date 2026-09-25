@@ -65,10 +65,15 @@
 }
 html {
   scroll-behavior: smooth;
+  /* Keep horizontal-overflow protection on the ROOT only. Applying overflow
+     (elsewhere hidden/clip) to BOTH html and body makes the <body> the
+     scrolling box in WebKit/Safari, which detaches position:fixed
+     descendants (the global header) from the viewport so they scroll away
+     with the page. html-only clipping still propagates to the viewport and
+     clips horizontal page overflow. */
   overflow-x: clip;
 }
 body {
-  overflow-x: clip;
   font-family: var(--font);
   background-color: var(--sage-bg);
   color: var(--text-main);
@@ -306,12 +311,15 @@ em.editorial {
   right: 0 !important;
   width: 100% !important;
   z-index: 900 !important;
-  background: rgba(229, 242, 235, 0.94);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(229, 242, 235, 0.97);
+  /* No backdrop-filter and no transition on the fixed element: WebKit/Safari
+     has a known repaint bug where a position:fixed element with
+     backdrop-filter fails to stick/flickers during document scroll, and a
+     `transition: all` can visibly slide the bar on layout shifts. A solid
+     translucent background + border + shadow keeps the same look without
+     either failure mode. */
   border-bottom: 1px solid var(--border-sage);
   box-shadow: 0 4px 20px rgba(4, 62, 50, 0.08);
-  transition: all 0.3s ease;
 }
 
 /* Content below the fixed header — every page with a site header renders a
