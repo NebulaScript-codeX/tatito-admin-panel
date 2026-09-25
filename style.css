@@ -292,13 +292,20 @@ em.editorial {
 
 /* FIXED HEADER GROUP — Announcement, Site Header & Sub-Nav pinned to the
    top of the viewport. Content gets top clearance via --thp-header-h so the
-   header never covers headings, hero sections, cards, or booking UI. */
+   header never covers headings, hero sections, cards, booking UI, or the
+   sticky booking card. `!important` guards this so no later-injected rule
+   or HMR artifact can silently demote the header back to static/sticky.
+   z-index sits above every in-page element (page content peaks at 200, the
+   floating bottom bars at 990/998) yet BELOW the app overlays — account
+   drawer (1000), quick-view modal (999->1050), booking modal (1050), and
+   the auth modal (9998/9999) — so modals and drawers still open above it. */
 .sticky-header-group {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 900 !important;
   background: rgba(229, 242, 235, 0.94);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -308,13 +315,24 @@ em.editorial {
 }
 
 /* Content below the fixed header — every page with a site header renders a
-   <main id="top">. The header height differs between breakpoints, so it is
-   provided as a CSS variable (see end of file / media queries). */
+   <main id="top">. The header height differs between breakpoints, so the
+   router measures the real height after every render and writes it to
+   --thp-header-h (resize, auth-button swaps and font loads included).
+   These rules reserve that space in the page content and make any
+   anchor / scrollIntoView target stop below the fixed bar instead of
+   underneath it. */
+:root {
+  --thp-header-h: 0px;
+}
+.page-shell,
+main {
+  scroll-margin-top: var(--thp-header-h, 0px);
+}
 main#top {
-  padding-top: var(--thp-header-h, 163px);
+  padding-top: var(--thp-header-h, 0px);
 }
 .doctor-list-wrap {
-  scroll-margin-top: var(--thp-header-h, 163px);
+  scroll-margin-top: var(--thp-header-h, 0px);
 }
 
 /* ULTRA-PREMIUM HEADER & NAV BAR */
@@ -588,25 +606,14 @@ main#top {
 }
 
 /* ==========================================================================
-   FIXED HEADER — HEIGHT VARIABLES & RESPONSIVE BEHAVIOR
-   The header is position:fixed, so --thp-header-h reserves matching space in
-   the page content (main#top), keeps the sticky booking card below the
-   header, and offsets anchor scrolls. Sizes are measured against the
-   announcement + site-header + sub-nav stack.
+   FIXED HEADER — RESPONSIVE BEHAVIOR
+   The header is position:fixed (see the .sticky-header-group rule above).
+   --thp-header-h is driven by the router's syncFixedHeader(), which measures
+   the announcement + site-header + sub-nav stack after every render, resize,
+   auth change and font load, then writes the exact pixel height here. The
+   rules below only reshape the header's internal layout at narrow widths so
+   every control stays on-screen.
    ========================================================================== */
-:root {
-  --thp-header-h: 163px;
-}
-@media (max-width: 900px) {
-  :root {
-    --thp-header-h: 171px;
-  }
-}
-@media (max-width: 600px) {
-  :root {
-    --thp-header-h: 189px;
-  }
-}
 
 /* Tablet & below: the header actions row (location, bell, cart, auth)
    overflows the viewport. Collapse to two rows — brand + actions on the
@@ -7849,7 +7856,7 @@ main#top {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-.booking-section { position: sticky; top: calc(var(--thp-header-h, 163px) + 16px); padding: 24px; border: 1px solid var(--border-sage); border-radius: 18px; background: #fff; box-shadow: 0 16px 36px rgba(4, 62, 50, .1); }
+.booking-section { position: sticky; top: calc(var(--thp-header-h, 0px) + 16px); padding: 24px; border: 1px solid var(--border-sage); border-radius: 18px; background: #fff; box-shadow: 0 16px 36px rgba(4, 62, 50, .1); }
 .booking-section h2 { margin: 0 0 15px; color: var(--primary-dark); }
 
 /* Doctor identity header inside the booking card — large circular photo that

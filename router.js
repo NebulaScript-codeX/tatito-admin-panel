@@ -173,28 +173,43 @@ export function renderPage() {
 
 // The site header is position:fixed, so it is removed from document flow.
 // Every page that renders it wraps its content in <main id="top">, which
-// reserves space via --thp-header-h. Measuring the real header height here
-// keeps that clearance exact on every page and breakpoint (the value also
-// drives the sticky booking card offset and anchor scroll margins).
+// reserves space via --thp-header-h. Measuring the REAL rendered height of
+// the header (announcement + site header + sub-nav) after every change keeps
+// that clearance exact on every page and breakpoint. The same variable also
+// drives scroll-into-view offsets (main/scroll-margin-top) and the sticky
+// booking card's top offset.
 function syncFixedHeader() {
   const root = document.documentElement
   const header = app.querySelector('.sticky-header-group')
   if (!header) {
-    root.style.removeProperty('--thp-header-h')
+    // No fixed site header on this page (auth pages, portals, doctor
+    // workspace) — nothing to reserve; content flows from the top.
+    root.style.setProperty('--thp-header-h', '0px')
     return
   }
   const height = Math.ceil(header.getBoundingClientRect().height)
-  root.style.setProperty('--thp-header-h', `${height + 2}px`)
+  root.style.setProperty('--thp-header-h', `${height}px`)
 }
 
-// Keep the clearance correct when the header's contents change height at
-// runtime (login/logout swaps the auth buttons, for example).
-window.addEventListener('resize', syncFixedHeader)
-window.addEventListener('thp-auth-changed', syncFixedHeader)
+// Register the sync hooks exactly once. The header's height can change after
+// initial load when fonts finish loading, when login/logout swaps the auth
+// buttons, when the header re-wraps on resize, or when a route re-renders
+// (renderPage calls syncFixedHeader directly on every render).
+function bootHeaderSync() {
+  window.addEventListener('resize', syncFixedHeader)
+  window.addEventListener('orientationchange', syncFixedHeader)
+  window.addEventListener('thp-auth-changed', syncFixedHeader)
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(syncFixedHeader).catch(() => {})
+  }
+  // Settle pass after the first paint in case webfonts/sub-nav reflow.
+  window.setTimeout(syncFixedHeader, 350)
+}
 
 window.addEventListener('popstate', renderFromLocation)
 
 export function bootRouter() {
+  bootHeaderSync()
   renderFromLocation()
 }
 
