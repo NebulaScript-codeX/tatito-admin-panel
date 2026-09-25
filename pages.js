@@ -526,11 +526,12 @@ export function renderDoctors(appRoot, ctx) {
   let selectedSpecialty = currentParams.specialty || "all";
   let selectedCity = currentParams.city || "all";
   let selectedType = "all";
+  let selectedDate = "today";
   let searchQuery = currentParams.search || "";
   let sortBy = "recommended";
 
   function getFilteredDoctors() {
-    let list = doctors;
+    let list = cachedDoctors();
     if (selectedSpecialty !== "all") {
       list = list.filter(
         (d) =>
@@ -561,7 +562,7 @@ export function renderDoctors(appRoot, ctx) {
           d.location.toLowerCase().includes(q),
       );
     }
-    if (sortBy === "fee-low") list = [...list].sort((a, b) => a.fee - b.fee);
+    if (sortBy === "fee-low") list = [...list].sort((a, b) => sortFee(a) - sortFee(b));
     else if (sortBy === "rating")
       list = [...list].sort(
         (a, b) => parseFloat(b.rating) - parseFloat(a.rating),
@@ -571,33 +572,86 @@ export function renderDoctors(appRoot, ctx) {
     return list;
   }
 
-  function renderSpecialtiesGrid() {
-    const groups = [];
-    for (let i = 0; i < doctorSpecialties.length; i += 4)
-      groups.push(doctorSpecialties.slice(i, i + 4));
-    return groups
+  function renderDoctorHeroSlides() {
+    return cachedDoctors()
       .map(
-        (group, gi) => `
-      <div class="spec-slider-slide" data-slide-index="${gi}">
-        <div class="spec-slider-slide-grid">
-          ${group
-            .map(
-              (s) => `
-            <div class="specialty-card ${selectedSpecialty === s.name ? "active" : ""}" data-spec-name="${s.name}">
-              <div class="specialty-card-icon avatar-${s.color}">${icon(s.icon)}</div>
-              <div class="specialty-card-info">
-                <h4>${s.name}</h4>
-                <span>${s.desc}</span>
-              </div>
-            </div>
-          `,
-            )
-            .join("")}
+        (d) => `
+      <div class="doctor-hero-slide" data-doctor-id="${d.id}">
+        <div class="promo-banner-content">
+          <span class="promo-badge">${icon("spark")} Get 5% Off | Use Code CC50</span>
+          <h1>Talk to a Doctor for <em class="editorial">Instant</em> advice</h1>
+          <p>Connect with top-rated specialists within 15 minutes. 24/7 video consultation, private & secure care.</p>
+          <div class="promo-cta-row">
+            <button class="button button-primary" data-dhc-consult="${d.id}">${icon("video")} Consult Now</button>
+            <span class="promo-trust">${icon("verified")} 4,000+ Verified Doctors</span>
+            <span class="promo-trust">${icon("clock")} 24/7 Priority Care</span>
+          </div>
+        </div>
+        <div class="promo-banner-graphic doctor-hero-graphic">
+          <div class="graphic-badge">${icon("shield")} 24/7 Care Ready</div>
+          ${avatar(d.initials, d.color, "graphic-doctor-avatar doctor-hero-avatar")}
+          <div class="doctor-hero-info">
+            <span class="doctor-hero-name">${d.name}</span>
+            <span class="doctor-hero-specialty">${d.specialty} Specialist</span>
+            <span class="doctor-hero-detail">${d.detail}</span>
+          </div>
         </div>
       </div>
     `,
       )
       .join("");
+  }
+
+  function renderSpecialtiesGrid() {
+    return doctorSpecialties
+      .map(
+        (s) => `
+      <div class="specialty-card ${selectedSpecialty === s.name ? "active" : ""}" data-spec-name="${s.name}">
+        <div class="specialty-card-icon avatar-${s.color}">${icon(s.icon)}</div>
+        <div class="specialty-card-info">
+          <h4>${s.name}</h4>
+          <span>${s.desc}</span>
+        </div>
+      </div>
+    `,
+      )
+      .join("");
+  }
+
+  const EDU_LONG_DESCRIPTIONS = {
+    Dermatology:
+      "A specialized branch of medicine that focuses on hair, nails, and skin-related disorders. Dermatology also encompasses conditions that affect the thin lining of your mouth, eyelids, and nose.",
+    "Obstetrics and Gynaecology":
+      "Two major medical specialties that focus on women’s reproductive health. Obstetrics involves care during pregnancy, childbirth and after delivery, while gynaecology specializes in issues related to women’s reproductive health.",
+    Paediatrics:
+      "Focuses on the health and medical care of children, infants, and young adults from birth up to age 18.",
+    "Psychiatry & Mental Health":
+      "Specializes in the detection, treatment, and prevention of emotional, behavioral, and mental health disorders.",
+  };
+
+  // Layer 05 knowledge base carousel: keeps the 4 original guides untouched, then pulls in the
+  // remaining specialties so all 24 appear in groups of 4 (6 slides), reusing the spec-slider primitives.
+  function renderEduCarousel() {
+    const head = [
+      ["Dermatology", EDU_LONG_DESCRIPTIONS.Dermatology],
+      ["Obstetrics and Gynaecology", EDU_LONG_DESCRIPTIONS["Obstetrics and Gynaecology"]],
+      ["Paediatrics", EDU_LONG_DESCRIPTIONS.Paediatrics],
+      ["Psychiatry & Mental Health", EDU_LONG_DESCRIPTIONS["Psychiatry & Mental Health"]],
+    ];
+    const used = new Set(["dermatology", "obstetrics", "paediatrics", "psychiatry"]);
+    const rest = doctorSpecialties
+      .filter((s) => !used.has(s.id))
+      .map((s) => [s.name, s.desc]);
+    const cards = [...head, ...rest].map(
+      ([name, desc]) => `<div class="edu-item"><h4>${name}</h4><p>${desc}</p></div>`,
+    );
+    const slides = [];
+    for (let i = 0; i < cards.length; i += 4) {
+      slides.push(
+        `<div class="edu-slider-slide" data-edu-slide="${Math.floor(i / 4)}"><div class="edu-slider-slide-grid">${cards.slice(i, i + 4).join("")}</div></div>`,
+      );
+    }
+    return { slides: slides.join(""), total: Math.ceil(cards.length / 4) };
   }
 
   function renderDoctorCards() {
@@ -606,8 +660,8 @@ export function renderDoctors(appRoot, ctx) {
       return `
         <div class="empty-state">
           <div class="empty-icon">${icon("search")}</div>
-          <h3>No doctors found matching your criteria</h3>
-          <p>Try resetting filters or searching for another specialty or city.</p>
+          <h3>No verified doctors found for the selected filters.</h3>
+          <p>Try resetting filters or choosing another specialty, city, or location.</p>
           <button class="button button-outline" id="reset-doc-filters">Reset all filters</button>
         </div>
       `;
@@ -615,12 +669,14 @@ export function renderDoctors(appRoot, ctx) {
     return list.map((d) => doctorCard(d)).join("");
   }
 
+  const eduCarousel = renderEduCarousel();
+
   appRoot.innerHTML = `
     <div class="app-shell">
       ${sharedHeader(ctx, "doctors")}
       <main id="top" class="doctor-page-main">
         
-        <!-- Layer 01: Hero — Find Your Doctor -->
+        <!-- Layer 01: Hero — Talk to a Doctor (Doctor Carousel) -->
         <section class="section-wrap doctor-hero-section">
           <div class="breadcrumb"><a data-nav="home">${t('home')}</a> ${icon('chevron')} <span>${t('findDoctors')}</span></div>
           
@@ -636,10 +692,11 @@ export function renderDoctors(appRoot, ctx) {
                 <span class="promo-trust">${icon('clock')} 24/7 Priority Care</span>
               </div>
             </div>
-            <div class="promo-banner-graphic">
-              <div class="graphic-badge">${icon("shield")} 24/7 Care Ready</div>
-              <div class="graphic-doctor-avatar avatar-teal">${icon("user")}</div>
-            </div>
+            <button class="spec-slider-arrow spec-slider-arrow-next doctor-hero-arrow doctor-hero-arrow-next" id="dhc-next" type="button" aria-label="Next doctor">${icon("chevron")}</button>
+          </div>
+          <div class="doctor-hero-controls">
+            <div class="spec-slider-dots doctor-hero-dots" id="dhc-dots"></div>
+            <span class="spec-slider-counter" id="dhc-counter">1 / ${doctors.length}</span>
           </div>
         </section>
 
@@ -764,6 +821,21 @@ export function renderDoctors(appRoot, ctx) {
                   <button class="filter-pill ${sortBy === "fee-low" ? "active" : ""}" data-sort="fee-low">Fee: Low to High</button>
                 </div>
               </div>
+
+              <div class="vd-apply-bar">
+                <div class="filter-dropdown-group vd-date-group" id="date-filter-group">
+                  <h4 class="filter-dropdown-trigger" id="date-filter-trigger" role="button" tabindex="0"><span class="filter-trigger-label">${selectedDate === "today" ? "Today" : selectedDate === "tomorrow" ? "Tomorrow" : "Within 3 Days"}</span>${icon("chevron")}</h4>
+                  <div class="filter-list date-filter-list filter-dropdown-panel" id="date-filter-panel">
+                    <button class="filter-pill ${selectedDate === "today" ? "active" : ""}" data-datekey="today">Today (${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })})</button>
+                    <button class="filter-pill ${selectedDate === "tomorrow" ? "active" : ""}" data-datekey="tomorrow">Tomorrow</button>
+                    <button class="filter-pill ${selectedDate === "next3" ? "active" : ""}" data-datekey="next3">Within 3 Days</button>
+                  </div>
+                </div>
+                <div class="vd-location-field">
+                  <input class="vd-location-input" id="vd-location-input" type="text" inputmode="text" placeholder="Preferred Location / Pincode" value="${selectedCity !== "all" ? selectedCity : ""}" aria-label="Preferred Location / Pincode" />
+                </div>
+                <button type="button" class="button button-primary vd-submit-btn" id="vd-submit-btn">${icon("search")} Submit</button>
+              </div>
             </div>
 
             <div class="doctor-content">
@@ -811,23 +883,18 @@ export function renderDoctors(appRoot, ctx) {
               A medical specialty is a specific area of medical practice that mainly focuses on a defined set of diseases, patients, philosophy, or skills. Tatito Health+ offers advanced consultation services across 24+ medical specialties.
             </p>
             
-            <div class="edu-grid">
-              <div class="edu-item">
-                <h4>Dermatology</h4>
-                <p>A specialized branch of medicine that focuses on hair, nails, and skin-related disorders. Dermatology also encompasses conditions that affect the thin lining of your mouth, eyelids, and nose.</p>
+            <div class="edu-slider" id="edu-slider">
+              <button class="spec-slider-arrow spec-slider-arrow-prev" id="edu-prev" type="button" aria-label="Previous specialties">${icon("chevron", "spec-chevron-left")}</button>
+              <div class="edu-slider-viewport" id="edu-viewport">
+                <div class="edu-slider-track" id="edu-track">
+                  ${eduCarousel.slides}
+                </div>
               </div>
-              <div class="edu-item">
-                <h4>Obstetrics and Gynaecology</h4>
-                <p>Two major medical specialties that focus on women’s reproductive health. Obstetrics involves care during pregnancy, childbirth and after delivery, while gynaecology specializes in issues related to women’s reproductive health.</p>
-              </div>
-              <div class="edu-item">
-                <h4>Paediatrics</h4>
-                <p>Focuses on the health and medical care of children, infants, and young adults from birth up to age 18.</p>
-              </div>
-              <div class="edu-item">
-                <h4>Psychiatry & Mental Health</h4>
-                <p>Specializes in the detection, treatment, and prevention of emotional, behavioral, and mental health disorders.</p>
-              </div>
+              <button class="spec-slider-arrow spec-slider-arrow-next" id="edu-next" type="button" aria-label="Next specialties">${icon("chevron")}</button>
+            </div>
+            <div class="edu-slider-controls">
+              <div class="spec-slider-dots" id="edu-dots"></div>
+              <span class="spec-slider-counter" id="edu-counter">1 / ${eduCarousel.total}</span>
             </div>
 
             <!-- Layer 09: Why Choose Health Plus -->
@@ -850,13 +917,14 @@ export function renderDoctors(appRoot, ctx) {
     <div class="toast" id="toast"><span class="toast-check">${icon("check")}</span><span id="toast-text">Saved</span></div>
   `;
 
-  bindDoctorEvents(appRoot, ctx, {
+  const doctorState = {
     selectedSpecialty: {
       get: () => selectedSpecialty,
       set: (v) => (selectedSpecialty = v),
     },
     selectedCity: { get: () => selectedCity, set: (v) => (selectedCity = v) },
     selectedType: { get: () => selectedType, set: (v) => (selectedType = v) },
+    selectedDate: { get: () => selectedDate, set: (v) => (selectedDate = v) },
     searchQuery: { get: () => searchQuery, set: (v) => (searchQuery = v) },
     sortBy: { get: () => sortBy, set: (v) => (sortBy = v) },
     update: () => {
@@ -868,15 +936,73 @@ export function renderDoctors(appRoot, ctx) {
         count.textContent = `Showing ${list.length} verified doctor${list.length !== 1 ? "s" : ""}`;
       bindNav(appRoot, ctx);
     },
-  });
+  };
+  bindDoctorEvents(appRoot, ctx, doctorState);
+
+  ensureLive()
+    .then(() => {
+      // Live list may now carry fees/offers visible to the signed-in user.
+      doctorState.update();
+    })
+    .catch(() => {});
+}
+
+function escAttr(v) {
+  return String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
+// Deterministic, offline-safe, professional doctor placeholder. It is a
+// neutral stethoscope silhouette (no real identifiable person) whose colors
+// follow the doctor's avatar palette, and it never changes between renders.
+const DOCTOR_PLACEHOLDER_PALETTES = {
+  teal: ["#dcefe7", "#0d8066"],
+  coral: ["#fbeae4", "#c2593f"],
+  navy: ["#e0eaf6", "#2f5d8a"],
+  gold: ["#faeed2", "#b07d2a"],
+  default: ["#dcefe7", "#0d8066"],
+};
+
+function doctorPlaceholderSrc(d) {
+  const palette = DOCTOR_PLACEHOLDER_PALETTES[d.color] || DOCTOR_PLACEHOLDER_PALETTES.default;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-hidden="true">` +
+    `<rect width="200" height="200" rx="100" fill="${palette[0]}"/>` +
+    `<g fill="${palette[1]}">` +
+    `<circle cx="100" cy="76" r="33"/>` +
+    `<path d="M40 200c0-40 27-60 60-60s60 20 60 60z"/>` +
+    `</g>` +
+    `<path d="M133 56h22v14a16 16 0 0 1-16 16h-6a16 16 0 0 1-16-16V56" fill="none" stroke="${palette[1]}" stroke-width="10" stroke-linecap="round"/>` +
+    `<circle cx="117" cy="56" r="8" fill="${palette[1]}"/>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function doctorPic(d) {
+  if (d.photo) {
+    return `<img class="doctor-card-photo" src="${escAttr(d.photo)}" alt="${escAttr(d.name)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">${avatar(d.initials, d.color, "doctor-avatar doctor-photo-fallback")}`;
+  }
+  return avatar(d.initials, d.color, "doctor-avatar");
+}
+
+function doctorOfferRow(d) {
+  const offer = String(d.offerText || "").trim();
+  if (!offer) return "";
+  return `<div class="doctor-offer-row">${icon("spark")} <span>${offer}</span></div>`;
+}
+
+function doctorFeeRow(d) {
+  const fee = feeText(d);
+  if (fee) {
+    return `<span class="consultation-fee">${fee}</span>`;
+  }
+  return `<span class="consultation-fee consultation-fee-masked" title="Log in to view the consultation fee">₹•••</span>`;
 }
 
 function doctorCard(d) {
   return `
     <article class="doctor-card" data-doctor="${d.id}">
       <div class="doctor-card-top">
-        ${avatar(d.initials, d.color, "doctor-avatar")}
-        <span class="rating">★ ${d.rating}</span>
+        ${doctorPic(d)}
       </div>
       <div class="doctor-card-content">
         <div class="doc-header-row">
@@ -886,10 +1012,12 @@ function doctorCard(d) {
         <span class="doctor-spec-chip">${d.specialty}</span>
         <p>${d.detail}</p>
         <span class="doctor-location">${icon("building")} ${d.location}</span>
+        ${doctorOfferRow(d)}
         <div class="doctor-bottom">
-          <div>
-            <span class="consultation-fee">$${d.fee}</span>
-            <small>per visit</small>
+          <div class="doctor-fee-cell">
+            <span class="consultation-fee-label">Consulting Fee</span>
+            ${doctorFeeRow(d)}
+            <small>no hidden charges</small>
           </div>
           <div class="next-slot">
             <small>${icon("clock")} Next Slot</small>
@@ -902,49 +1030,91 @@ function doctorCard(d) {
   `;
 }
 
+function bindEduSlider(appRoot) {
+  const track = appRoot.querySelector("#edu-track");
+  const viewport = appRoot.querySelector("#edu-viewport");
+  const prev = appRoot.querySelector("#edu-prev");
+  const next = appRoot.querySelector("#edu-next");
+  const counter = appRoot.querySelector("#edu-counter");
+  const dots = appRoot.querySelector("#edu-dots");
+  if (!track || !viewport || !prev || !next) return;
+  const slides = track.querySelectorAll(".edu-slider-slide");
+  const total = slides.length;
+  if (total === 0) return;
+  let index = 0;
+  const renderDots = () => {
+    if (!dots) return;
+    dots.innerHTML = Array.from({ length: total }, (_, i) =>
+      `<button class="spec-slider-dot ${i === index ? "active" : ""}" data-edu-dot="${i}" type="button" aria-label="Go to specialty group ${i + 1}"></button>`).join("");
+  };
+  const go = (i) => {
+    index = ((i % total) + total) % total;
+    track.style.transform = `translateX(-${index * 100}%)`;
+    if (counter) counter.textContent = `${index + 1} / ${total}`;
+    renderDots();
+  };
+  prev.addEventListener("click", () => go(index - 1));
+  next.addEventListener("click", () => go(index + 1));
+  if (dots) {
+    dots.addEventListener("click", (e) => {
+      const dot = e.target.closest("[data-edu-dot]");
+      if (dot) go(Number(dot.dataset.eduDot));
+    });
+  }
+  go(0);
+}
+
 function bindDoctorEvents(appRoot, ctx, state) {
   const { navigate, showToast } = ctx;
   bindNav(appRoot, ctx);
 
-  // Specialties slider: 4 cards per slide (2×2), prev/next arrows, dots + counter, 10 s auto-advance (continuous loop)
-  if (specialtiesCarouselTimer) { clearInterval(specialtiesCarouselTimer); specialtiesCarouselTimer = null }
-  const specTrack = appRoot.querySelector('#spec-slider-track')
-  const specViewport = appRoot.querySelector('#spec-slider-viewport')
-  const specPrev = appRoot.querySelector('#spec-slider-prev')
-  const specNext = appRoot.querySelector('#spec-slider-next')
-  const specCounter = appRoot.querySelector('#spec-slider-counter')
-  const specDots = appRoot.querySelector('#spec-slider-dots')
-  if (specTrack && specViewport && specPrev && specNext) {
-    const slides = specTrack.querySelectorAll('.spec-slider-slide')
-    const specTotal = slides.length
-    let specIndex = 0
-    const renderSpecDots = () => {
-      if (!specDots) return
-      specDots.innerHTML = Array.from({ length: specTotal }, (_, i) =>
-        `<button class="spec-slider-dot ${i === specIndex ? 'active' : ''}" data-spec-dot="${i}" type="button" aria-label="Go to specialty ${i + 1}"></button>`).join('')
+  // Doctor Hero slider: one doctor per slide, prev/next arrows, dots + counter, 10 s auto-advance (continuous loop)
+  if (doctorHeroCarouselTimer) { clearInterval(doctorHeroCarouselTimer); doctorHeroCarouselTimer = null }
+  const dhcTrack = appRoot.querySelector('#dhc-track')
+  const dhcViewport = appRoot.querySelector('#dhc-viewport')
+  const dhcPrev = appRoot.querySelector('#dhc-prev')
+  const dhcNext = appRoot.querySelector('#dhc-next')
+  const dhcCounter = appRoot.querySelector('#dhc-counter')
+  const dhcDots = appRoot.querySelector('#dhc-dots')
+  if (dhcTrack && dhcViewport && dhcPrev && dhcNext) {
+    const heroSlides = dhcTrack.querySelectorAll('.doctor-hero-slide')
+    const dhcTotal = heroSlides.length
+    let dhcIndex = 0
+    const renderDhcDots = () => {
+      if (!dhcDots) return
+      dhcDots.innerHTML = Array.from({ length: dhcTotal }, (_, i) =>
+        `<button class="spec-slider-dot ${i === dhcIndex ? 'active' : ''}" data-dhc-dot="${i}" type="button" aria-label="Go to doctor ${i + 1}"></button>`).join('')
     }
-    const goToSpecialty = (i) => {
-      specIndex = ((i % specTotal) + specTotal) % specTotal
-      specTrack.style.transform = `translateX(-${specIndex * 100}%)`
-      if (specCounter) specCounter.textContent = `${specIndex + 1} / ${specTotal}`
-      renderSpecDots()
+    const goToDoctor = (i) => {
+      dhcIndex = ((i % dhcTotal) + dhcTotal) % dhcTotal
+      dhcTrack.style.transform = `translateX(-${dhcIndex * 100}%)`
+      if (dhcCounter) dhcCounter.textContent = `${dhcIndex + 1} / ${dhcTotal}`
+      renderDhcDots()
     }
-    const startSpecAutoAdvance = () => {
-      if (specialtiesCarouselTimer) clearInterval(specialtiesCarouselTimer)
-      specialtiesCarouselTimer = setInterval(() => {
-        if (!specTrack.isConnected) { clearInterval(specialtiesCarouselTimer); specialtiesCarouselTimer = null; return }
-        goToSpecialty(specIndex + 1)
+    const startDhcAutoAdvance = () => {
+      if (doctorHeroCarouselTimer) clearInterval(doctorHeroCarouselTimer)
+      doctorHeroCarouselTimer = setInterval(() => {
+        if (!dhcTrack.isConnected) { clearInterval(doctorHeroCarouselTimer); doctorHeroCarouselTimer = null; return }
+        goToDoctor(dhcIndex + 1)
       }, 10000)
     }
-    specPrev.addEventListener('click', () => { goToSpecialty(specIndex - 1); startSpecAutoAdvance() })
-    specNext.addEventListener('click', () => { goToSpecialty(specIndex + 1); startSpecAutoAdvance() })
-    if (specDots) specDots.addEventListener('click', e => {
-      const dot = e.target.closest('[data-spec-dot]')
-      if (dot) { goToSpecialty(Number(dot.dataset.specDot)); startSpecAutoAdvance() }
+    dhcPrev.addEventListener('click', () => { goToDoctor(dhcIndex - 1); startDhcAutoAdvance() })
+    dhcNext.addEventListener('click', () => { goToDoctor(dhcIndex + 1); startDhcAutoAdvance() })
+    if (dhcDots) dhcDots.addEventListener('click', e => {
+      const dot = e.target.closest('[data-dhc-dot]')
+      if (dot) { goToDoctor(Number(dot.dataset.dhcDot)); startDhcAutoAdvance() }
     })
-    renderSpecDots()
-    startSpecAutoAdvance()
+    renderDhcDots()
+    startDhcAutoAdvance()
   }
+
+  bindEduSlider(appRoot);
+
+  // Doctor Hero: Consult Now navigates to the currently visible doctor's detail page
+  appRoot.addEventListener('click', (e) => {
+    const consult = e.target.closest('[data-dhc-consult]')
+    if (consult) { e.preventDefault(); navigate('doctor', { id: consult.dataset.dhcConsult }) }
+  })
 
   // Specialty card selection
   appRoot.querySelectorAll("[data-spec-name]").forEach((card) => {
@@ -957,14 +1127,7 @@ function bindDoctorEvents(appRoot, ctx, state) {
         .querySelectorAll("[data-spec-name]")
         .forEach((c) => c.classList.remove("active"));
       if (state.selectedSpecialty.get() === name) card.classList.add("active");
-      const finderSelect = appRoot.querySelector("#finder-spec-select");
-      if (finderSelect) finderSelect.value = state.selectedSpecialty.get();
-      appRoot.querySelectorAll("[data-specialty]").forEach((pill) => {
-        pill.classList.toggle(
-          "active",
-          pill.dataset.specialty === state.selectedSpecialty.get(),
-        );
-      });
+      syncFilterControls();
       state.update();
       const listings = appRoot.querySelector(".doctor-list-wrap");
       if (listings)
@@ -972,19 +1135,43 @@ function bindDoctorEvents(appRoot, ctx, state) {
     });
   });
 
-  // Finder Widget 3 Steps form submit
-  const finderSubmit = appRoot.querySelector("#finder-submit-btn");
-  if (finderSubmit) {
-    finderSubmit.addEventListener("click", () => {
-      const spec = appRoot.querySelector("#finder-spec-select").value;
-      const loc = appRoot.querySelector("#finder-location-input").value.trim();
-      state.selectedSpecialty.set(spec);
+  // Verified Doctors: Date filter pills
+  appRoot.querySelectorAll("[data-datekey]").forEach((pill) => {
+    pill.addEventListener("click", () => {
+      state.selectedDate.set(pill.dataset.datekey);
+      syncFilterControls();
+      const group = pill.closest(".filter-dropdown-group");
+      if (group) group.classList.remove("open", "drop-up");
+    });
+  });
+
+  // Verified Doctors: apply Specialty + Date + Location/Pincode via Submit
+  const vdSubmit = appRoot.querySelector("#vd-submit-btn");
+  if (vdSubmit) {
+    vdSubmit.addEventListener("click", () => {
+      const loc = (appRoot.querySelector("#vd-location-input")?.value || "").trim();
       if (loc) state.selectedCity.set(loc);
-      syncFilterControls?.();
+      state.selectedDate.get(); // ensure the chosen date filter state is applied
+      syncFilterControls();
       state.update();
       showToast("Filters applied! Showing matching doctors.");
     });
   }
+
+  // Verified Doctors: reset all filters from the empty state
+  appRoot.addEventListener("click", (e) => {
+    const resetBtn = e.target.closest("#reset-doc-filters");
+    if (!resetBtn) return;
+    state.selectedSpecialty.set("all");
+    state.selectedCity.set("all");
+    state.selectedType.set("all");
+    state.selectedDate.set("today");
+    const locInput = appRoot.querySelector("#vd-location-input");
+    if (locInput) locInput.value = "";
+    syncFilterControls();
+    state.update();
+    showToast("Filters reset.");
+  });
 
   const syncFilterControls = () => {
     const labels = {
@@ -1008,6 +1195,12 @@ function bindDoctorEvents(appRoot, ctx, state) {
           : state.sortBy.get() === "rating"
             ? "Rating: High to Low"
             : "Fee: Low to High",
+      "date-filter-trigger":
+        state.selectedDate.get() === "today"
+          ? "Today"
+          : state.selectedDate.get() === "tomorrow"
+            ? "Tomorrow"
+            : "Within 3 Days",
     };
     Object.entries(labels).forEach(([id, label]) => {
       const target = appRoot.querySelector(`#${id} .filter-trigger-label`);
@@ -1045,6 +1238,14 @@ function bindDoctorEvents(appRoot, ctx, state) {
           pill.dataset.sort === state.sortBy.get(),
         ),
       );
+    appRoot
+      .querySelectorAll("[data-datekey]")
+      .forEach((pill) =>
+        pill.classList.toggle(
+          "active",
+          pill.dataset.datekey === state.selectedDate.get(),
+        ),
+      );
   };
 
   // Specialty filter dropdown (toolbar)
@@ -1052,8 +1253,6 @@ function bindDoctorEvents(appRoot, ctx, state) {
     pill.addEventListener("click", () => {
       const value = pill.dataset.specialty;
       state.selectedSpecialty.set(value);
-      const finderSelect = appRoot.querySelector("#finder-spec-select");
-      if (finderSelect) finderSelect.value = value;
       appRoot
         .querySelectorAll("[data-spec-name]")
         .forEach((c) =>
@@ -1077,30 +1276,6 @@ function bindDoctorEvents(appRoot, ctx, state) {
     });
   });
 
-  // City selector cards
-  appRoot.querySelectorAll("[data-city-card]").forEach((card) => {
-    card.addEventListener("click", () => {
-      const city = card.dataset.cityCard;
-      state.selectedCity.set(state.selectedCity.get() === city ? "all" : city);
-      appRoot
-        .querySelectorAll("[data-city-card]")
-        .forEach((c) => c.classList.remove("active"));
-      if (state.selectedCity.get() === city) card.classList.add("active");
-      const locInput = appRoot.querySelector("#finder-location-input");
-      if (locInput)
-        locInput.value =
-          state.selectedCity.get() !== "all" ? state.selectedCity.get() : "";
-      const activeCity = state.selectedCity.get();
-      appRoot
-        .querySelectorAll("[data-city]")
-        .forEach((c) =>
-          c.classList.toggle("active", c.dataset.city === activeCity),
-        );
-      state.update();
-      syncFilterControls();
-    });
-  });
-
   // City sidebar chips
   appRoot.querySelectorAll("[data-city]").forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -1110,12 +1285,7 @@ function bindDoctorEvents(appRoot, ctx, state) {
         .querySelectorAll("[data-city]")
         .forEach((c) => c.classList.remove("active"));
       chip.classList.add("active");
-      appRoot
-        .querySelectorAll("[data-city-card]")
-        .forEach((c) =>
-          c.classList.toggle("active", c.dataset.cityCard === city),
-        );
-      const locInput = appRoot.querySelector("#finder-location-input");
+      const locInput = appRoot.querySelector("#vd-location-input");
       if (locInput) locInput.value = city !== "all" ? city : "";
       state.update();
       syncFilterControls();
@@ -1216,20 +1386,14 @@ function bindDoctorEvents(appRoot, ctx, state) {
     });
   });
 
-  // Location detect button
-  const locBtn = appRoot.querySelector("#detect-loc-btn");
-  if (locBtn) {
-    locBtn.addEventListener("click", () => {
-      const locInput = appRoot.querySelector("#finder-location-input");
-      if (locInput) locInput.value = "Bengaluru";
-      state.selectedCity.set("Bengaluru");
-      state.update();
-      showToast("Location set to Bengaluru");
-    });
-  }
-
   // Doctor card navigation
   appRoot.addEventListener("click", (e) => {
+    const feeLink = e.target.closest("[data-auth-fee]");
+    if (feeLink) {
+      e.stopPropagation();
+      openAuthModal("login", ctx);
+      return;
+    }
     const docCard = e.target.closest("[data-doctor]");
     const docBook = e.target.closest("[data-doctor-book]");
     if (docBook) {
@@ -1239,34 +1403,207 @@ function bindDoctorEvents(appRoot, ctx, state) {
       navigate("doctor", { id: docCard.dataset.doctor });
     }
   });
-
-  // Instant Consult button (hero section, doctors page only)
-  const instantBtn = appRoot.querySelector("#instant-consult-btn");
-  if (instantBtn)
-    instantBtn.addEventListener("click", () =>
-      showToast("Connecting to 24/7 Instant Doctor..."),
-    );
 }
 
 // === Doctor Detail Page ===
+const DOCTOR_PROFILE_LABELS = {
+  profile: "DOCTOR PROFILE",
+  about: "ABOUT & CLINICAL SPECIALIZATIONS",
+  reviews: "PATIENT REVIEWS",
+};
+function reviewInitials(name) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0] || "P")[0] + (parts[parts.length - 1] || "P")[0]).toUpperCase();
+}
+function reviewStarsHTML(rating, extra = "") {
+  let out = "";
+  for (let i = 1; i <= 5; i++) {
+    out += icon("star", `review-star${i > rating ? " review-star-off" : ""}`);
+  }
+  return `<span class="review-stars ${extra}">${out}</span>`;
+}
+function reviewDateLabel(r) {
+  const t = r.createdAt ? new Date(r.createdAt) : new Date();
+  if (Number.isNaN(t.getTime())) return "";
+  return t.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function normalizeReview(r) {
+  return {
+    name: r.patientName || r.name || "Anonymous Patient",
+    rating: Number(r.rating || 0),
+    date: r.patientName ? reviewDateLabel(r) : r.date || "",
+    text: r.comment || r.text || "",
+  };
+}
+
+function doctorReviewCard(r, colors, i) {
+  return `
+    <div class="doctor-review-card">
+      <div class="drv-head">
+        ${avatar(reviewInitials(r.name), colors[i % 4], "review-avatar")}
+        <div class="drv-meta">
+          <strong>${r.name}</strong>
+          ${reviewStarsHTML(r.rating)}
+          <small>${r.date}</small>
+        </div>
+      </div>
+      <p>${r.text}</p>
+    </div>`
+}
+
+function writeReviewHTML(ctx) {
+  const user = getAuthUser();
+  if (!isAuthenticated()) {
+    return `
+      <div class="write-review-gate">
+        <div>${icon("lock")} Log in to share your experience with this doctor.</div>
+        <button type="button" class="button button-primary" data-arv-login>Login to write a review ${icon("arrow")}</button>
+      </div>`;
+  }
+  if (!user || user.role === "doctor") {
+    return `<div class="write-review-gate"><div>${icon("shield")} Only registered patients can submit reviews.</div></div>`;
+  }
+  return `
+    <form class="review-form" id="review-form" novalidate>
+      <div class="review-form-heading">
+        <div>
+          <strong>Write a review</strong>
+          <small>Your honest feedback helps other patients.</small>
+        </div>
+      </div>
+      <div class="review-star-picker" id="arv-stars">
+        ${[1, 2, 3, 4, 5].map((s) => `<button type="button" class="review-star-btn" data-arv-star="${s}" aria-label="${s} star">${icon("star")}</button>`).join("")}
+      </div>
+      <textarea class="auth-text-input review-textarea" name="comment" rows="3" maxlength="1200" placeholder="How was your consultation? (min 3 characters)" required></textarea>
+      <button type="submit" class="button button-primary review-submit">Submit review ${icon("check")}</button>
+    </form>`;
+}
+
+function reviewsSectionMarkup(d, summary, ctx) {
+  const colors = ["teal", "blue", "purple", "pink"];
+  const reviews = (summary.reviews || []).map(normalizeReview).slice(0, 4);
+  const overall = summary.overall != null ? Number(summary.overall).toFixed(1) : "0.0";
+  const count = summary.count != null ? summary.count : 0;
+  const note = summary.isDemo
+    ? `Based on ${count} sample reviews`
+    : `Based on ${count} verified patient reviews`;
+  return `
+    <div class="doctor-review-overall">
+      <strong>${overall} <em>/ 5</em></strong>
+      ${reviewStarsHTML(Math.round(overall))}
+      <span class="doctor-review-overall-note">${note}</span>
+    </div>
+    <div class="doctor-reviews-list">
+      ${reviews.map((r, i) => doctorReviewCard(r, colors, i)).join("")}
+    </div>
+    <div class="write-review-wrap">${writeReviewHTML(ctx)}</div>
+  `;
+}
+
+function staticReviewsSummary(d) {
+  const reviews = (doctorReviews[d.id] || []).slice(0, 4);
+  const overall = reviews.length
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : "0.0";
+  return {
+    reviews,
+    overall,
+    count: reviews.length,
+    isDemo: true,
+  };
+}
+
+function bindWriteReview(section, doctorId, ctx, onSaved) {
+  const loginBtn = section.querySelector("[data-arv-login]");
+  if (loginBtn) {
+    loginBtn.addEventListener("click", () => openAuthModal("login", ctx));
+  }
+  const starRow = section.querySelector("#arv-stars");
+  let chosen = 0;
+  if (starRow) {
+    const paint = () =>
+      starRow.querySelectorAll("[data-arv-star]").forEach((s) =>
+        s.classList.toggle("selected", Number(s.dataset.arvStar) <= chosen),
+      );
+    starRow.querySelectorAll("[data-arv-star]").forEach((s) =>
+      s.addEventListener("click", () => {
+        chosen = Number(s.dataset.arvStar);
+        paint();
+      }),
+    );
+  }
+  const form = section.querySelector("#review-form");
+  if (!form) return;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated()) {
+      openAuthModal("login", ctx);
+      return;
+    }
+    const user = getAuthUser();
+    if (!user || user.role === "doctor") {
+      ctx.showToast("Only patients can submit reviews.");
+      return;
+    }
+    if (!chosen) {
+      ctx.showToast("Please choose a star rating.");
+      return;
+    }
+    const text = form.querySelector("textarea").value.trim();
+    if (text.length < 3) {
+      ctx.showToast("Review text must be at least 3 characters.");
+      return;
+    }
+    const btn = form.querySelector(".button[type='submit']");
+    btn.disabled = true;
+    try {
+      const res = await createReview(doctorId, { rating: chosen, comment: text }, getAuthToken());
+      ctx.showToast("Thank you — your review has been published.");
+      if (onSaved && res && res.summary) onSaved(res.summary);
+    } catch (err) {
+      btn.disabled = false;
+      ctx.showToast(err.message || "Could not submit review.");
+    }
+  });
+}
+
+async function initDoctorReviews(appRoot, d, ctx) {
+  const section = appRoot.querySelector("#doctor-reviews-section");
+  if (!section) return;
+  let live = null;
+  try {
+    live = await getReviews(d.id);
+  } catch {
+    live = null;
+  }
+  if (!section.isConnected) return;
+  const summary = live && Array.isArray(live.reviews) ? live : staticReviewsSummary(d);
+  section.querySelector(".doctor-reviews-body").innerHTML = reviewsSectionMarkup(d, summary, ctx);
+  bindWriteReview(section, d.id, ctx, (updated) => {
+    const body = section.querySelector(".doctor-reviews-body");
+    if (body) body.innerHTML = reviewsSectionMarkup(d, updated, ctx);
+    bindWriteReview(section, d.id, ctx);
+  });
+}
+
+function renderDoctorReviews(d) {
+  return `
+    <section class="doctor-reviews-section" id="doctor-reviews-section">
+      <span class="section-kicker doctor-profile-kicker">${DOCTOR_PROFILE_LABELS.reviews}</span>
+      <div class="doctor-reviews-body"></div>
+    </section>
+  `;
+}
+
 export function renderDoctorDetail(appRoot, ctx) {
   const { navigate, currentParams } = ctx;
-  const d = doctors.find((d) => d.id === currentParams.id);
+  const d = cachedFindDoctor(currentParams.id);
   if (!d) {
     navigate("doctors");
     return;
   }
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-  const slots = [
-    "9:00 AM",
-    "10:00 AM",
-    "11:00 AM",
-    "2:00 PM",
-    "3:00 PM",
-    "4:00 PM",
-    "5:00 PM",
-    "6:00 PM",
-  ];
+  const booking = createDoctorBooking(d, ctx);
 
   appRoot.innerHTML = `
     <div class="app-shell">
@@ -1276,24 +1613,27 @@ export function renderDoctorDetail(appRoot, ctx) {
         <div class="doctor-detail-layout">
           <div class="doctor-detail-left">
             <div class="doctor-detail-card hero-gradient">
-              <div class="doc-detail-avatar-wrap">
-                ${d.photo ? `<img class="doctor-profile-photo" src="${d.photo}" alt="${d.name}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="doctor-photo-fallback" hidden>${d.initials}</span>` : avatar(d.initials, d.color, "doctor-avatar-xl")}
-                <span class="doc-verified-badge-xl">${icon("verified")} Verified Specialist</span>
+              <span class="section-kicker doctor-profile-kicker doctor-card-kicker">${icon("user")} ${DOCTOR_PROFILE_LABELS.profile}</span>
+              <div class="doctor-card-grid">
+                <div class="doctor-card-info">
+                  <h1>${d.name}</h1>
+                  <span class="doctor-specialty-large">${d.specialty} Specialist</span>
+                  <p class="doc-detail-bio">${d.detail}</p>
+                  <div class="doctor-location-large">${icon("building")} ${d.location}</div>
+                </div>
+                <div class="doctor-card-media">
+                  <div class="doc-detail-avatar-wrap">
+                    ${d.photo
+                      ? `<img class="doctor-profile-photo" src="${escAttr(d.photo)}" alt="${escAttr(d.name)}" loading="lazy" onerror="this.onerror=null;this.hidden=true;this.nextElementSibling.hidden=false"><span class="doctor-photo-fallback" hidden>${icon("doctorCare")}</span>`
+                      : `<img class="doctor-profile-photo" src="${doctorPlaceholderSrc(d)}" alt="${escAttr(d.name)}">`}
+                    <span class="doc-verified-badge-xl">${icon("verified")} Verified Specialist</span>
+                  </div>
+                </div>
               </div>
-              <h1>${d.name}</h1>
-              <span class="doctor-specialty-large">${d.specialty} Specialist</span>
-              <p class="doc-detail-bio">${d.detail}</p>
-              
-              <div class="doctor-stats-row">
-                <div><strong>★ ${d.rating}</strong><span>${d.reviews} Patient Reviews</span></div>
-                <div><strong>12+ Yrs</strong><span>Clinical Exp.</span></div>
-                <div><strong>$${d.fee}</strong><span>Per Consultation</span></div>
-              </div>
-              
-              <div class="doctor-location-large">${icon("building")} ${d.location}</div>
             </div>
 
             <section class="doctor-about-section">
+              <span class="section-kicker doctor-profile-kicker">${DOCTOR_PROFILE_LABELS.about}</span>
               <h2>About <em class="editorial">${d.name}</em></h2>
               <p>${d.name} is a highly experienced ${d.specialty.toLowerCase()} specialist with over a decade of clinical expertise. Known for a human-centered, evidence-based approach, ${d.name} provides comprehensive diagnostic evaluations, personalized treatment plans, and continuous care.</p>
               
@@ -1307,70 +1647,335 @@ export function renderDoctorDetail(appRoot, ctx) {
               </div>
             </section>
           </div>
-          
           <div class="doctor-detail-right">
-            <div class="booking-section">
-              <span class="section-kicker">${icon("spark")} DIRECT APPOINTMENT BOOKING</span>
-              <h2>Book a <em class="editorial">Consultation</em></h2>
-              
-              <div class="booking-type">
-                <button class="booking-type-btn selected">${icon("video")} Online Video</button>
-                <button class="booking-type-btn">${icon("building")} In Person Clinic</button>
-              </div>
-              
-              <div class="booking-label">01. Select Date</div>
-              <div class="date-pills">${days.map((day, i) => `<button class="date-pill ${i === 2 ? "selected" : ""}"><strong>${day}</strong><small>Jun ${18 + i}</small></button>`).join("")}</div>
-              
-              <div class="booking-label">02. Select Time Slot</div>
-              <div class="time-slots-grid">${slots.map((s, i) => `<button class="time-slot ${i === 3 ? "selected" : ""}">${s}</button>`).join("")}</div>
-              
-              <div class="booking-summary">
-                <div><span>Consultation Fee</span><strong>$${d.fee}</strong></div>
-                <div><span>Follow-up Chat (7 Days)</span><strong class="text-success">FREE</strong></div>
-                <div class="summary-total"><span>Total Fee</span><strong>$${d.fee}</strong></div>
-              </div>
-              
-              <button class="button button-primary full-button" id="book-appointment-confirm">Confirm Appointment ${icon("arrow")}</button>
-            </div>
+            ${booking.renderCard()}
           </div>
         </div>
+
+        ${renderDoctorReviews(d)}
       </main>
       ${sharedFooter(ctx)}
       ${sharedMobileNav(ctx, "doctors")}
     </div>
+    ${booking.renderModals()}
     <div class="toast" id="toast"><span class="toast-check">${icon("check")}</span><span id="toast-text">Saved</span></div>
   `;
   bindNav(appRoot, ctx);
-  appRoot
-    .querySelector("#book-appointment-confirm")
-    .addEventListener("click", () => {
-      showToast("Appointment booked successfully!");
-      navigate("dashboard");
+  booking.bind(appRoot);
+  initDoctorReviews(appRoot, d, ctx);
+  ensureLive()
+    .then(() => booking.refreshFees(appRoot))
+    .catch(() => {});
+}
+
+// === Direct Appointment Booking Module (Doctor Detail) ===
+const BOOKING_SLOTS = [
+  "9:00 AM", "11:00 AM", "1:00 PM", "3:00 PM",
+  "5:00 PM", "7:00 PM", "9:00 PM",
+];
+const BOOKING_RAIL_DAYS = 3;
+const BOOKING_CAL_MAX_MONTHS = 3;
+const BOOKING_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const BOOKING_WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const BOOKING_SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function bookingPad(n) { return String(n).padStart(2, "0"); }
+function bookingKey(date) { return `${date.getFullYear()}-${bookingPad(date.getMonth() + 1)}-${bookingPad(date.getDate())}`; }
+function bookingFromKey(key) { const [y, m, d] = key.split("-").map(Number); return new Date(y, m - 1, d, 12, 0, 0, 0); }
+function bookingAddDays(date, n) { const x = new Date(date); x.setDate(x.getDate() + n); return x; }
+function bookingTodayKey() { return bookingKey(new Date()); }
+function bookingMonthD(date) { return `${BOOKING_SHORT_MONTHS[date.getMonth()]} ${date.getDate()}`; }
+function bookingLongDate(key) {
+  if (key === bookingTodayKey()) return `Today, ${bookingMonthD(bookingFromKey(key))}`;
+  if (key === bookingKey(bookingAddDays(bookingFromKey(bookingTodayKey()), 1))) return `Tomorrow, ${bookingMonthD(bookingFromKey(key))}`;
+  return `${BOOKING_WEEKDAYS[bookingFromKey(key).getDay()]}, ${bookingMonthD(bookingFromKey(key))}`;
+}
+function bookingDayLabel(key) {
+  if (key === bookingTodayKey()) return "Today";
+  if (key === bookingKey(bookingAddDays(bookingFromKey(bookingTodayKey()), 1))) return "Tomorrow";
+  if (key === bookingKey(bookingAddDays(bookingFromKey(bookingTodayKey()), 2))) return "Next Day";
+  return BOOKING_WEEKDAYS[bookingFromKey(key).getDay()];
+}
+
+function createDoctorBooking(d, ctx) {
+  const { showToast } = ctx;
+
+  let type = "Online Video";
+  let dateKey = bookingTodayKey();
+  let timeSlot = null;
+  let calMonth = new Date(bookingFromKey(dateKey).getFullYear(), bookingFromKey(dateKey).getMonth(), 1);
+  let calChoice = dateKey;
+
+  function slotDisabled(slot) {
+    if (dateKey !== bookingTodayKey()) return false;
+    const m = slot.match(/^(\d{1,2}):00\s*(AM|PM)$/);
+    if (!m) return false;
+    let h = Number(m[1]) % 12;
+    if (m[2] === "PM") h += 12;
+    const now = new Date();
+    const slotStart = new Date();
+    slotStart.setHours(h, 0, 0, 0);
+    return now > slotStart;
+  }
+
+  function railDates() {
+    const today = bookingFromKey(bookingTodayKey());
+    if (dateKey !== bookingTodayKey() && bookingFromKey(dateKey) > bookingAddDays(today, BOOKING_RAIL_DAYS - 1)) {
+      return Array.from({ length: BOOKING_RAIL_DAYS }, (_, i) => bookingAddDays(bookingFromKey(dateKey), i));
+    }
+    return Array.from({ length: BOOKING_RAIL_DAYS }, (_, i) => bookingAddDays(today, i));
+  }
+
+  function railHTML() {
+    return railDates()
+      .map((day) => {
+        const key = bookingKey(day);
+        const sel = key === dateKey ? " selected" : "";
+        return `<button type="button" class="date-pill${sel}" data-date-key="${key}"><strong>${bookingDayLabel(key)}</strong></button>`;
+      })
+      .join("");
+  }
+
+  function timeGridHTML() {
+    const today = dateKey === bookingTodayKey();
+    return (
+      BOOKING_SLOTS.map((s) => {
+        const dis = slotDisabled(s);
+        const sel = s === timeSlot ? " selected" : "";
+        return `<button type="button" class="time-slot${sel}" data-time-key="${s}"${dis ? " disabled" : ""}>${s}</button>`;
+      }).join("") +
+      (today
+        ? `<p class="booking-hint">${icon("clock")} Past slots for today are unavailable.</p>`
+        : "")
+    );
+  }
+
+  function renderCard() {
+    return `
+      <div class="booking-section">
+        <h2>Book an <em class="editorial">Appointment</em></h2>
+
+        <div class="booking-type">
+          <button type="button" class="booking-type-btn ${type === "Online Video" ? "selected" : ""}" data-booking-type="Online Video">${icon("video")} Online Video</button>
+          <button type="button" class="booking-type-btn ${type === "In Person Clinic" ? "selected" : ""}" data-booking-type="In Person Clinic">${icon("building")} In Person Clinic</button>
+        </div>
+
+<div class="booking-label">Date</div>
+        <div class="date-rail" id="booking-date-rail">
+          ${railHTML()}
+          <button type="button" class="date-more" data-open-calendar>${icon("calendar")}<span>More</span></button>
+        </div>
+
+        <div class="booking-label">Choose Time</div>
+        <div class="time-slots-grid" id="booking-time-grid">${timeGridHTML()}</div>
+
+        <div class="booking-summary">
+          <div><span>Consultation Fee</span><strong data-fee-view>${feeText(d) ?? "₹•••"}</strong></div>
+          <div><span>Follow-up Chat (7 Days)</span><strong class="text-success">FREE</strong></div>
+          <div class="summary-total"><span>Total Fee</span><strong data-fee-view>${feeText(d) ?? "—"}</strong></div>
+        </div>
+
+        <button type="button" class="button button-primary full-button" id="book-appointment-confirm"${timeSlot ? "" : " disabled"}>Confirm Appointment ${icon("arrow")}</button>
+      </div>
+    `;
+  }
+
+  function renderCalendar() {
+    const today = bookingFromKey(bookingTodayKey());
+    const maxDate = bookingAddDays(today, BOOKING_CAL_MAX_MONTHS * 31);
+    const first = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1);
+    const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
+    const lead = first.getDay();
+    let cells = "";
+    for (let i = 0; i < lead; i++) cells += `<span class="cal-cell cal-empty"></span>`;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(first.getFullYear(), first.getMonth(), day, 12, 0, 0, 0);
+      const key = bookingKey(date);
+      const past = date < today;
+      const futureCap = date > maxDate;
+      const sel = key === dateKey ? " selected" : "";
+      const chosen = key === calChoice && key !== dateKey ? " chosen" : "";
+      const todayCls = key === bookingTodayKey() ? " today" : "";
+      const dis = past || futureCap ? " cal-disabled" : "";
+      cells += `<button type="button" class="cal-cell${sel}${chosen}${todayCls}${dis}" data-calendar-cell="${key}"${dis ? " disabled" : ""}><span>${day}</span></button>`;
+    }
+    const curIdx = today.getFullYear() * 12 + today.getMonth();
+    const calIdx = calMonth.getFullYear() * 12 + calMonth.getMonth();
+    const prevDis = calIdx <= curIdx;
+    const nextDis = calIdx >= curIdx + BOOKING_CAL_MAX_MONTHS;
+    return `
+      <div class="calendar-head">
+        <button type="button" class="cal-nav" data-calendar-prev aria-label="Previous month"${prevDis ? " disabled" : ""}>${icon("chevron")}</button>
+        <strong>${BOOKING_MONTHS[calMonth.getMonth()]} ${calMonth.getFullYear()}</strong>
+        <button type="button" class="cal-nav cal-nav-next" data-calendar-next aria-label="Next month"${nextDis ? " disabled" : ""}>${icon("chevron")}</button>
+      </div>
+      <div class="calendar-weekdays">
+        ${["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((w) => `<span>${w}</span>`).join("")}
+      </div>
+      <div class="calendar-grid" id="calendar-grid">${cells}</div>
+      <div class="calendar-actions">
+        <button type="button" class="button button-quiet" data-calendar-cancel>Cancel</button>
+        <button type="button" class="button button-primary" id="calendar-commit">${calChoice === dateKey ? "Select Date" : `Select ${bookingMonthD(bookingFromKey(calChoice))}`}</button>
+      </div>
+    `;
+  }
+
+  function renderModals() {
+    return `
+      <div class="modal-overlay booking-modal-overlay" id="booking-calendar-modal" hidden>
+        <div class="modal-content calendar-modal-content">
+          <button class="modal-close" id="close-calendar-modal" aria-label="Close calendar">×</button>
+          <div class="calendar-modal-head">
+            <span class="section-kicker">${icon("calendar")} CHOOSE AVAILABLE DATE</span>
+            <h3>Select <em class="editorial">Appointment Date</em></h3>
+            <p>Pick any upcoming date — past dates cannot be selected.</p>
+          </div>
+          <div id="calendar-root">${renderCalendar()}</div>
+        </div>
+      </div>
+
+      <div class="modal-overlay booking-modal-overlay" id="booking-confirm-modal" hidden>
+        <div class="modal-content booking-confirm-content">
+          <button class="modal-close" id="close-booking-confirm" aria-label="Close confirmation">×</button>
+          <div class="booking-confirm-check">${icon("check")}</div>
+          <h2>Appointment <em class="editorial">Confirmed</em></h2>
+          <p class="booking-confirm-sub">Your appointment has been scheduled.</p>
+          <div class="booking-confirm-summary">
+            <div><span class="bcs-icon">${icon("user")}</span><span class="bcs-label">Doctor</span><strong>${d.name}</strong></div>
+            <div><span class="bcs-icon">${icon("video")}</span><span class="bcs-label">Type</span><strong id="confirm-type">${type}</strong></div>
+            <div><span class="bcs-icon">${icon("calendar")}</span><span class="bcs-label">Date</span><strong id="confirm-date">${bookingLongDate(dateKey)}</strong></div>
+            <div><span class="bcs-icon">${icon("clock")}</span><span class="bcs-label">Time</span><strong id="confirm-time">${timeSlot || "—"}</strong></div>
+            <div class="confirm-total"><span>Total Fee</span><strong data-fee-view>${feeText(d) ?? "—"}</strong></div>
+          </div>
+          <div class="booking-confirm-note">${icon("shield")} <span>Frontend demo only — no real payment or backend booking has been processed.</span></div>
+          <div class="booking-confirm-actions">
+            <button type="button" class="button button-primary full-button" id="booking-done-btn">Done ${icon("check")}</button>
+            <button type="button" class="button button-quiet full-button" data-nav="dashboard">Go to My Appointments</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function refresh(appRoot) {
+    const rail = appRoot.querySelector("#booking-date-rail");
+    if (rail) rail.innerHTML = `${railHTML()}<button type="button" class="date-more" data-open-calendar>${icon("calendar")}<span>More</span></button>`;
+    const grid = appRoot.querySelector("#booking-time-grid");
+    if (grid) grid.innerHTML = timeGridHTML();
+    const confirmBtn = appRoot.querySelector("#book-appointment-confirm");
+    if (confirmBtn) confirmBtn.disabled = !timeSlot;
+  }
+
+  function refreshFees(appRoot) {
+    const fresh = d ? cachedFindDoctor(d.id) || d : d;
+    const fee = feeText(fresh);
+    if (!fee) return;
+    appRoot.querySelectorAll("[data-fee-view]").forEach((el) => {
+      el.textContent = fee;
     });
-  appRoot.querySelectorAll(".booking-type-btn").forEach((b) => {
-    b.addEventListener("click", () => {
-      appRoot
-        .querySelectorAll(".booking-type-btn")
-        .forEach((x) => x.classList.remove("selected"));
-      b.classList.add("selected");
+  }
+
+  function bind(appRoot) {
+    const calendarModal = appRoot.querySelector("#booking-calendar-modal");
+    const confirmModal = appRoot.querySelector("#booking-confirm-modal");
+    const calendarRoot = appRoot.querySelector("#calendar-root");
+
+    appRoot.addEventListener("click", (e) => {
+      const typeBtn = e.target.closest("[data-booking-type]");
+      if (typeBtn) {
+        type = typeBtn.dataset.bookingType;
+        appRoot.querySelectorAll(".booking-type-btn").forEach((b) => b.classList.toggle("selected", b.dataset.bookingType === type));
+        return;
+      }
+
+      const dateBtn = e.target.closest("[data-date-key]");
+      if (dateBtn) {
+        dateKey = dateBtn.dataset.dateKey;
+        timeSlot = null;
+        refresh(appRoot);
+        return;
+      }
+
+      const timeBtn = e.target.closest("[data-time-key]");
+      if (timeBtn && !timeBtn.disabled) {
+        timeSlot = timeBtn.dataset.timeKey;
+        appRoot.querySelectorAll(".time-slot").forEach((b) => b.classList.toggle("selected", b.dataset.timeKey === timeSlot));
+        const confirmBtn = appRoot.querySelector("#book-appointment-confirm");
+        if (confirmBtn) confirmBtn.disabled = false;
+        return;
+      }
+
+      if (e.target.closest("#calendar-commit")) {
+        if (calChoice) {
+          dateKey = calChoice;
+          refresh(appRoot);
+        }
+        calendarModal.hidden = true;
+        return;
+      }
+      if (e.target.closest("[data-calendar-cancel]") || e.target.closest("#close-calendar-modal")) {
+        calendarModal.hidden = true;
+        return;
+      }
+      if (calendarModal && !calendarModal.hidden && e.target === calendarModal) {
+        calendarModal.hidden = true;
+        return;
+      }
+
+      if (e.target.closest("[data-open-calendar]")) {
+        calMonth = new Date(bookingFromKey(dateKey).getFullYear(), bookingFromKey(dateKey).getMonth(), 1);
+        calChoice = dateKey;
+        if (calendarRoot) calendarRoot.innerHTML = renderCalendar();
+        calendarModal.hidden = false;
+        return;
+      }
+      if (e.target.closest("[data-calendar-prev]")) {
+        calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+        if (calendarRoot) calendarRoot.innerHTML = renderCalendar();
+        return;
+      }
+      if (e.target.closest("[data-calendar-next]")) {
+        calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+        if (calendarRoot) calendarRoot.innerHTML = renderCalendar();
+        return;
+      }
+      const cell = e.target.closest("[data-calendar-cell]");
+      if (cell && !cell.disabled) {
+        calChoice = cell.dataset.calendarCell;
+        if (calendarRoot) calendarRoot.innerHTML = renderCalendar();
+        return;
+      }
+
+      const confirmBtn = e.target.closest("#book-appointment-confirm");
+      if (confirmBtn && timeSlot) {
+        if (!isAuthenticated()) {
+          openAuthModal("login", ctx);
+          return;
+        }
+        confirmModal.querySelector("#confirm-type").textContent = type;
+        confirmModal.querySelector("#confirm-date").textContent = bookingLongDate(dateKey);
+        confirmModal.querySelector("#confirm-time").textContent = timeSlot;
+        confirmModal.hidden = false;
+        return;
+      }
+      const doneBtn = e.target.closest("#booking-done-btn");
+      if (doneBtn) {
+        confirmModal.hidden = true;
+        showToast("Appointment confirmed (demo) — check My Appointments.");
+        return;
+      }
+      if (e.target.closest("#close-booking-confirm")) {
+        confirmModal.hidden = true;
+        return;
+      }
+      if (confirmModal && !confirmModal.hidden && e.target === confirmModal) {
+        confirmModal.hidden = true;
+        return;
+      }
     });
-  });
-  appRoot.querySelectorAll(".date-pill").forEach((b) => {
-    b.addEventListener("click", () => {
-      appRoot
-        .querySelectorAll(".date-pill")
-        .forEach((x) => x.classList.remove("selected"));
-      b.classList.add("selected");
-    });
-  });
-  appRoot.querySelectorAll(".time-slot").forEach((b) => {
-    b.addEventListener("click", () => {
-      appRoot
-        .querySelectorAll(".time-slot")
-        .forEach((x) => x.classList.remove("selected"));
-      b.classList.add("selected");
-    });
-  });
+  }
+
+  return { renderCard, renderModals, bind, refreshFees };
 }
 
 // === Lab Tests Page ===

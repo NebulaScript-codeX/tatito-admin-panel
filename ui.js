@@ -61,60 +61,71 @@ export function showToast(message) {
   window.setTimeout(() => toast.classList.remove('is-visible'), 2800)
 }
 
-export function accountDrawerHTML() {
+export function accountDrawerHTML(user) {
+  const name = (user && user.name) || "Jordan Davis";
+  const initials = (user && user.initials) || "JD";
+  const email = (user && user.email) || "Patient";
+  const isDoctor = Boolean(user && user.role === "doctor" && user.doctorId);
+  const doctorMenu = isDoctor
+    ? `<button class="drawer-menu-item" data-nav="doctor-dashboard">
+          <span class="drawer-menu-icon">${icon("shield")}</span>
+          <div class="drawer-menu-text"><strong>Doctor Dashboard</strong><span>Manage your public profile</span></div>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
+        </button>`
+    : "";
   return `
     <div class="account-drawer-overlay" id="account-drawer-overlay"></div>
     <aside class="account-drawer" id="account-drawer">
       <div class="drawer-header">
         <h2>My Account</h2>
-        <button class="drawer-close-btn" id="close-account-drawer" aria-label="Close My Account">${icon('cross')}</button>
+        <button class="drawer-close-btn" id="close-account-drawer" aria-label="Close My Account">${icon("cross")}</button>
       </div>
       <div class="drawer-profile-card">
-        ${avatar('JD', 'teal', 'drawer-user-avatar')}
+        ${avatar(initials, "teal", "drawer-user-avatar")}
         <div class="drawer-user-info">
-          <strong>Jordan Davis</strong>
-          <span>+1 984-804-0746</span>
+          <strong>${name}</strong>
+          <span>${email}</span>
         </div>
         <button class="drawer-view-dashboard-btn" data-nav="dashboard">View Profile</button>
       </div>
       <div class="drawer-menu-list">
         <button class="drawer-menu-item" data-nav="dashboard">
-          <span class="drawer-menu-icon">${icon('calendar')}</span>
+          <span class="drawer-menu-icon">${icon("calendar")}</span>
           <div class="drawer-menu-text"><strong>My Appointments</strong><span>Upcoming visits & doctors</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
         <button class="drawer-menu-item" data-nav="dashboard">
-          <span class="drawer-menu-icon">${icon('pin')}</span>
+          <span class="drawer-menu-icon">${icon("pin")}</span>
           <div class="drawer-menu-text"><strong>Address Book</strong><span>Saved delivery addresses</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
         <button class="drawer-menu-item" data-nav="plans">
-          <span class="drawer-menu-icon">${icon('spark')}</span>
+          <span class="drawer-menu-icon">${icon("spark")}</span>
           <div class="drawer-menu-text"><strong>My Memberships</strong><span>Active care subscriptions</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
         <button class="drawer-menu-item" data-nav="cart">
-          <span class="drawer-menu-icon">${icon('bag')}</span>
+          <span class="drawer-menu-icon">${icon("bag")}</span>
           <div class="drawer-menu-text"><strong>My Orders</strong><span>Medicine orders & tracking</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
         <button class="drawer-menu-item" data-nav="dashboard">
-          <span class="drawer-menu-icon">${icon('file')}</span>
+          <span class="drawer-menu-icon">${icon("file")}</span>
           <div class="drawer-menu-text"><strong>Transactions and Payments</strong><span>Payment history & receipts</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
         <button class="drawer-menu-item" data-nav="emergency">
-          <span class="drawer-menu-icon">${icon('phone')}</span>
+          <span class="drawer-menu-icon">${icon("phone")}</span>
           <div class="drawer-menu-text"><strong>Need Help</strong><span>24/7 Priority support hotline</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
+          <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
         <button class="drawer-menu-item drawer-logout-item" id="drawer-logout-btn">
-          <span class="drawer-menu-icon">${icon('cross')}</span>
+          <span class="drawer-menu-icon">${icon("cross")}</span>
           <div class="drawer-menu-text"><strong>Logout</strong><span>Sign out of Tatito Health+</span></div>
         </button>
       </div>
       <div class="drawer-footer-promo" data-nav="plans">
-        <div class="drawer-promo-icon">${icon('phone')}</div>
+        <div class="drawer-promo-icon">${icon("phone")}</div>
         <div class="drawer-promo-text">
           <strong>Download Tatito Health+ App</strong>
           <span>Enhance your healthcare journey 24/7</span>
