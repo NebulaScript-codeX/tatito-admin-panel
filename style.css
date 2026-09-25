@@ -260,6 +260,10 @@ em.editorial {
   width: 100%;
   min-height: 48px;
 
+  position: sticky;
+  top: 0;
+  z-index: 101;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -325,7 +329,7 @@ em.editorial {
 /* STICKY HEADER GROUP — Sticks both Site Header & Sub-Nav together at top: 0 */
 .sticky-header-group {
   position: sticky;
-  top: 0;
+  top: 48px;
   z-index: 100;
   background: rgba(229, 242, 235, 0.94);
   backdrop-filter: blur(20px);
