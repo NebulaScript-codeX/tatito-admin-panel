@@ -361,6 +361,13 @@ em.editorial {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
+@media (min-width: 1320px) {
+  .brand {
+    transform: translateX(calc((1320px - 100vw) / 2 - 60px));
+  }
+}
+
 .brand-mark {
   width: 40px;
   height: 40px;
