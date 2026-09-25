@@ -614,7 +614,7 @@ function bindHomeEvents(appRoot, ctx) {
   const mobileMenu = appRoot.querySelector("#home-mobile-menu");
   if (mobileMenu)
     mobileMenu.addEventListener("click", () =>
-      appRoot.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
+      document.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
     );
 
   // Instant Consult 24/7 button — lives in the sub-nav bar (below Register)

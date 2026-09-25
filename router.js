@@ -8,6 +8,16 @@ export let currentParams = {}
 const app = document.querySelector('#app')
 const listeners = { cartChange: [] }
 
+// Persistent, body-level home for the global site header. The header is
+// hoisted here after every render so it is ALWAYS a direct child of <body>
+// and never lives inside the routed #app content — no page wrapper, flex
+// container, or scroll container can ever capture or re-wrap it. It also
+// guarantees a single header instance across routes instead of one being
+// re-created inside each page's shell.
+const globalHeaderRoot = document.createElement('div')
+globalHeaderRoot.id = 'global-header'
+document.body.prepend(globalHeaderRoot)
+
 const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'doctor-profile', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
 
 // Routes restricted to a specific account role. Guards run for both direct
@@ -167,6 +177,13 @@ export function renderPage() {
   window.thpShowToast = ctx.showToast
   currentCtx = ctx
   render(app, ctx)
+  // Hoist the freshly rendered site header out of the routed content into
+  // the persistent global header root (a direct child of <body>). Pages
+  // without a site header render nothing here, clearing any stale pinned
+  // header from a previous route.
+  const headerGroup = app.querySelector('.sticky-header-group')
+  if (headerGroup) globalHeaderRoot.replaceChildren(headerGroup)
+  else globalHeaderRoot.replaceChildren()
   syncFixedHeader()
   if (window.thpInitChatbot) window.thpInitChatbot()
 }
@@ -180,7 +197,9 @@ export function renderPage() {
 // booking card's top offset.
 function syncFixedHeader() {
   const root = document.documentElement
-  const header = app.querySelector('.sticky-header-group')
+  const header =
+    globalHeaderRoot.querySelector('.sticky-header-group') ||
+    app.querySelector('.sticky-header-group')
   if (!header) {
     // No fixed site header on this page (auth pages, portals, doctor
     // workspace) — nothing to reserve; content flows from the top.

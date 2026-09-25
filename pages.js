@@ -146,7 +146,7 @@ export function bindNav(appRoot, ctx) {
   const mm = appRoot.querySelector("#page-mobile-menu");
   if (mm)
     mm.addEventListener("click", () =>
-      appRoot.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
+      document.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
     );
 
   // Instant Consult 24/7 button — now lives in the sub-nav bar (below Register)
