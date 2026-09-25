@@ -601,8 +601,10 @@ main#top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
+  justify-content: center;
+  align-content: center;
+  column-gap: 8px;
+  row-gap: 8px;
 }
 .sub-nav-inner a {
   white-space: nowrap;
@@ -3746,7 +3748,10 @@ main#top {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  margin-left: auto;
+  /* NO margin-left: auto — when pills wrap, an auto margin shoves this button
+     to the far right of its line, leaving a huge gap after Track Your Orders.
+     It now flows naturally right after the pills (same line when they fit,
+     compact centered line when they wrap). */
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
