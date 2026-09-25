@@ -7834,8 +7834,9 @@ main#top {
 
 /* Doctor profile and appointment workspace */
 .doctor-detail-wrap { padding-top: 22px; padding-bottom: 64px; }
-.doctor-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 430px); gap: 26px; align-items: start; }
-.doctor-detail-left { display: grid; gap: 22px; }
+.doctor-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 430px); gap: 26px; align-items: stretch; margin-top: 24px; }
+.doctor-detail-left { display: grid; gap: 22px; align-content: start; }
+.doctor-detail-right { display: flex; flex-direction: column; }
 .doctor-detail-card { position: relative; overflow: hidden; padding: 38px 44px 34px; border-radius: 22px; box-shadow: 0 18px 42px rgba(4, 62, 50, .2); }
 .doctor-detail-card::before { content: ''; position: absolute; width: 270px; height: 270px; top: -130px; right: -80px; border: 1px solid rgba(167, 243, 208, .2); border-radius: 50%; box-shadow: 0 0 0 28px rgba(167, 243, 208, .04), 0 0 0 58px rgba(167, 243, 208, .03); }
 .doctor-detail-card h1 { position: relative; margin: 8px 0 5px; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.04em; }
@@ -7886,6 +7887,12 @@ main#top {
 }
 .booking-section { position: sticky; top: calc(var(--thp-header-h, 0px) + 16px); padding: 24px; border: 1px solid var(--border-sage); border-radius: 18px; background: #fff; box-shadow: 0 16px 36px rgba(4, 62, 50, .1); }
 .booking-section h2 { margin: 0 0 15px; color: var(--primary-dark); }
+/* Doctor-detail booking card fills the full right column so it spans the whole
+   left column height (Doctor Profile + existing gap + About). Left cards keep
+   their natural content height (align-content: start). Scoped to the doctor
+   detail column — the lab-tests booking cards are unaffected. */
+.doctor-detail-right .booking-section { flex: 1 1 auto; display: flex; flex-direction: column; }
+.doctor-detail-right .booking-section > .full-button { margin-top: auto; }
 .booking-type { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; padding: 4px; border-radius: 11px; background: var(--mint-surface); }
 .booking-type-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border-radius: 8px; color: var(--text-muted); font-size: .72rem; font-weight: 800; }
 .booking-type-btn .icon { width: 16px; height: 16px; }
