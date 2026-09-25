@@ -8,7 +8,7 @@ export let currentParams = {}
 const app = document.querySelector('#app')
 const listeners = { cartChange: [] }
 
-const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
+const protectedPages = ['cart', 'checkout', 'dashboard', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
 
 function routeToUrl(page, params = {}) {
   const qs = new URLSearchParams()

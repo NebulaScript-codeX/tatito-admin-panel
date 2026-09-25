@@ -103,11 +103,6 @@ export function accountDrawerHTML() {
           <div class="drawer-menu-text"><strong>Transactions and Payments</strong><span>Payment history & receipts</span></div>
           <span class="drawer-menu-arrow">${icon('chevron')}</span>
         </button>
-        <button class="drawer-menu-item" data-nav="records">
-          <span class="drawer-menu-icon">${icon('shield')}</span>
-          <div class="drawer-menu-text"><strong>All Health Records</strong><span>Encrypted lab reports & Rx</span></div>
-          <span class="drawer-menu-arrow">${icon('chevron')}</span>
-        </button>
         <button class="drawer-menu-item" data-nav="emergency">
           <span class="drawer-menu-icon">${icon('phone')}</span>
           <div class="drawer-menu-text"><strong>Need Help</strong><span>24/7 Priority support hotline</span></div>
@@ -210,7 +205,6 @@ export function premiumFooter() {
           <a data-nav="doctors">Doctor Consultation</a>
           <a data-nav="pharmacy">Order Medicines</a>
           <a data-nav="labtests">Lab Tests & Scans</a>
-          <a data-nav="records">Health Records</a>
           <a data-nav="plans">Health Plans</a>
         </div>
         <div class="pf-links-col">

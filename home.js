@@ -45,9 +45,7 @@ function header(navigate, getCartCount) {
     { key: 'pharmacy', page: 'pharmacy' },
     { key: 'labTests', page: 'labtests' },
     { key: 'healthPlans', page: 'plans' },
-    { key: 'healthRecords', page: 'records' },
-    { key: 'internships', page: 'internships' },
-    { key: 'trackOrders', page: 'trackyourorders' }
+    { key: 'internships', page: 'internships' }
   ]
 
   const isAuth = isAuthenticated()
@@ -801,18 +799,6 @@ export function renderHome(appRoot, ctx) {
 
                   </div>
 
-                  <div class="hero-visual-foot">
-
-                    <button
-                      class="button button-small button-outline full-button"
-                      data-nav="records"
-                    >
-                      ${icon('shield')}
-                      ${t('viewHealthRecords')}
-                    </button>
-
-                  </div>
-
                 </div>
 
               </div>
@@ -929,26 +915,6 @@ export function renderHome(appRoot, ctx) {
 
                 <span>
                   ${t('ctMriRadiology')}
-                </span>
-              </div>
-            </button>
-
-
-            <button
-              class="quick-action-tile"
-              data-nav="records"
-            >
-              <span class="qa-icon qa-blue">
-                ${icon('shield')}
-              </span>
-
-              <div>
-                <strong>
-                  ${t('healthRecordsShort')}
-                </strong>
-
-                <span>
-                  ${t('encryptedHistory')}
                 </span>
               </div>
             </button>

@@ -13,9 +13,7 @@ export function sharedHeader(ctx, activeNav) {
     { label: t('pharmacy'), page: 'pharmacy' },
     { label: t('labTests'), page: 'labtests' },
     { label: t('healthPlans'), page: 'plans' },
-    { label: t('healthRecords'), page: 'records' },
-    { label: t('internships'), page: 'internships' },
-    { label: t('trackOrders'), page: 'trackyourorders' }
+    { label: t('internships'), page: 'internships' }
   ]
 
   const isAuth = isAuthenticated()
@@ -1641,16 +1639,6 @@ export function renderLabTests(appRoot, ctx) {
               <button class="button button-primary button-small">${icon("plus")} Upload Rx</button>
             </div>
 
-            <div class="action-card action-card-reports" id="view-reports-card">
-              <div class="action-card-left">
-                <div class="action-icon">${icon("shield")}</div>
-                <div>
-                  <h3>View Reports in My Orders</h3>
-                  <p>Access your past blood test results, smart graphs and health records.</p>
-                </div>
-              </div>
-              <button class="button button-outline button-small" data-nav="records">View Reports ${icon("arrow")}</button>
-            </div>
           </div>
         </section>
 
@@ -2585,60 +2573,6 @@ export function renderEmergency(appRoot, ctx) {
             <h3>Nearby Emergency Hospitals</h3>
             <div class="emergency-hospital-card"><div class="hospital-symbol">${icon("building")}</div><div><strong>Northshore Medical Center</strong><span>0.8 mi · Open 24/7</span><small>Emergency department available</small></div><button class="button button-small button-outline">Directions</button></div>
             <div class="emergency-hospital-card"><div class="hospital-symbol hospital-symbol-blue">${icon("building")}</div><div><strong>St. Clement Health</strong><span>1.4 mi · Open 24/7</span><small>Trauma center · ICU available</small></div><button class="button button-small button-outline">Directions</button></div>
-          </div>
-        </div>
-      </main>
-      ${sharedFooter(ctx)}
-      ${sharedMobileNav(ctx)}
-    </div>
-    <div class="toast" id="toast"><span class="toast-check">${icon("check")}</span><span id="toast-text">Saved</span></div>
-  `;
-  bindNav(appRoot, ctx);
-}
-
-// === Simple placeholder pages ===
-export function renderRecords(appRoot, ctx) {
-  const { navigate } = ctx;
-  appRoot.innerHTML = `
-    <div class="app-shell">
-      ${sharedHeader(ctx, "records")}
-      <main id="top" class="section-wrap records-page-wrap">
-        
-        <div class="records-hero-box">
-          <div class="rh-left">
-            <span class="eyebrow-tag">${icon("shield")} ENCRYPTED HEALTH VAULT</span>
-            <h1>Digital Health <em class="editorial">Records</em></h1>
-            <p>Your encrypted, organized medical history — lab reports, prescriptions, and immunizations stored securely.</p>
-          </div>
-          <div class="rh-right">
-            <span class="rh-security-pill">${icon("verified")} 256-Bit Encrypted · HIPAA Compliant</span>
-          </div>
-        </div>
-
-        <div class="records-grid">
-          <div class="record-type-card">
-            <div class="record-type-icon activity-mint">${icon("flask")}</div>
-            <strong>Lab Reports</strong>
-            <span>3 Reports Available</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Reports</button>
-          </div>
-          <div class="record-type-card">
-            <div class="record-type-icon activity-blue">${icon("file")}</div>
-            <strong>Prescriptions</strong>
-            <span>5 Saved Prescriptions</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Prescriptions</button>
-          </div>
-          <div class="record-type-card">
-            <div class="record-type-icon activity-peach">${icon("heart")}</div>
-            <strong>Vaccinations</strong>
-            <span>2 Immunization Records</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Immunizations</button>
-          </div>
-          <div class="record-type-card">
-            <div class="record-type-icon activity-mint">${icon("shield")}</div>
-            <strong>Allergies & Vitals</strong>
-            <span>1 Active Allergy Record</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Vitals</button>
           </div>
         </div>
       </main>

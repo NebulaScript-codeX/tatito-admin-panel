@@ -22,7 +22,6 @@ const translations = {
     healthPlans: 'Health Plans',
     healthRecords: 'Health Records',
     internships: 'Internships',
-    trackOrders: 'Track Your Orders',
 
     searchPlaceholder: 'Search doctors, medicines, lab tests, imaging...',
     homeSearchPlaceholder: 'Search doctors, medicines, lab tests, imaging, conditions...',
@@ -55,7 +54,6 @@ const translations = {
     verifiedSpecialists: 'Verified Specialists',
     authenticMedicines: 'Authentic Medicines',
     labReports: 'Lab Test Reports',
-    viewHealthRecords: 'View Encrypted Health Records',
 
     expressCare: '30-Min Express',
     expressGuarantee: '10-Hour Guarantee',
@@ -70,7 +68,6 @@ const translations = {
     snapOrder: 'Snap & Order',
     xrayImaging: 'X-Ray & Imaging',
     ctMriRadiology: 'CT, MRI & Radiology',
-    healthRecordsShort: 'Health Records',
     encryptedHistory: 'Encrypted History',
     healthPlansShort: 'Health Plans',
     familySubscriptions: 'Family Subscriptions',
@@ -195,7 +192,6 @@ const translations = {
     healthPlans: 'हेल्थ प्लान',
     healthRecords: 'हेल्थ रिकॉर्ड',
     internships: 'इंटर्नशिप',
-    trackOrders: 'अपने ऑर्डर ट्रैक करें',
 
     searchPlaceholder: 'डॉक्टर, दवाइयाँ, लैब टेस्ट, इमेजिंग खोजें...',
     homeSearchPlaceholder: 'डॉक्टर, दवाइयाँ, लैब टेस्ट, इमेजिंग, बीमारियाँ खोजें...',
@@ -228,7 +224,6 @@ const translations = {
     verifiedSpecialists: 'सत्यापित विशेषज्ञ',
     authenticMedicines: 'असली दवाइयाँ',
     labReports: 'लैब टेस्ट रिपोर्ट',
-    viewHealthRecords: 'एन्क्रिप्टेड स्वास्थ्य रिकॉर्ड देखें',
 
     expressCare: '30 मिनट एक्सप्रेस',
     expressGuarantee: '10 घंटे की गारंटी',
@@ -243,7 +238,6 @@ const translations = {
     snapOrder: 'फोटो लें और ऑर्डर करें',
     xrayImaging: 'एक्स-रे और इमेजिंग',
     ctMriRadiology: 'CT, MRI और रेडियोलॉजी',
-    healthRecordsShort: 'स्वास्थ्य रिकॉर्ड',
     encryptedHistory: 'एन्क्रिप्टेड हिस्ट्री',
     healthPlansShort: 'हेल्थ प्लान',
     familySubscriptions: 'फैमिली सब्सक्रिप्शन',
@@ -355,8 +349,6 @@ const translations = {
     labTests: 'ಲ್ಯಾಬ್ ಟೆಸ್ಟ್‌ಗಳು',
     healthPlans: 'ಆರೋಗ್ಯ ಯೋಜನೆಗಳು',
     healthRecords: 'ಆರೋಗ್ಯ ದಾಖಲೆಗಳು',
-    internships: 'ಇಂಟರ್ನ್‌ಶಿಪ್‌ಗಳು',
-    trackOrders: 'ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ',
 
     searchPlaceholder: 'ವೈದ್ಯರು, ಔಷಧಿಗಳು, ಲ್ಯಾಬ್ ಟೆಸ್ಟ್‌ಗಳು, ಇಮೇಜಿಂಗ್ ಹುಡುಕಿ...',
     homeSearchPlaceholder: 'ವೈದ್ಯರು, ಔಷಧಿಗಳು, ಲ್ಯಾಬ್ ಟೆಸ್ಟ್‌ಗಳು, ಇಮೇಜಿಂಗ್, ಕಾಯಿಲೆಗಳನ್ನು ಹುಡುಕಿ...',
@@ -389,7 +381,6 @@ const translations = {
     verifiedSpecialists: 'ಪರಿಶೀಲಿಸಿದ ತಜ್ಞರು',
     authenticMedicines: 'ಅಸಲಿ ಔಷಧಿಗಳು',
     labReports: 'ಲ್ಯಾಬ್ ಟೆಸ್ಟ್ ವರದಿಗಳು',
-    viewHealthRecords: 'ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿದ ಆರೋಗ್ಯ ದಾಖಲೆಗಳನ್ನು ನೋಡಿ',
 
     expressCare: '30 ನಿಮಿಷ ಎಕ್ಸ್‌ಪ್ರೆಸ್',
     expressGuarantee: '10 ಗಂಟೆಗಳ ಗ್ಯಾರಂಟಿ',
@@ -404,7 +395,6 @@ const translations = {
     snapOrder: 'ಫೋಟೋ ತೆಗೆದು ಆರ್ಡರ್ ಮಾಡಿ',
     xrayImaging: 'ಎಕ್ಸ್-ರೇ ಮತ್ತು ಇಮೇಜಿಂಗ್',
     ctMriRadiology: 'CT, MRI ಮತ್ತು ರೇಡಿಯಾಲಜಿ',
-    healthRecordsShort: 'ಆರೋಗ್ಯ ದಾಖಲೆಗಳು',
     encryptedHistory: 'ಎನ್‌ಕ್ರಿಪ್ಟ್ ಮಾಡಿದ ಇತಿಹಾಸ',
     healthPlansShort: 'ಆರೋಗ್ಯ ಯೋಜನೆಗಳು',
     familySubscriptions: 'ಕುಟುಂಬ ಸಬ್‌ಸ್ಕ್ರಿಪ್ಷನ್‌ಗಳು',
@@ -517,7 +507,6 @@ const translations = {
     healthPlans: 'சுகாதார திட்டங்கள்',
     healthRecords: 'சுகாதார பதிவுகள்',
     internships: 'இன்டர்ன்ஷிப்',
-    trackOrders: 'உங்கள் ஆர்டர்களை கண்காணிக்கவும்',
 
     searchPlaceholder: 'மருத்துவர்கள், மருந்துகள், ஆய்வக பரிசோதனைகள், இமேஜிங் தேடுங்கள்...',
     homeSearchPlaceholder: 'மருத்துவர்கள், மருந்துகள், ஆய்வக பரிசோதனைகள், இமேஜிங், நோய்களை தேடுங்கள்...',
@@ -550,7 +539,6 @@ const translations = {
     verifiedSpecialists: 'சரிபார்க்கப்பட்ட நிபுணர்கள்',
     authenticMedicines: 'உண்மையான மருந்துகள்',
     labReports: 'ஆய்வக அறிக்கைகள்',
-    viewHealthRecords: 'குறியாக்கப்பட்ட சுகாதார பதிவுகளை பார்க்கவும்',
 
     expressCare: '30 நிமிட எக்ஸ்பிரஸ்',
     expressGuarantee: '10 மணி நேர உத்தரவாதம்',
@@ -565,7 +553,6 @@ const translations = {
     snapOrder: 'புகைப்படம் எடுத்து ஆர்டர் செய்யவும்',
     xrayImaging: 'எக்ஸ்-ரே மற்றும் இமேஜிங்',
     ctMriRadiology: 'CT, MRI மற்றும் ரேடியாலஜி',
-    healthRecordsShort: 'சுகாதார பதிவுகள்',
     encryptedHistory: 'குறியாக்கப்பட்ட வரலாறு',
     healthPlansShort: 'சுகாதார திட்டங்கள்',
     familySubscriptions: 'குடும்ப சந்தாக்கள்',
@@ -678,7 +665,6 @@ const translations = {
     healthPlans: 'ఆరోగ్య ప్రణాళికలు',
     healthRecords: 'ఆరోగ్య రికార్డులు',
     internships: 'ఇంటర్న్‌షిప్‌లు',
-    trackOrders: 'మీ ఆర్డర్‌లను ట్రాక్ చేయండి',
 
     searchPlaceholder: 'వైద్యులు, మందులు, ల్యాబ్ పరీక్షలు, ఇమేజింగ్ కోసం శోధించండి...',
     homeSearchPlaceholder: 'వైద్యులు, మందులు, ల్యాబ్ పరీక్షలు, ఇమేజింగ్, వ్యాధుల కోసం శోధించండి...',
@@ -711,7 +697,6 @@ const translations = {
     verifiedSpecialists: 'ధృవీకరించిన నిపుణులు',
     authenticMedicines: 'అసలైన మందులు',
     labReports: 'ల్యాబ్ పరీక్ష నివేదికలు',
-    viewHealthRecords: 'ఎన్‌క్రిప్ట్ చేసిన ఆరోగ్య రికార్డులను చూడండి',
 
     expressCare: '30 నిమిషాల ఎక్స్‌ప్రెస్',
     expressGuarantee: '10 గంటల గ్యారంటీ',
@@ -726,7 +711,6 @@ const translations = {
     snapOrder: 'ఫోటో తీసి ఆర్డర్ చేయండి',
     xrayImaging: 'ఎక్స్-రే మరియు ఇమేజింగ్',
     ctMriRadiology: 'CT, MRI మరియు రేడియాలజీ',
-    healthRecordsShort: 'ఆరోగ్య రికార్డులు',
     encryptedHistory: 'ఎన్‌క్రిప్ట్ చేసిన చరిత్ర',
     healthPlansShort: 'ఆరోగ్య ప్రణాళికలు',
     familySubscriptions: 'కుటుంబ సబ్‌స్క్రిప్షన్‌లు',
@@ -839,7 +823,6 @@ const translations = {
     healthPlans: 'ആരോഗ്യ പദ്ധതികൾ',
     healthRecords: 'ആരോഗ്യ രേഖകൾ',
     internships: 'ഇന്റേൺഷിപ്പുകൾ',
-    trackOrders: 'നിങ്ങളുടെ ഓർഡറുകൾ ട്രാക്ക് ചെയ്യുക',
 
     searchPlaceholder: 'ഡോക്ടർമാർ, മരുന്നുകൾ, ലാബ് പരിശോധനകൾ, ഇമേജിംഗ് തിരയുക...',
     homeSearchPlaceholder: 'ഡോക്ടർമാർ, മരുന്നുകൾ, ലാബ് പരിശോധനകൾ, ഇമേജിംഗ്, രോഗങ്ങൾ തിരയുക...',
@@ -872,7 +855,6 @@ const translations = {
     verifiedSpecialists: 'പരിശോധിച്ച വിദഗ്ധർ',
     authenticMedicines: 'യഥാർത്ഥ മരുന്നുകൾ',
     labReports: 'ലാബ് പരിശോധനാ റിപ്പോർട്ടുകൾ',
-    viewHealthRecords: 'എൻക്രിപ്റ്റ് ചെയ്ത ആരോഗ്യ രേഖകൾ കാണുക',
 
     expressCare: '30 മിനിറ്റ് എക്സ്പ്രസ്',
     expressGuarantee: '10 മണിക്കൂർ ഗ്യാരണ്ടി',
@@ -887,7 +869,6 @@ const translations = {
     snapOrder: 'ഫോട്ടോ എടുത്ത് ഓർഡർ ചെയ്യുക',
     xrayImaging: 'എക്സ്-റേ & ഇമേജിംഗ്',
     ctMriRadiology: 'CT, MRI & റേഡിയോളജി',
-    healthRecordsShort: 'ആരോഗ്യ രേഖകൾ',
     encryptedHistory: 'എൻക്രിപ്റ്റ് ചെയ്ത ചരിത്രം',
     healthPlansShort: 'ആരോഗ്യ പദ്ധതികൾ',
     familySubscriptions: 'കുടുംബ സബ്സ്ക്രിപ്ഷനുകൾ',
@@ -1000,7 +981,7 @@ const translations = {
     healthPlans: 'आरोग्य योजना',
     healthRecords: 'आरोग्य नोंदी',
     internships: 'इंटर्नशिप',
-    trackOrders: 'तुमच्या ऑर्डर्स ट्रॅक करा',
+
 
     searchPlaceholder: 'डॉक्टर, औषधे, लॅब टेस्ट, इमेजिंग शोधा...',
     homeSearchPlaceholder: 'डॉक्टर, औषधे, लॅब टेस्ट, इमेजिंग, आजार शोधा...',
@@ -1033,7 +1014,6 @@ const translations = {
     verifiedSpecialists: 'सत्यापित तज्ज्ञ',
     authenticMedicines: 'अस्सल औषधे',
     labReports: 'लॅब टेस्ट रिपोर्ट',
-    viewHealthRecords: 'एन्क्रिप्टेड आरोग्य नोंदी पहा',
 
     expressCare: '30 मिनिट एक्सप्रेस',
     expressGuarantee: '10 तासांची हमी',
@@ -1048,7 +1028,6 @@ const translations = {
     snapOrder: 'फोटो काढा आणि ऑर्डर करा',
     xrayImaging: 'एक्स-रे आणि इमेजिंग',
     ctMriRadiology: 'CT, MRI आणि रेडिओलॉजी',
-    healthRecordsShort: 'आरोग्य नोंदी',
     encryptedHistory: 'एन्क्रिप्टेड इतिहास',
     healthPlansShort: 'आरोग्य योजना',
     familySubscriptions: 'कुटुंब सदस्यता',
@@ -1161,7 +1140,6 @@ const translations = {
     healthPlans: 'স্বাস্থ্য পরিকল্পনা',
     healthRecords: 'স্বাস্থ্য রেকর্ড',
     internships: 'ইন্টার্নশিপ',
-    trackOrders: 'আপনার অর্ডার ট্র্যাক করুন',
 
     searchPlaceholder: 'ডাক্তার, ওষুধ, ল্যাব টেস্ট, ইমেজিং খুঁজুন...',
     homeSearchPlaceholder: 'ডাক্তার, ওষুধ, ল্যাব টেস্ট, ইমেজিং, রোগ খুঁজুন...',
@@ -1194,7 +1172,6 @@ const translations = {
     verifiedSpecialists: 'যাচাইকৃত বিশেষজ্ঞ',
     authenticMedicines: 'আসল ওষুধ',
     labReports: 'ল্যাব টেস্ট রিপোর্ট',
-    viewHealthRecords: 'এনক্রিপ্ট করা স্বাস্থ্য রেকর্ড দেখুন',
 
     expressCare: '30 মিনিট এক্সপ্রেস',
     expressGuarantee: '10 ঘণ্টার গ্যারান্টি',
@@ -1208,8 +1185,6 @@ const translations = {
     uploadRx: 'প্রেসক্রিপশন আপলোড করুন',
     snapOrder: 'ছবি তুলে অর্ডার করুন',
     xrayImaging: 'এক্স-রে এবং ইমেজিং',
-    ctMriRadiology: 'CT, MRI এবং রেডিওলজি',
-    healthRecordsShort: 'স্বাস্থ্য রেকর্ড',
     encryptedHistory: 'এনক্রিপ্ট করা ইতিহাস',
     healthPlansShort: 'স্বাস্থ্য পরিকল্পনা',
     familySubscriptions: 'পারিবারিক সাবস্ক্রিপশন',
