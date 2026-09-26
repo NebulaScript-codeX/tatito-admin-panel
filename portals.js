@@ -2,8 +2,8 @@ import { icon } from './ui.js'
 
 const portalDetails = {
   user: ['User portal', 'Book appointments, manage prescriptions, and track health.'],
-  hospital: ['Hospital portal', 'Coordinate care teams, admissions, and patient handoffs.'],
   doctor: ['Doctor portal', 'Manage consultations, prescriptions, and follow-ups.'],
+  hospital: ['Hospital portal', 'Coordinate care teams, admissions, and patient handoffs.'],
   clinic: ['Clinic portal', 'Keep appointments, staff, and patient records moving.'],
   diagnostic: ['Diagnostic portal', 'Track test bookings, samples, and reports.'],
   pharmacy: ['Pharmacy portal', 'Process prescriptions and fulfil medicine orders.']
@@ -11,8 +11,8 @@ const portalDetails = {
 
 export const portalOptions = [
   { value: 'user', label: 'User', icon: 'user', detail: 'Care & consultations' },
-  { value: 'hospital', label: 'Hospital', icon: 'building', detail: 'Care teams & admissions' },
   { value: 'doctor', label: 'Doctor', icon: 'stethoscope', detail: 'Consultations & patients' },
+  { value: 'hospital', label: 'Hospital', icon: 'building', detail: 'Care teams & admissions' },
   { value: 'clinic', label: 'Clinic', icon: 'home', detail: 'Appointments & staff' },
   { value: 'diagnostic', label: 'Diagnostics', icon: 'flask', detail: 'Tests & reports' },
   { value: 'pharmacy', label: 'Pharmacy', icon: 'pills', detail: 'Prescriptions & orders' }
@@ -20,11 +20,19 @@ export const portalOptions = [
 
 export const portalRegistrationFields = {
   hospital: [
-    ['name', 'Contact person', 'text', 'Full name'],
-    ['organisation', 'Hospital name', 'text', 'Registered hospital name'],
-    ['registrationId', 'Hospital registration ID', 'text', 'Enter registration ID'],
-    ['email', 'Official email', 'email', 'admin@hospital.com'],
-    ['password', 'Create password', 'password', 'At least 8 characters']
+    ['name', 'Medical Superintendent / Signatory', 'text', 'Full name'],
+    ['organisation', 'Hospital Registered Name', 'text', 'Registered hospital name'],
+    ['email', 'Official Hospital Email', 'email', 'admin@hospital.com'],
+    ['phone', 'Emergency Helpline / Mobile', 'tel', '10-digit phone number'],
+    ['password', 'Create password', 'password', 'At least 8 characters'],
+    ['confirmPassword', 'Confirm password', 'password', 'Re-enter password'],
+    ['hospitalCategory', 'Hospital Category', 'select', 'Select Category'],
+    ['bedCapacity', 'Total Bed Capacity', 'number', 'Total beds'],
+    ['ceaNumber', 'CEA Registration No.', 'text', 'State CEA / Health Dept. ID'],
+    ['address', 'Campus Address', 'text', 'Campus address'],
+    ['profilePhoto', 'Superintendent Profile Photo', 'file-image', 'Click to upload photo'],
+    ['logo', 'Hospital Logo', 'file-image', 'Click to upload logo'],
+    ['licenseCertificate', 'Registration Certificate', 'file', 'Click to upload certificate']
   ],
   doctor: [
     ['name', 'Doctor name', 'text', 'Full name'],
@@ -34,25 +42,46 @@ export const portalRegistrationFields = {
     ['password', 'Create password', 'password', 'At least 8 characters']
   ],
   clinic: [
-    ['name', 'Contact person', 'text', 'Full name'],
-    ['organisation', 'Clinic name', 'text', 'Registered clinic name'],
-    ['city', 'Clinic city', 'text', 'Enter city'],
-    ['email', 'Official email', 'email', 'admin@clinic.com'],
-    ['password', 'Create password', 'password', 'At least 8 characters']
+    ['name', 'Clinic Admin / Contact Person', 'text', 'Full name'],
+    ['organisation', 'Registered Clinic Name', 'text', 'Registered clinic name'],
+    ['email', 'Official Email', 'email', 'admin@clinic.com'],
+    ['phone', 'Mobile Number', 'tel', '10-digit mobile number'],
+    ['password', 'Create password', 'password', 'At least 8 characters'],
+    ['confirmPassword', 'Confirm password', 'password', 'Re-enter password'],
+    ['clinicType', 'Clinic Type', 'select', 'Select Type'],
+    ['ceaNumber', 'Clinic CEA / License No.', 'text', 'Enter license number'],
+    ['address', 'Clinic Address', 'text', 'Street address'],
+    ['profilePhoto', 'Admin Profile Photo', 'file-image', 'Click to upload photo'],
+    ['logo', 'Clinic Logo', 'file-image', 'Click to upload logo'],
+    ['licenseCertificate', 'Registration Certificate', 'file', 'Click to upload certificate']
   ],
   diagnostic: [
     ['name', 'Contact person', 'text', 'Full name'],
     ['organisation', 'Diagnostic centre name', 'text', 'Registered centre name'],
-    ['accreditation', 'Accreditation number', 'text', 'Enter accreditation ID'],
     ['email', 'Official email', 'email', 'admin@diagnostics.com'],
-    ['password', 'Create password', 'password', 'At least 8 characters']
+    ['phone', 'Mobile number', 'tel', '10-digit mobile number'],
+    ['password', 'Create password', 'password', 'At least 8 characters'],
+    ['confirmPassword', 'Confirm password', 'password', 'Re-enter password'],
+    ['accreditation', 'Accreditation number', 'text', 'Enter accreditation ID'],
+    ['address', 'Street Address', 'text', 'Street address'],
+    ['profilePhoto', 'Profile photo', 'file-image', 'Click to upload profile photo'],
+    ['logo', 'Centre logo', 'file-image', 'Click to upload centre logo'],
+    ['licenseCertificate', 'License certificate', 'file', 'Click to upload license certificate']
   ],
   pharmacy: [
-    ['name', 'Pharmacist name', 'text', 'Full name'],
-    ['organisation', 'Pharmacy name', 'text', 'Registered pharmacy name'],
-    ['license', 'Pharmacy license number', 'text', 'Enter license number'],
-    ['email', 'Official email', 'email', 'admin@pharmacy.com'],
-    ['password', 'Create password', 'password', 'At least 8 characters']
+    ['name', 'Contact Person / Registered Pharmacist', 'text', 'Full name of pharmacist or in-charge'],
+    ['organisation', 'Registered Pharmacy Name', 'text', 'Official registered medical store name'],
+    ['email', 'Official Email', 'email', 'admin@pharmacy.com'],
+    ['phone', 'Mobile Number', 'tel', '10-digit mobile number'],
+    ['password', 'Create password', 'password', 'At least 8 characters'],
+    ['confirmPassword', 'Confirm password', 'password', 'Re-enter password'],
+    ['pharmacyType', 'Pharmacy Type', 'select', 'Select Type'],
+    ['drugLicenseNumber', 'Drug License No. (Form 20/21)', 'text', 'State Drug Control License No.'],
+    ['councilRegNumber', 'Pharmacist Council Reg. No.', 'text', 'State Pharmacy Council Reg No.'],
+    ['address', 'Pharmacy Address', 'text', 'Street address'],
+    ['profilePhoto', 'Pharmacist Profile Photo', 'file-image', 'Click to upload photo'],
+    ['logo', 'Pharmacy Storefront / Logo', 'file-image', 'Click to upload logo'],
+    ['licenseCertificate', 'Drug License Certificate', 'file', 'Click to upload certificate']
   ]
 }
 
