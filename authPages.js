@@ -45,7 +45,9 @@ export function validatePasswordRules(password) {
   return ''
 }
 
-function diagnosticRegistrationMarkup(values = {}) {
+const indianStates = Object.keys(indianStatesAndDistricts).sort()
+
+function diagnosticStage1Markup(values = {}) {
   const photoLabel = (values.profilePhoto && values.profilePhoto.name) ? values.profilePhoto.name : 'Click to upload profile photo'
   const logoLabel = (values.logo && values.logo.name) ? values.logo.name : 'Click to upload centre logo'
   const licenseLabel = (values.licenseCertificate && values.licenseCertificate.name) ? values.licenseCertificate.name : 'Click to upload license certificate'
@@ -56,16 +58,16 @@ function diagnosticRegistrationMarkup(values = {}) {
   return `
     <div class="doctor-stage-fields diagnostic-stage-fields">
       <div>
-        <label for="diagnostic-name">CONTACT PERSON *</label>
-        <input class="auth-text-input" id="diagnostic-name" name="name" type="text" autocomplete="name" value="${values.name || ''}" placeholder="Full name" required>
+        <label for="diagnostic-name">CONTACT PERSON / LAB IN-CHARGE *</label>
+        <input class="auth-text-input" id="diagnostic-name" name="name" type="text" autocomplete="name" value="${escapeHtml(values.name || '')}" placeholder="Full name of authorized person" required>
       </div>
       <div>
         <label for="diagnostic-organisation">DIAGNOSTIC CENTRE NAME *</label>
-        <input class="auth-text-input" id="diagnostic-organisation" name="organisation" type="text" value="${values.organisation || ''}" placeholder="Registered centre name" required>
+        <input class="auth-text-input" id="diagnostic-organisation" name="organisation" type="text" value="${escapeHtml(values.organisation || '')}" placeholder="Registered centre name" required>
       </div>
       <div>
         <label for="diagnostic-email">OFFICIAL EMAIL *</label>
-        <input class="auth-text-input" id="diagnostic-email" name="email" type="email" autocomplete="email" value="${values.email || ''}" placeholder="admin@diagnostics.com" required>
+        <input class="auth-text-input" id="diagnostic-email" name="email" type="email" autocomplete="email" value="${escapeHtml(values.email || '')}" placeholder="admin@diagnostics.com" required>
       </div>
       <div class="doctor-phone-field-wrapper">
         <label for="diagnostic-phone">MOBILE NUMBER *</label>
@@ -77,14 +79,14 @@ function diagnosticRegistrationMarkup(values = {}) {
               </option>
             `).join('')}
           </select>
-          <input class="auth-text-input doctor-phone-number-input" id="diagnostic-phone" name="phone" type="tel" inputmode="numeric" value="${values.phone || values.mobile || ''}" placeholder="${digits}-digit mobile number" maxlength="${digits}" pattern="[0-9]{${digits}}" required>
+          <input class="auth-text-input doctor-phone-number-input" id="diagnostic-phone" name="phone" type="tel" inputmode="numeric" value="${escapeHtml(values.phone || values.mobile || '')}" placeholder="${digits}-digit mobile number" maxlength="${digits}" pattern="[0-9]{${digits}}" required>
         </div>
         <small class="doctor-field-desc doctor-phone-hint" id="diagnostic-phone-hint">Enter ${digits} digits for ${country.name}</small>
       </div>
       <div>
         <label for="diagnostic-password">PASSWORD *</label>
         <div class="auth-password-wrapper">
-          <input class="auth-text-input auth-password-input" id="diagnostic-password" name="password" type="password" autocomplete="new-password" minlength="8" value="${values.password || ''}" placeholder="Min 8 characters" required>
+          <input class="auth-text-input auth-password-input" id="diagnostic-password" name="password" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.password || '')}" placeholder="Min 8 characters" required>
           <button type="button" class="auth-password-toggle" data-toggle-target="diagnostic-password" aria-label="Show password" title="Show password" tabindex="-1">
             ${icon('eye')}
           </button>
@@ -94,22 +96,23 @@ function diagnosticRegistrationMarkup(values = {}) {
       <div>
         <label for="diagnostic-confirmPassword">CONFIRM PASSWORD *</label>
         <div class="auth-password-wrapper">
-          <input class="auth-text-input auth-password-input" id="diagnostic-confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" value="${values.confirmPassword || ''}" placeholder="Re-enter password" required>
+          <input class="auth-text-input auth-password-input" id="diagnostic-confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.confirmPassword || '')}" placeholder="Re-enter password" required>
           <button type="button" class="auth-password-toggle" data-toggle-target="diagnostic-confirmPassword" aria-label="Show password" title="Show password" tabindex="-1">
             ${icon('eye')}
           </button>
         </div>
       </div>
+
       <div>
         <label for="diagnostic-accreditation">ACCREDITATION / REGISTRATION NO. *</label>
-        <input class="auth-text-input" id="diagnostic-accreditation" name="accreditation" type="text" value="${values.accreditation || ''}" placeholder="e.g. NABL / ISO / State registration ID" required>
+        <input class="auth-text-input" id="diagnostic-accreditation" name="accreditation" type="text" value="${escapeHtml(values.accreditation || '')}" placeholder="NABL / ISO / State Clinical Establishment ID" required>
       </div>
       <div class="doctor-upload-field">
         <label for="diagnostic-photo">PROFILE PHOTO *</label>
         <label class="doctor-upload-control" for="diagnostic-photo">
           ${icon('plus')}
           <span class="upload-btn-label doctor-upload-label-text">${photoLabel}</span>
-          <small>JPG or PNG · Max 5MB</small>
+          <small>JPG or PNG · Max 10MB</small>
         </label>
         <input id="diagnostic-photo" name="profilePhoto" type="file" accept=".jpg,.jpeg,.png" ${values.profilePhoto ? '' : 'required'}>
       </div>
@@ -118,7 +121,7 @@ function diagnosticRegistrationMarkup(values = {}) {
         <label class="doctor-upload-control" for="diagnostic-logo">
           ${icon('plus')}
           <span class="upload-btn-label doctor-upload-label-text">${logoLabel}</span>
-          <small>JPG or PNG · Max 5MB</small>
+          <small>JPG or PNG · Max 10MB</small>
         </label>
         <input id="diagnostic-logo" name="logo" type="file" accept=".jpg,.jpeg,.png" ${values.logo ? '' : 'required'}>
       </div>
@@ -127,7 +130,7 @@ function diagnosticRegistrationMarkup(values = {}) {
         <label class="doctor-upload-control" for="diagnostic-license">
           ${icon('plus')}
           <span class="upload-btn-label doctor-upload-label-text">${licenseLabel}</span>
-          <small>JPG, PNG, PDF · Max 5MB</small>
+          <small>JPG, PNG, PDF · Max 10MB</small>
         </label>
         <input id="diagnostic-license" name="licenseCertificate" type="file" accept=".jpg,.jpeg,.png,.pdf" ${values.licenseCertificate ? '' : 'required'}>
       </div>
@@ -135,23 +138,1178 @@ function diagnosticRegistrationMarkup(values = {}) {
   `
 }
 
-function setupDiagnosticFieldEvents(form) {
-  form.querySelectorAll('.diagnostic-stage-fields input[type="file"]').forEach(input => {
+function diagnosticStage2Markup(values = {}) {
+  const selectedState = values.state || ''
+  const availableDistricts = selectedState ? (indianStatesAndDistricts[selectedState] || []) : []
+  const selectedDistrict = values.district || ''
+  const availableCities = selectedDistrict ? getCitiesForDistrict(selectedDistrict) : []
+  const selectedCity = values.city || ''
+
+  const currentServices = Array.isArray(values.services) 
+    ? values.services 
+    : (typeof values.services === 'string' ? values.services.split(',').map(s => s.trim()).filter(Boolean) : [])
+
+  const servicesList = [
+    'Pathology (Blood & Urine)',
+    'Radiology (X-Ray, Ultrasound)',
+    'Advanced Imaging (CT, MRI)',
+    'ECG & Cardiology Diagnostics',
+    'Molecular Diagnostics & Genomics',
+    'Preventive Health Checkups',
+    'Biochemistry & Immunoassay',
+    'Microbiology & Serology',
+    'Histopathology & Cytopathology',
+    'Nuclear Medicine / PET Scan'
+  ]
+
+  const isDaySelected = (d) => {
+    if (!values.workingDays) return false
+    if (Array.isArray(values.workingDays)) return values.workingDays.includes(d)
+    return String(values.workingDays).includes(d)
+  }
+
+  return `
+    <div class="doctor-stage-fields diagnostic-stage-fields">
+      <div class="portal-section-header">Diagnostic Services & Operations</div>
+      <div>
+        <label for="select-diagnosticServices">DIAGNOSTIC SERVICES OFFERED *</label>
+        <div class="doctor-multi-select-wrap">
+          <select class="auth-text-input doctor-chip-select" id="select-diagnosticServices" data-field="diagnosticServices">
+            <option value="">Select diagnostic service...</option>
+            ${servicesList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+            <option value="Other">Other (Specify custom service)</option>
+          </select>
+        </div>
+        <div class="doctor-chips-container" id="chips-diagnosticServices" style="${currentServices.length ? 'display: flex;' : 'display: none;'}">
+          ${currentServices.map(s => `
+            <span class="doctor-chip">
+              <span>${escapeHtml(s)}</span>
+              <button type="button" class="doctor-chip-remove" data-field="diagnosticServices" data-val="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}">&times;</button>
+            </span>
+          `).join('')}
+        </div>
+        <div class="doctor-chip-other-input-wrap" id="other-wrap-diagnosticServices" style="display: none;">
+          <input type="text" class="auth-text-input" id="other-input-diagnosticServices" placeholder="Specify diagnostic service and click Add" maxlength="60">
+          <button type="button" class="button button-primary doctor-chip-other-btn" data-field="diagnosticServices">Add</button>
+        </div>
+        <input type="hidden" id="hidden-diagnosticServices" name="services" value="${escapeHtml(currentServices.join(', '))}">
+      </div>
+
+      <div>
+        <label for="diagnostic-homeCollection">HOME SAMPLE COLLECTION *</label>
+        <select class="auth-text-input" id="diagnostic-homeCollection" name="homeCollection" required>
+          <option value="" ${!values.homeCollection ? 'selected' : ''}>Select option</option>
+          <option value="Yes" ${values.homeCollection === 'Yes' ? 'selected' : ''}>Yes — Home collection available</option>
+          <option value="No" ${values.homeCollection === 'No' ? 'selected' : ''}>No — Centre walk-ins only</option>
+        </select>
+      </div>
+
+      <div class="portal-field-full">
+        <div class="doctor-option-group">
+          <label class="doctor-field-title">WORKING DAYS *</label>
+          <div class="doctor-pills-grid">
+            ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `
+              <label class="doctor-pill-checkbox ${isDaySelected(day) ? 'is-checked' : ''}">
+                <input type="checkbox" name="workingDays" value="${day}" ${isDaySelected(day) ? 'checked' : ''}>
+                <span class="pill-checkbox-indicator"></span>
+                <span>${day}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="diagnostic-workingHoursFrom">OPERATING HOURS – FROM *</label>
+        <input class="auth-text-input" id="diagnostic-workingHoursFrom" name="workingHoursFrom" type="time" value="${values.workingHoursFrom || '08:00'}" required>
+      </div>
+      <div>
+        <label for="diagnostic-workingHoursTo">OPERATING HOURS – TO *</label>
+        <input class="auth-text-input" id="diagnostic-workingHoursTo" name="workingHoursTo" type="time" value="${values.workingHoursTo || '20:00'}" required>
+      </div>
+
+      <div class="portal-section-header">Location Details</div>
+      <div class="portal-field-full">
+        <label for="diagnostic-address">STREET ADDRESS / LANDMARK *</label>
+        <input class="auth-text-input" id="diagnostic-address" name="address" type="text" value="${escapeHtml(values.address || '')}" placeholder="Door / Plot no., Street, Landmark" required>
+      </div>
+      <div>
+        <label for="diagnostic-state">STATE *</label>
+        <select class="auth-text-input" id="diagnostic-state" name="state" required>
+          <option value="">Select State</option>
+          ${indianStates.map(st => `<option value="${st}" ${selectedState === st ? 'selected' : ''}>${st}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="diagnostic-district">DISTRICT *</label>
+        <select class="auth-text-input" id="diagnostic-district" name="district" required ${availableDistricts.length ? '' : 'disabled'}>
+          <option value="">Select District</option>
+          ${availableDistricts.map(d => `<option value="${d}" ${selectedDistrict === d ? 'selected' : ''}>${d}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="diagnostic-city">CITY / TOWN *</label>
+        <select class="auth-text-input" id="diagnostic-city" name="city" required ${availableCities.length ? '' : 'disabled'}>
+          <option value="">Select City / Town</option>
+          ${availableCities.map(c => `<option value="${c}" ${selectedCity === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="diagnostic-pincode">PINCODE *</label>
+        <input class="auth-text-input" id="diagnostic-pincode" name="pincode" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" value="${escapeHtml(values.pincode || '')}" placeholder="6-digit Pincode" required>
+      </div>
+    </div>
+  `
+}
+
+function diagnosticRegistrationMarkup(values = {}) {
+  return diagnosticStage1Markup(values)
+}
+
+function portalVerificationStageMarkup(email, code = '') {
+  return `
+    <div class="doctor-stage-fields portal-verification-fields" style="grid-template-columns: 1fr;">
+      <div class="portal-field-full" style="text-align: center; max-width: 440px; margin: 0 auto; width: 100%;">
+        <label for="popup-verification-code" style="font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; display: block;">VERIFICATION CODE *</label>
+        <input class="auth-text-input auth-code-input" id="popup-verification-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" pattern="[0-9]{6}" value="${escapeHtml(code || '')}" required style="text-align: center; letter-spacing: 0.35em; font-size: 1.5rem; font-weight: 800; height: 52px; width: 100%;">
+      </div>
+    </div>
+  `
+}
+
+function setDiagnosticStage(registerPopup, form, stage, values, ctx) {
+  form.dataset.portal = 'diagnostic'
+  form.dataset.stage = String(stage)
+  form._diagnosticValues = { ...form._diagnosticValues, ...values }
+
+  const stepper = registerPopup.querySelector('.auth-register-stepper')
+  if (stepper) {
+    stepper.style.display = 'flex'
+    stepper.innerHTML = `
+      <span class="${stage === 1 ? 'is-active' : 'is-complete'}">${stage > 1 ? icon('check') : '1'} <small>Details</small></span>
+      <i></i>
+      <span class="${stage === 2 ? 'is-active' : (stage > 2 ? 'is-complete' : '')}">${stage > 2 ? icon('check') : '2'} <small>Verify</small></span>
+      <i></i>
+      <span class="${stage === 3 ? 'is-active' : ''}">3 <small>Services & Location</small></span>
+    `
+  }
+
+  const headingEl = registerPopup.querySelector('.auth-form-heading h2')
+  const subEl = registerPopup.querySelector('.auth-form-heading p')
+  const kickerEl = registerPopup.querySelector('.auth-form-kicker')
+  if (kickerEl) kickerEl.textContent = 'Diagnostics registration'
+
+  const regFields = registerPopup.querySelector('.auth-register-fields')
+  const actionsBar = form.querySelector('.auth-stage-actions')
+  const backBtn = actionsBar?.querySelector('.auth-stage-back')
+  const submitBtn = actionsBar?.querySelector('.auth-submit')
+  if (actionsBar) actionsBar.style.display = 'flex'
+
+  if (stage === 1) {
+    if (headingEl) headingEl.textContent = 'Diagnostics registration details'
+    if (subEl) subEl.textContent = 'Add the details needed to verify your diagnostic centre.'
+    if (submitBtn) submitBtn.innerHTML = `Continue to next stage ${icon('arrow')}`
+    regFields.innerHTML = diagnosticStage1Markup(form._diagnosticValues || {})
+    setupPortalFieldEvents(form, 'diagnostic', ctx)
+    if (backBtn) {
+      backBtn.setAttribute('data-portal-back', '')
+      backBtn.innerHTML = `${icon('chevron')} Portals`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openAuthModal('register', ctx)
+      }
+    }
+  } else if (stage === 2) {
+    if (headingEl) headingEl.textContent = 'Verify your account'
+    if (subEl) subEl.textContent = 'Enter the 6-digit code sent to your official email address.'
+    if (submitBtn) submitBtn.innerHTML = `Verify & Continue ${icon('arrow')}`
+    regFields.innerHTML = portalVerificationStageMarkup(form._diagnosticValues?.email, form._diagnosticValues?.code)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const codeInput = form.querySelector('#popup-verification-code')
+        if (codeInput) form._diagnosticValues.code = codeInput.value
+        setDiagnosticStage(registerPopup, form, 1, form._diagnosticValues, ctx)
+      }
+    }
+  } else if (stage === 3) {
+    if (headingEl) headingEl.textContent = 'Services & Location'
+    if (subEl) subEl.textContent = 'Specify diagnostic services, operating schedule, and centre location.'
+    if (submitBtn) submitBtn.innerHTML = `Complete registration ${icon('check')}`
+    regFields.innerHTML = diagnosticStage2Markup(form._diagnosticValues || {})
+    setupPortalFieldEvents(form, 'diagnostic', ctx)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const currentData = Object.fromEntries(new FormData(form))
+        const selectedDays = Array.from(form.querySelectorAll('input[name="workingDays"]:checked')).map(cb => cb.value)
+        const hiddenServicesVal = form.querySelector('#hidden-diagnosticServices')?.value || ''
+        const selectedServices = hiddenServicesVal.split(',').map(s => s.trim()).filter(Boolean)
+        form._diagnosticValues = { 
+          ...form._diagnosticValues, 
+          ...currentData, 
+          services: selectedServices,
+          workingDays: selectedDays
+        }
+        setDiagnosticStage(registerPopup, form, 2, form._diagnosticValues, ctx)
+      }
+    }
+  }
+
+  registerPopup.scrollTop = 0
+}
+
+function clinicStage1Markup(values = {}) {
+  const photoLabel = (values.profilePhoto && values.profilePhoto.name) ? values.profilePhoto.name : 'Click to upload admin profile photo'
+  const logoLabel = (values.logo && values.logo.name) ? values.logo.name : 'Click to upload clinic logo'
+  const selectedCode = values.phoneCountryCode || '+91'
+  const country = getCountryByCode(selectedCode)
+  const digits = country.digits
+
+  return `
+    <div class="doctor-stage-fields clinic-stage-fields">
+      <div>
+        <label for="clinic-name">CONTACT PERSON / CLINIC ADMIN *</label>
+        <input class="auth-text-input" id="clinic-name" name="name" type="text" autocomplete="name" value="${escapeHtml(values.name || '')}" placeholder="Full name of doctor or administrator" required>
+      </div>
+      <div>
+        <label for="clinic-organisation">REGISTERED CLINIC NAME *</label>
+        <input class="auth-text-input" id="clinic-organisation" name="organisation" type="text" value="${escapeHtml(values.organisation || '')}" placeholder="Official registered clinic name" required>
+      </div>
+      <div>
+        <label for="clinic-email">OFFICIAL EMAIL *</label>
+        <input class="auth-text-input" id="clinic-email" name="email" type="email" autocomplete="email" value="${escapeHtml(values.email || '')}" placeholder="admin@clinic.com" required>
+      </div>
+      <div class="doctor-phone-field-wrapper">
+        <label for="clinic-phone">MOBILE NUMBER *</label>
+        <div class="doctor-phone-input-group">
+          <select class="auth-text-input doctor-phone-code-select" id="clinic-phone-country-code" name="phoneCountryCode" aria-label="Country Dialing Code">
+            ${countryPhoneCodes.map(c => `
+              <option value="${c.code}" data-digits="${c.digits}" data-name="${c.name}" ${selectedCode === c.code ? 'selected' : ''}>
+                ${c.flag} ${c.code} (${c.name})
+              </option>
+            `).join('')}
+          </select>
+          <input class="auth-text-input doctor-phone-number-input" id="clinic-phone" name="phone" type="tel" inputmode="numeric" value="${escapeHtml(values.phone || values.mobile || '')}" placeholder="${digits}-digit mobile number" maxlength="${digits}" pattern="[0-9]{${digits}}" required>
+        </div>
+        <small class="doctor-field-desc doctor-phone-hint" id="clinic-phone-hint">Enter ${digits} digits for ${country.name}</small>
+      </div>
+      <div>
+        <label for="clinic-password">PASSWORD *</label>
+        <div class="auth-password-wrapper">
+          <input class="auth-text-input auth-password-input" id="clinic-password" name="password" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.password || '')}" placeholder="Min 8 characters" required>
+          <button type="button" class="auth-password-toggle" data-toggle-target="clinic-password" aria-label="Show password" title="Show password" tabindex="-1">
+            ${icon('eye')}
+          </button>
+        </div>
+        <small class="doctor-field-desc">Must be at least 8 characters with a letter, number & special symbol</small>
+      </div>
+      <div>
+        <label for="clinic-confirmPassword">CONFIRM PASSWORD *</label>
+        <div class="auth-password-wrapper">
+          <input class="auth-text-input auth-password-input" id="clinic-confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.confirmPassword || '')}" placeholder="Re-enter password" required>
+          <button type="button" class="auth-password-toggle" data-toggle-target="clinic-confirmPassword" aria-label="Show password" title="Show password" tabindex="-1">
+            ${icon('eye')}
+          </button>
+        </div>
+      </div>
+
+      <div class="doctor-upload-field">
+        <label for="clinic-photo">ADMIN PROFILE PHOTO *</label>
+        <label class="doctor-upload-control" for="clinic-photo">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${photoLabel}</span>
+          <small>JPG or PNG · Max 10MB</small>
+        </label>
+        <input id="clinic-photo" name="profilePhoto" type="file" accept=".jpg,.jpeg,.png" ${values.profilePhoto ? '' : 'required'}>
+      </div>
+      <div class="doctor-upload-field">
+        <label for="clinic-logo">CLINIC LOGO *</label>
+        <label class="doctor-upload-control" for="clinic-logo">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${logoLabel}</span>
+          <small>JPG or PNG · Max 10MB</small>
+        </label>
+        <input id="clinic-logo" name="logo" type="file" accept=".jpg,.jpeg,.png" ${values.logo ? '' : 'required'}>
+      </div>
+    </div>
+  `
+}
+
+function clinicStage2Markup(values = {}) {
+  const selectedState = values.state || ''
+  const availableDistricts = selectedState ? (indianStatesAndDistricts[selectedState] || []) : []
+  const selectedDistrict = values.district || ''
+  const availableCities = selectedDistrict ? getCitiesForDistrict(selectedDistrict) : []
+  const selectedCity = values.city || ''
+
+  const currentSpecialties = Array.isArray(values.specialties) 
+    ? values.specialties 
+    : (typeof values.specialties === 'string' ? values.specialties.split(',').map(s => s.trim()).filter(Boolean) : [])
+
+  const specialtiesList = [
+    'General Medicine',
+    'Pediatrics',
+    'Gynecology & Obstetrics',
+    'Dermatology',
+    'Orthopedics',
+    'Cardiology',
+    'ENT',
+    'Dental Care',
+    'Ophthalmology',
+    'Physiotherapy',
+    'Psychiatry',
+    'Neurology',
+    'Pulmonology',
+    'Gastroenterology',
+    'Ayurveda',
+    'Homeopathy'
+  ]
+
+  const isDaySelected = (d) => {
+    if (!values.workingDays) return false
+    if (Array.isArray(values.workingDays)) return values.workingDays.includes(d)
+    return String(values.workingDays).includes(d)
+  }
+
+  const licenseLabel = (values.licenseCertificate && values.licenseCertificate.name) ? values.licenseCertificate.name : 'Click to upload registration certificate'
+
+  return `
+    <div class="doctor-stage-fields clinic-stage-fields">
+      <div>
+        <label for="clinic-clinicType">CLINIC TYPE *</label>
+        <select class="auth-text-input" id="clinic-clinicType" name="clinicType" required>
+          <option value="" ${!values.clinicType ? 'selected' : ''}>Select Clinic Type</option>
+          <option value="Single Specialty" ${values.clinicType === 'Single Specialty' ? 'selected' : ''}>Single Specialty Clinic</option>
+          <option value="Multi-Specialty" ${values.clinicType === 'Multi-Specialty' ? 'selected' : ''}>Multi-Specialty Polyclinic</option>
+          <option value="Dental Clinic" ${values.clinicType === 'Dental Clinic' ? 'selected' : ''}>Dental Clinic</option>
+          <option value="Eye Clinic" ${values.clinicType === 'Eye Clinic' ? 'selected' : ''}>Eye / Ophthalmology Clinic</option>
+          <option value="Physiotherapy" ${values.clinicType === 'Physiotherapy' ? 'selected' : ''}>Physiotherapy & Rehab Centre</option>
+          <option value="AYUSH" ${values.clinicType === 'AYUSH' ? 'selected' : ''}>AYUSH / Integrative Medicine</option>
+        </select>
+      </div>
+      <div>
+        <label for="clinic-consultationModes">CONSULTATION MODES *</label>
+        <select class="auth-text-input" id="clinic-consultationModes" name="consultationModes" required>
+          <option value="" ${!values.consultationModes ? 'selected' : ''}>Select Consultation Mode</option>
+          <option value="Both In-Clinic & Video" ${values.consultationModes === 'Both In-Clinic & Video' ? 'selected' : ''}>Both In-Clinic (Offline) & Online Video</option>
+          <option value="In-Clinic Only" ${values.consultationModes === 'In-Clinic Only' ? 'selected' : ''}>In-Clinic (Offline Consultations Only)</option>
+          <option value="Video Consult Only" ${values.consultationModes === 'Video Consult Only' ? 'selected' : ''}>Video Consultations Only (Telehealth)</option>
+        </select>
+      </div>
+
+      <div class="portal-field-full">
+        <label for="select-clinicSpecialties">PRIMARY SPECIALTIES OFFERED *</label>
+        <div class="doctor-multi-select-wrap">
+          <select class="auth-text-input doctor-chip-select" id="select-clinicSpecialties" data-field="clinicSpecialties">
+            <option value="">Select specialty...</option>
+            ${specialtiesList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+            <option value="Other">Other (Specify custom specialty)</option>
+          </select>
+        </div>
+        <div class="doctor-chips-container" id="chips-clinicSpecialties" style="${currentSpecialties.length ? 'display: flex;' : 'display: none;'}">
+          ${currentSpecialties.map(s => `
+            <span class="doctor-chip">
+              <span>${escapeHtml(s)}</span>
+              <button type="button" class="doctor-chip-remove" data-field="clinicSpecialties" data-val="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}">&times;</button>
+            </span>
+          `).join('')}
+        </div>
+        <div class="doctor-chip-other-input-wrap" id="other-wrap-clinicSpecialties" style="display: none;">
+          <input type="text" class="auth-text-input" id="other-input-clinicSpecialties" placeholder="Specify specialty and click Add" maxlength="60">
+          <button type="button" class="button button-primary doctor-chip-other-btn" data-field="clinicSpecialties">Add</button>
+        </div>
+        <input type="hidden" id="hidden-clinicSpecialties" name="specialties" value="${escapeHtml(currentSpecialties.join(', '))}">
+      </div>
+
+      <div>
+        <label for="clinic-ceaNumber">CLINIC REGISTRATION / CEA NO. *</label>
+        <input class="auth-text-input" id="clinic-ceaNumber" name="ceaNumber" type="text" value="${escapeHtml(values.ceaNumber || '')}" placeholder="State CEA / Municipal Health License No." required>
+      </div>
+      <div class="doctor-upload-field">
+        <label for="clinic-license">REGISTRATION CERTIFICATE *</label>
+        <label class="doctor-upload-control" for="clinic-license">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${licenseLabel}</span>
+          <small>JPG, PNG, PDF · Max 10MB</small>
+        </label>
+        <input id="clinic-license" name="licenseCertificate" type="file" accept=".jpg,.jpeg,.png,.pdf" ${values.licenseCertificate ? '' : 'required'}>
+      </div>
+
+      <div class="portal-field-full">
+        <div class="doctor-option-group">
+          <label class="doctor-field-title">WORKING DAYS *</label>
+          <div class="doctor-pills-grid">
+            ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `
+              <label class="doctor-pill-checkbox ${isDaySelected(day) ? 'is-checked' : ''}">
+                <input type="checkbox" name="workingDays" value="${day}" ${isDaySelected(day) ? 'checked' : ''}>
+                <span class="pill-checkbox-indicator"></span>
+                <span>${day}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="clinic-workingHoursFrom">OPD WORKING HOURS – FROM *</label>
+        <input class="auth-text-input" id="clinic-workingHoursFrom" name="workingHoursFrom" type="time" value="${values.workingHoursFrom || '09:00'}" placeholder="09:00" required>
+      </div>
+      <div>
+        <label for="clinic-workingHoursTo">OPD WORKING HOURS – TO *</label>
+        <input class="auth-text-input" id="clinic-workingHoursTo" name="workingHoursTo" type="time" value="${values.workingHoursTo || '18:00'}" placeholder="18:00" required>
+      </div>
+
+      <div class="portal-section-header">Location Details</div>
+      <div class="portal-field-full">
+        <label for="clinic-address">CLINIC ADDRESS / BUILDING / LANDMARK *</label>
+        <input class="auth-text-input" id="clinic-address" name="address" type="text" value="${escapeHtml(values.address || '')}" placeholder="Building name, Floor, Street, Landmark" required>
+      </div>
+      <div>
+        <label for="clinic-state">STATE *</label>
+        <select class="auth-text-input" id="clinic-state" name="state" required>
+          <option value="">Select State</option>
+          ${indianStates.map(st => `<option value="${st}" ${selectedState === st ? 'selected' : ''}>${st}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="clinic-district">DISTRICT *</label>
+        <select class="auth-text-input" id="clinic-district" name="district" required ${availableDistricts.length ? '' : 'disabled'}>
+          <option value="">Select District</option>
+          ${availableDistricts.map(d => `<option value="${d}" ${selectedDistrict === d ? 'selected' : ''}>${d}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="clinic-city">CITY / TOWN *</label>
+        <select class="auth-text-input" id="clinic-city" name="city" required ${availableCities.length ? '' : 'disabled'}>
+          <option value="">Select City / Town</option>
+          ${availableCities.map(c => `<option value="${c}" ${selectedCity === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="clinic-pincode">PINCODE *</label>
+        <input class="auth-text-input" id="clinic-pincode" name="pincode" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" value="${escapeHtml(values.pincode || '')}" placeholder="6-digit Pincode" required>
+      </div>
+    </div>
+  `
+}
+
+function clinicRegistrationMarkup(values = {}) {
+  return clinicStage1Markup(values)
+}
+
+function setClinicStage(registerPopup, form, stage, values, ctx) {
+  form.dataset.portal = 'clinic'
+  form.dataset.stage = String(stage)
+  form._clinicValues = { ...form._clinicValues, ...values }
+
+  const stepper = registerPopup.querySelector('.auth-register-stepper')
+  if (stepper) {
+    stepper.style.display = 'flex'
+    stepper.innerHTML = `
+      <span class="${stage === 1 ? 'is-active' : 'is-complete'}">${stage > 1 ? icon('check') : '1'} <small>Details</small></span>
+      <i></i>
+      <span class="${stage === 2 ? 'is-active' : (stage > 2 ? 'is-complete' : '')}">${stage > 2 ? icon('check') : '2'} <small>Verify</small></span>
+      <i></i>
+      <span class="${stage === 3 ? 'is-active' : ''}">3 <small>Consultation & Location</small></span>
+    `
+  }
+
+  const headingEl = registerPopup.querySelector('.auth-form-heading h2')
+  const subEl = registerPopup.querySelector('.auth-form-heading p')
+  const kickerEl = registerPopup.querySelector('.auth-form-kicker')
+  if (kickerEl) kickerEl.textContent = 'Clinic registration'
+
+  const regFields = registerPopup.querySelector('.auth-register-fields')
+  const actionsBar = form.querySelector('.auth-stage-actions')
+  const backBtn = actionsBar?.querySelector('.auth-stage-back')
+  const submitBtn = actionsBar?.querySelector('.auth-submit')
+  if (actionsBar) actionsBar.style.display = 'flex'
+
+  if (stage === 1) {
+    if (headingEl) headingEl.textContent = 'Clinic registration details'
+    if (subEl) subEl.textContent = 'Add the details needed to verify your clinic and appointments.'
+    if (submitBtn) submitBtn.innerHTML = `Continue to next stage ${icon('arrow')}`
+    regFields.innerHTML = clinicStage1Markup(form._clinicValues || {})
+    setupPortalFieldEvents(form, 'clinic', ctx)
+    if (backBtn) {
+      backBtn.setAttribute('data-portal-back', '')
+      backBtn.innerHTML = `${icon('chevron')} Portals`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openAuthModal('register', ctx)
+      }
+    }
+  } else if (stage === 2) {
+    if (headingEl) headingEl.textContent = 'Verify your account'
+    if (subEl) subEl.textContent = 'Enter the 6-digit code sent to your official email address.'
+    if (submitBtn) submitBtn.innerHTML = `Verify & Continue ${icon('arrow')}`
+    regFields.innerHTML = portalVerificationStageMarkup(form._clinicValues?.email, form._clinicValues?.code)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const codeInput = form.querySelector('#popup-verification-code')
+        if (codeInput) form._clinicValues.code = codeInput.value
+        setClinicStage(registerPopup, form, 1, form._clinicValues, ctx)
+      }
+    }
+  } else if (stage === 3) {
+    if (headingEl) headingEl.textContent = 'Consultation & Location'
+    if (subEl) subEl.textContent = 'Specify clinic profile, specialties, consultation modes, and clinic location.'
+    if (submitBtn) submitBtn.innerHTML = `Complete registration ${icon('check')}`
+    regFields.innerHTML = clinicStage2Markup(form._clinicValues || {})
+    setupPortalFieldEvents(form, 'clinic', ctx)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const currentData = Object.fromEntries(new FormData(form))
+        const hiddenSpecsVal = form.querySelector('#hidden-clinicSpecialties')?.value || ''
+        const selectedSpecialties = hiddenSpecsVal.split(',').map(s => s.trim()).filter(Boolean)
+        const selectedDays = Array.from(form.querySelectorAll('.clinic-stage-fields input[name="workingDays"]:checked')).map(cb => cb.value)
+        const licenseInput = form.querySelector('#clinic-license')
+        const licenseFile = licenseInput?.files?.[0]
+        form._clinicValues = { 
+          ...form._clinicValues, 
+          ...currentData,
+          specialties: selectedSpecialties,
+          workingDays: selectedDays,
+          licenseCertificate: licenseFile || form._clinicValues?.licenseCertificate
+        }
+        setClinicStage(registerPopup, form, 2, form._clinicValues, ctx)
+      }
+    }
+  }
+
+  registerPopup.scrollTop = 0
+}
+
+function hospitalStage1Markup(values = {}) {
+  const photoLabel = (values.profilePhoto && values.profilePhoto.name) ? values.profilePhoto.name : 'Click to upload superintendent photo'
+  const logoLabel = (values.logo && values.logo.name) ? values.logo.name : 'Click to upload hospital logo'
+  const licenseLabel = (values.licenseCertificate && values.licenseCertificate.name) ? values.licenseCertificate.name : 'Click to upload registration certificate'
+  const selectedCode = values.phoneCountryCode || '+91'
+  const country = getCountryByCode(selectedCode)
+  const digits = country.digits
+
+  return `
+    <div class="doctor-stage-fields hospital-stage-fields">
+      <div>
+        <label for="hospital-name">MEDICAL SUPERINTENDENT / SIGNATORY *</label>
+        <input class="auth-text-input" id="hospital-name" name="name" type="text" autocomplete="name" value="${escapeHtml(values.name || '')}" placeholder="Full name of Medical Superintendent or Director" required>
+      </div>
+      <div>
+        <label for="hospital-organisation">HOSPITAL REGISTERED NAME *</label>
+        <input class="auth-text-input" id="hospital-organisation" name="organisation" type="text" value="${escapeHtml(values.organisation || '')}" placeholder="Legal hospital entity name" required>
+      </div>
+      <div>
+        <label for="hospital-email">OFFICIAL HOSPITAL EMAIL *</label>
+        <input class="auth-text-input" id="hospital-email" name="email" type="email" autocomplete="email" value="${escapeHtml(values.email || '')}" placeholder="admin@hospital.com" required>
+      </div>
+      <div class="doctor-phone-field-wrapper">
+        <label for="hospital-phone">EMERGENCY HELPLINE / MOBILE *</label>
+        <div class="doctor-phone-input-group">
+          <select class="auth-text-input doctor-phone-code-select" id="hospital-phone-country-code" name="phoneCountryCode" aria-label="Country Dialing Code">
+            ${countryPhoneCodes.map(c => `
+              <option value="${c.code}" data-digits="${c.digits}" data-name="${c.name}" ${selectedCode === c.code ? 'selected' : ''}>
+                ${c.flag} ${c.code} (${c.name})
+              </option>
+            `).join('')}
+          </select>
+          <input class="auth-text-input doctor-phone-number-input" id="hospital-phone" name="phone" type="tel" inputmode="numeric" value="${escapeHtml(values.phone || values.mobile || '')}" placeholder="${digits}-digit helpline number" maxlength="${digits}" pattern="[0-9]{${digits}}" required>
+        </div>
+        <small class="doctor-field-desc doctor-phone-hint" id="hospital-phone-hint">Enter ${digits} digits for ${country.name}</small>
+      </div>
+      <div>
+        <label for="hospital-password">PASSWORD *</label>
+        <div class="auth-password-wrapper">
+          <input class="auth-text-input auth-password-input" id="hospital-password" name="password" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.password || '')}" placeholder="Min 8 characters" required>
+          <button type="button" class="auth-password-toggle" data-toggle-target="hospital-password" aria-label="Show password" title="Show password" tabindex="-1">
+            ${icon('eye')}
+          </button>
+        </div>
+        <small class="doctor-field-desc">Must be at least 8 characters with a letter, number & special symbol</small>
+      </div>
+      <div>
+        <label for="hospital-confirmPassword">CONFIRM PASSWORD *</label>
+        <div class="auth-password-wrapper">
+          <input class="auth-text-input auth-password-input" id="hospital-confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.confirmPassword || '')}" placeholder="Re-enter password" required>
+          <button type="button" class="auth-password-toggle" data-toggle-target="hospital-confirmPassword" aria-label="Show password" title="Show password" tabindex="-1">
+            ${icon('eye')}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label for="hospital-ceaNumber">CLINICAL ESTABLISHMENT ACT (CEA) NO. *</label>
+        <input class="auth-text-input" id="hospital-ceaNumber" name="ceaNumber" type="text" value="${escapeHtml(values.ceaNumber || '')}" placeholder="State Govt. Health Dept. Registration ID" required>
+      </div>
+      <div>
+        <label for="hospital-nabh">NABH / JCI ACCREDITATION NO. (OPTIONAL)</label>
+        <input class="auth-text-input" id="hospital-nabh" name="nabhAccreditation" type="text" value="${escapeHtml(values.nabhAccreditation || '')}" placeholder="NABH / Pre-NABH / Entry-Level / ISO">
+      </div>
+
+      <div class="doctor-upload-field">
+        <label for="hospital-photo">SUPERINTENDENT PROFILE PHOTO *</label>
+        <label class="doctor-upload-control" for="hospital-photo">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${photoLabel}</span>
+          <small>JPG or PNG · Max 10MB</small>
+        </label>
+        <input id="hospital-photo" name="profilePhoto" type="file" accept=".jpg,.jpeg,.png" ${values.profilePhoto ? '' : 'required'}>
+      </div>
+      <div class="doctor-upload-field">
+        <label for="hospital-logo">HOSPITAL LOGO *</label>
+        <label class="doctor-upload-control" for="hospital-logo">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${logoLabel}</span>
+          <small>JPG or PNG · Max 10MB</small>
+        </label>
+        <input id="hospital-logo" name="logo" type="file" accept=".jpg,.jpeg,.png" ${values.logo ? '' : 'required'}>
+      </div>
+      <div class="doctor-upload-field portal-field-full">
+        <label for="hospital-license">REGISTRATION CERTIFICATE *</label>
+        <label class="doctor-upload-control" for="hospital-license">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${licenseLabel}</span>
+          <small>JPG, PNG, PDF · Max 10MB</small>
+        </label>
+        <input id="hospital-license" name="licenseCertificate" type="file" accept=".jpg,.jpeg,.png,.pdf" ${values.licenseCertificate ? '' : 'required'}>
+      </div>
+    </div>
+  `
+}
+
+function hospitalStage2Markup(values = {}) {
+  const selectedState = values.state || ''
+  const availableDistricts = selectedState ? (indianStatesAndDistricts[selectedState] || []) : []
+  const selectedDistrict = values.district || ''
+  const availableCities = selectedDistrict ? getCitiesForDistrict(selectedDistrict) : []
+  const selectedCity = values.city || ''
+
+  return `
+    <div class="doctor-stage-fields hospital-stage-fields">
+      <div class="portal-section-header">Hospital Classification & Capacity</div>
+      <div class="portal-field-full">
+        <label for="hospital-category">HOSPITAL CATEGORY *</label>
+        <select class="auth-text-input" id="hospital-category" name="hospitalCategory" required>
+          <option value="" ${!values.hospitalCategory ? 'selected' : ''}>Select Hospital Category</option>
+          <option value="Multi-Specialty Hospital" ${values.hospitalCategory === 'Multi-Specialty Hospital' ? 'selected' : ''}>Multi-Specialty Hospital</option>
+          <option value="Super-Specialty Hospital" ${values.hospitalCategory === 'Super-Specialty Hospital' ? 'selected' : ''}>Super-Specialty Hospital</option>
+          <option value="General Hospital" ${values.hospitalCategory === 'General Hospital' ? 'selected' : ''}>General Hospital</option>
+          <option value="Tertiary Care & Trauma" ${values.hospitalCategory === 'Tertiary Care & Trauma' ? 'selected' : ''}>Tertiary Care & Trauma Center</option>
+          <option value="Maternity & Nursing Home" ${values.hospitalCategory === 'Maternity & Nursing Home' ? 'selected' : ''}>Maternity & Nursing Home</option>
+        </select>
+      </div>
+      <div>
+        <label for="hospital-bedCapacity">TOTAL INPATIENT BEDS *</label>
+        <input class="auth-text-input" id="hospital-bedCapacity" name="bedCapacity" type="number" min="1" value="${escapeHtml(values.bedCapacity || '')}" placeholder="Total registered beds" required>
+      </div>
+      <div>
+        <label for="hospital-icuBeds">ICU / CRITICAL CARE BEDS *</label>
+        <input class="auth-text-input" id="hospital-icuBeds" name="icuBeds" type="number" min="0" value="${escapeHtml(values.icuBeds || '')}" placeholder="Dedicated ICU/CCU/NICU beds" required>
+      </div>
+      <div>
+        <label for="hospital-emergencyCare">24/7 EMERGENCY & TRAUMA CARE *</label>
+        <select class="auth-text-input" id="hospital-emergencyCare" name="emergencyCare" required>
+          <option value="" ${!values.emergencyCare ? 'selected' : ''}>Select option</option>
+          <option value="Yes" ${values.emergencyCare === 'Yes' ? 'selected' : ''}>Yes — 24/7 Casualty & Ambulance Active</option>
+          <option value="No" ${values.emergencyCare === 'No' ? 'selected' : ''}>No</option>
+        </select>
+      </div>
+      <div>
+        <label for="hospital-bloodBank">IN-HOUSE BLOOD BANK *</label>
+        <select class="auth-text-input" id="hospital-bloodBank" name="bloodBank" required>
+          <option value="" ${!values.bloodBank ? 'selected' : ''}>Select option</option>
+          <option value="Yes" ${values.bloodBank === 'Yes' ? 'selected' : ''}>Yes — Licensed In-house Blood Bank</option>
+          <option value="No" ${values.bloodBank === 'No' ? 'selected' : ''}>No</option>
+        </select>
+      </div>
+
+      <div class="portal-section-header">Location</div>
+      <div class="portal-field-full">
+        <label for="hospital-address">HOSPITAL ADDRESS *</label>
+        <input class="auth-text-input" id="hospital-address" name="address" type="text" value="${escapeHtml(values.address || '')}" placeholder="Building / Plot No., Sector / Road, Landmark" required>
+      </div>
+      <div>
+        <label for="hospital-state">STATE *</label>
+        <select class="auth-text-input" id="hospital-state" name="state" required>
+          <option value="">Select State</option>
+          ${indianStates.map(st => `<option value="${st}" ${selectedState === st ? 'selected' : ''}>${st}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="hospital-district">DISTRICT *</label>
+        <select class="auth-text-input" id="hospital-district" name="district" required ${availableDistricts.length ? '' : 'disabled'}>
+          <option value="">Select District</option>
+          ${availableDistricts.map(d => `<option value="${d}" ${selectedDistrict === d ? 'selected' : ''}>${d}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="hospital-city">CITY / TOWN *</label>
+        <select class="auth-text-input" id="hospital-city" name="city" required ${availableCities.length ? '' : 'disabled'}>
+          <option value="">Select City / Town</option>
+          ${availableCities.map(c => `<option value="${c}" ${selectedCity === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="hospital-pincode">PINCODE *</label>
+        <input class="auth-text-input" id="hospital-pincode" name="pincode" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" value="${escapeHtml(values.pincode || '')}" placeholder="6-digit Pincode" required>
+      </div>
+    </div>
+  `
+}
+
+function hospitalRegistrationMarkup(values = {}) {
+  return hospitalStage1Markup(values)
+}
+
+function setHospitalStage(registerPopup, form, stage, values, ctx) {
+  form.dataset.portal = 'hospital'
+  form.dataset.stage = String(stage)
+  form._hospitalValues = { ...form._hospitalValues, ...values }
+
+  const stepper = registerPopup.querySelector('.auth-register-stepper')
+  if (stepper) {
+    stepper.style.display = 'flex'
+    stepper.innerHTML = `
+      <span class="${stage === 1 ? 'is-active' : 'is-complete'}">${stage > 1 ? icon('check') : '1'} <small>Details</small></span>
+      <i></i>
+      <span class="${stage === 2 ? 'is-active' : (stage > 2 ? 'is-complete' : '')}">${stage > 2 ? icon('check') : '2'} <small>Verify</small></span>
+      <i></i>
+      <span class="${stage === 3 ? 'is-active' : ''}">3 <small>Classification & Location</small></span>
+    `
+  }
+
+  const headingEl = registerPopup.querySelector('.auth-form-heading h2')
+  const subEl = registerPopup.querySelector('.auth-form-heading p')
+  const kickerEl = registerPopup.querySelector('.auth-form-kicker')
+  if (kickerEl) kickerEl.textContent = 'Hospital registration'
+
+  const regFields = registerPopup.querySelector('.auth-register-fields')
+  const actionsBar = form.querySelector('.auth-stage-actions')
+  const backBtn = actionsBar?.querySelector('.auth-stage-back')
+  const submitBtn = actionsBar?.querySelector('.auth-submit')
+  if (actionsBar) actionsBar.style.display = 'flex'
+
+  if (stage === 1) {
+    if (headingEl) headingEl.textContent = 'Hospital registration details'
+    if (subEl) subEl.textContent = 'Add the details needed to verify your hospital and admissions.'
+    if (submitBtn) submitBtn.innerHTML = `Continue to next stage ${icon('arrow')}`
+    regFields.innerHTML = hospitalStage1Markup(form._hospitalValues || {})
+    setupPortalFieldEvents(form, 'hospital', ctx)
+    if (backBtn) {
+      backBtn.setAttribute('data-portal-back', '')
+      backBtn.innerHTML = `${icon('chevron')} Portals`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openAuthModal('register', ctx)
+      }
+    }
+  } else if (stage === 2) {
+    if (headingEl) headingEl.textContent = 'Verify your account'
+    if (subEl) subEl.textContent = 'Enter the 6-digit code sent to your official email address.'
+    if (submitBtn) submitBtn.innerHTML = `Verify & Continue ${icon('arrow')}`
+    regFields.innerHTML = portalVerificationStageMarkup(form._hospitalValues?.email, form._hospitalValues?.code)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const codeInput = form.querySelector('#popup-verification-code')
+        if (codeInput) form._hospitalValues.code = codeInput.value
+        setHospitalStage(registerPopup, form, 1, form._hospitalValues, ctx)
+      }
+    }
+  } else if (stage === 3) {
+    if (headingEl) headingEl.textContent = 'Hospital Classification & Location'
+    if (subEl) subEl.textContent = 'Specify hospital classification, bed capacity, emergency facilities, and hospital location.'
+    if (submitBtn) submitBtn.innerHTML = `Complete registration ${icon('check')}`
+    regFields.innerHTML = hospitalStage2Markup(form._hospitalValues || {})
+    setupPortalFieldEvents(form, 'hospital', ctx)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const currentData = Object.fromEntries(new FormData(form))
+        form._hospitalValues = { ...form._hospitalValues, ...currentData }
+        setHospitalStage(registerPopup, form, 2, form._hospitalValues, ctx)
+      }
+    }
+  }
+
+  registerPopup.scrollTop = 0
+}
+
+function pharmacyStage1Markup(values = {}) {
+  const photoLabel = (values.profilePhoto && values.profilePhoto.name) ? values.profilePhoto.name : 'Click to upload pharmacist photo'
+  const logoLabel = (values.logo && values.logo.name) ? values.logo.name : 'Click to upload pharmacy logo'
+  const selectedCode = values.phoneCountryCode || '+91'
+  const country = getCountryByCode(selectedCode)
+  const digits = country.digits
+
+  return `
+    <div class="doctor-stage-fields pharmacy-stage-fields">
+      <div>
+        <label for="pharmacy-name">CONTACT PERSON / REGISTERED PHARMACIST *</label>
+        <input class="auth-text-input" id="pharmacy-name" name="name" type="text" autocomplete="name" value="${escapeHtml(values.name || '')}" placeholder="Full name of pharmacist or in-charge" required>
+      </div>
+      <div>
+        <label for="pharmacy-organisation">REGISTERED PHARMACY NAME *</label>
+        <input class="auth-text-input" id="pharmacy-organisation" name="organisation" type="text" value="${escapeHtml(values.organisation || '')}" placeholder="Official registered medical store name" required>
+      </div>
+      <div>
+        <label for="pharmacy-email">OFFICIAL EMAIL *</label>
+        <input class="auth-text-input" id="pharmacy-email" name="email" type="email" autocomplete="email" value="${escapeHtml(values.email || '')}" placeholder="admin@pharmacy.com" required>
+      </div>
+      <div class="doctor-phone-field-wrapper">
+        <label for="pharmacy-phone">MOBILE NUMBER *</label>
+        <div class="doctor-phone-input-group">
+          <select class="auth-text-input doctor-phone-code-select" id="pharmacy-phone-country-code" name="phoneCountryCode" aria-label="Country Dialing Code">
+            ${countryPhoneCodes.map(c => `
+              <option value="${c.code}" data-digits="${c.digits}" data-name="${c.name}" ${selectedCode === c.code ? 'selected' : ''}>
+                ${c.flag} ${c.code} (${c.name})
+              </option>
+            `).join('')}
+          </select>
+          <input class="auth-text-input doctor-phone-number-input" id="pharmacy-phone" name="phone" type="tel" inputmode="numeric" value="${escapeHtml(values.phone || values.mobile || '')}" placeholder="${digits}-digit mobile number" maxlength="${digits}" pattern="[0-9]{${digits}}" required>
+        </div>
+        <small class="doctor-field-desc doctor-phone-hint" id="pharmacy-phone-hint">Enter ${digits} digits for ${country.name}</small>
+      </div>
+      <div>
+        <label for="pharmacy-password">PASSWORD *</label>
+        <div class="auth-password-wrapper">
+          <input class="auth-text-input auth-password-input" id="pharmacy-password" name="password" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.password || '')}" placeholder="Min 8 characters" required>
+          <button type="button" class="auth-password-toggle" data-toggle-target="pharmacy-password" aria-label="Show password" title="Show password" tabindex="-1">
+            ${icon('eye')}
+          </button>
+        </div>
+        <small class="doctor-field-desc">Must be at least 8 characters with a letter, number & special symbol</small>
+      </div>
+      <div>
+        <label for="pharmacy-confirmPassword">CONFIRM PASSWORD *</label>
+        <div class="auth-password-wrapper">
+          <input class="auth-text-input auth-password-input" id="pharmacy-confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" value="${escapeHtml(values.confirmPassword || '')}" placeholder="Re-enter password" required>
+          <button type="button" class="auth-password-toggle" data-toggle-target="pharmacy-confirmPassword" aria-label="Show password" title="Show password" tabindex="-1">
+            ${icon('eye')}
+          </button>
+        </div>
+      </div>
+
+      <div class="doctor-upload-field">
+        <label for="pharmacy-photo">PHARMACIST PROFILE PHOTO *</label>
+        <label class="doctor-upload-control" for="pharmacy-photo">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${photoLabel}</span>
+          <small>JPG or PNG · Max 10MB</small>
+        </label>
+        <input id="pharmacy-photo" name="profilePhoto" type="file" accept=".jpg,.jpeg,.png" ${values.profilePhoto ? '' : 'required'}>
+      </div>
+      <div class="doctor-upload-field">
+        <label for="pharmacy-logo">PHARMACY STOREFRONT / LOGO *</label>
+        <label class="doctor-upload-control" for="pharmacy-logo">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${logoLabel}</span>
+          <small>JPG or PNG · Max 10MB</small>
+        </label>
+        <input id="pharmacy-logo" name="logo" type="file" accept=".jpg,.jpeg,.png" ${values.logo ? '' : 'required'}>
+      </div>
+    </div>
+  `
+}
+
+function pharmacyStage2Markup(values = {}) {
+  const selectedState = values.state || ''
+  const availableDistricts = selectedState ? (indianStatesAndDistricts[selectedState] || []) : []
+  const selectedDistrict = values.district || ''
+  const availableCities = selectedDistrict ? getCitiesForDistrict(selectedDistrict) : []
+  const selectedCity = values.city || ''
+
+  const currentServices = Array.isArray(values.services) 
+    ? values.services 
+    : (typeof values.services === 'string' ? values.services.split(',').map(s => s.trim()).filter(Boolean) : [])
+
+  const servicesList = [
+    'Prescription Medicines (Allopathy)',
+    'OTC Health & Wellness',
+    'Cold-Chain / Insulin Storage',
+    'Surgical Supplies & Healthcare Devices',
+    'Ayush / Herbal / Homeopathy',
+    'Chronic Disease Refill Subscriptions',
+    '24/7 Emergency Medicine Counter',
+    'Baby & Maternal Care Products',
+    'Diagnostic Test Kits & Monitors'
+  ]
+
+  const isDaySelected = (d) => {
+    if (!values.workingDays) return false
+    if (Array.isArray(values.workingDays)) return values.workingDays.includes(d)
+    return String(values.workingDays).includes(d)
+  }
+
+  const licenseLabel = (values.licenseCertificate && values.licenseCertificate.name) ? values.licenseCertificate.name : 'Click to upload drug license certificate'
+
+  return `
+    <div class="doctor-stage-fields pharmacy-stage-fields">
+      <div>
+        <label for="pharmacy-pharmacyType">PHARMACY TYPE *</label>
+        <select class="auth-text-input" id="pharmacy-pharmacyType" name="pharmacyType" required>
+          <option value="" ${!values.pharmacyType ? 'selected' : ''}>Select Pharmacy Type</option>
+          <option value="Retail Chemist & Druggist" ${values.pharmacyType === 'Retail Chemist & Druggist' ? 'selected' : ''}>Retail Chemist & Druggist</option>
+          <option value="24/7 Medical Store" ${values.pharmacyType === '24/7 Medical Store' ? 'selected' : ''}>24/7 Medical Store</option>
+          <option value="Hospital / Clinic Attached Pharmacy" ${values.pharmacyType === 'Hospital / Clinic Attached Pharmacy' ? 'selected' : ''}>Hospital / Clinic Attached Pharmacy</option>
+          <option value="Wholesale & Distribution Pharmacy" ${values.pharmacyType === 'Wholesale & Distribution Pharmacy' ? 'selected' : ''}>Wholesale & Distribution Pharmacy</option>
+          <option value="AYUSH / Herbal Pharmacy" ${values.pharmacyType === 'AYUSH / Herbal Pharmacy' ? 'selected' : ''}>AYUSH / Herbal Pharmacy</option>
+        </select>
+      </div>
+      <div>
+        <label for="pharmacy-councilRegNumber">PHARMACIST COUNCIL REG. NO. *</label>
+        <input class="auth-text-input" id="pharmacy-councilRegNumber" name="councilRegNumber" type="text" value="${escapeHtml(values.councilRegNumber || '')}" placeholder="State Pharmacy Council Reg No." required>
+      </div>
+
+      <div>
+        <label for="pharmacy-drugLicenseNumber">DRUG LICENSE NO. (FORM 20 / 21) *</label>
+        <input class="auth-text-input" id="pharmacy-drugLicenseNumber" name="drugLicenseNumber" type="text" value="${escapeHtml(values.drugLicenseNumber || '')}" placeholder="e.g. DL-20-XXXX / DL-21-XXXX" required>
+      </div>
+      <div class="doctor-upload-field">
+        <label for="pharmacy-license">DRUG LICENSE CERTIFICATE *</label>
+        <label class="doctor-upload-control" for="pharmacy-license">
+          ${icon('plus')}
+          <span class="upload-btn-label doctor-upload-label-text">${licenseLabel}</span>
+          <small>JPG, PNG, PDF · Max 10MB</small>
+        </label>
+        <input id="pharmacy-license" name="licenseCertificate" type="file" accept=".jpg,.jpeg,.png,.pdf" ${values.licenseCertificate ? '' : 'required'}>
+      </div>
+
+      <div class="portal-field-full">
+        <label for="select-pharmacyServices">PHARMACY SERVICES OFFERED *</label>
+        <div class="doctor-multi-select-wrap">
+          <select class="auth-text-input doctor-chip-select" id="select-pharmacyServices" data-field="pharmacyServices">
+            <option value="">Select pharmacy service...</option>
+            ${servicesList.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')}
+            <option value="Other">Other (Specify custom service)</option>
+          </select>
+        </div>
+        <div class="doctor-chips-container" id="chips-pharmacyServices" style="${currentServices.length ? 'display: flex;' : 'display: none;'}">
+          ${currentServices.map(s => `
+            <span class="doctor-chip">
+              <span>${escapeHtml(s)}</span>
+              <button type="button" class="doctor-chip-remove" data-field="pharmacyServices" data-val="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}">&times;</button>
+            </span>
+          `).join('')}
+        </div>
+        <div class="doctor-chip-other-input-wrap" id="other-wrap-pharmacyServices" style="display: none;">
+          <input type="text" class="auth-text-input" id="other-input-pharmacyServices" placeholder="Specify service and click Add" maxlength="60">
+          <button type="button" class="button button-primary doctor-chip-other-btn" data-field="pharmacyServices">Add</button>
+        </div>
+        <input type="hidden" id="hidden-pharmacyServices" name="services" value="${escapeHtml(currentServices.join(', '))}">
+      </div>
+
+      <div class="portal-field-full">
+        <label for="pharmacy-homeDelivery">HOME DELIVERY AVAILABLE *</label>
+        <select class="auth-text-input" id="pharmacy-homeDelivery" name="homeDelivery" required>
+          <option value="" ${!values.homeDelivery ? 'selected' : ''}>Select option</option>
+          <option value="Yes" ${values.homeDelivery === 'Yes' ? 'selected' : ''}>Yes — Medicine home delivery available</option>
+          <option value="No" ${values.homeDelivery === 'No' ? 'selected' : ''}>No — Store walk-ins only</option>
+        </select>
+      </div>
+
+      <div class="portal-field-full">
+        <div class="doctor-option-group">
+          <label class="doctor-field-title">WORKING DAYS *</label>
+          <div class="doctor-pills-grid">
+            ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `
+              <label class="doctor-pill-checkbox ${isDaySelected(day) ? 'is-checked' : ''}">
+                <input type="checkbox" name="workingDays" value="${day}" ${isDaySelected(day) ? 'checked' : ''}>
+                <span class="pill-checkbox-indicator"></span>
+                <span>${day}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label for="pharmacy-workingHoursFrom">OPERATING HOURS – FROM *</label>
+        <input class="auth-text-input" id="pharmacy-workingHoursFrom" name="workingHoursFrom" type="time" value="${values.workingHoursFrom || '08:00'}" placeholder="08:00" required>
+      </div>
+      <div>
+        <label for="pharmacy-workingHoursTo">OPERATING HOURS – TO *</label>
+        <input class="auth-text-input" id="pharmacy-workingHoursTo" name="workingHoursTo" type="time" value="${values.workingHoursTo || '22:00'}" placeholder="22:00" required>
+      </div>
+
+      <div class="portal-section-header">Location Details</div>
+      <div class="portal-field-full">
+        <label for="pharmacy-address">PHARMACY ADDRESS / BUILDING / LANDMARK *</label>
+        <input class="auth-text-input" id="pharmacy-address" name="address" type="text" value="${escapeHtml(values.address || '')}" placeholder="Shop no., Building, Street, Landmark" required>
+      </div>
+      <div>
+        <label for="pharmacy-state">STATE *</label>
+        <select class="auth-text-input" id="pharmacy-state" name="state" required>
+          <option value="">Select State</option>
+          ${indianStates.map(st => `<option value="${st}" ${selectedState === st ? 'selected' : ''}>${st}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="pharmacy-district">DISTRICT *</label>
+        <select class="auth-text-input" id="pharmacy-district" name="district" required ${availableDistricts.length ? '' : 'disabled'}>
+          <option value="">Select District</option>
+          ${availableDistricts.map(d => `<option value="${d}" ${selectedDistrict === d ? 'selected' : ''}>${d}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="pharmacy-city">CITY / TOWN *</label>
+        <select class="auth-text-input" id="pharmacy-city" name="city" required ${availableCities.length ? '' : 'disabled'}>
+          <option value="">Select City / Town</option>
+          ${availableCities.map(c => `<option value="${c}" ${selectedCity === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label for="pharmacy-pincode">PINCODE *</label>
+        <input class="auth-text-input" id="pharmacy-pincode" name="pincode" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" value="${escapeHtml(values.pincode || '')}" placeholder="6-digit Pincode" required>
+      </div>
+    </div>
+  `
+}
+
+function pharmacyRegistrationMarkup(values = {}) {
+  return pharmacyStage1Markup(values)
+}
+
+function setPharmacyStage(registerPopup, form, stage, values, ctx) {
+  form.dataset.portal = 'pharmacy'
+  form.dataset.stage = String(stage)
+  form._pharmacyValues = { ...form._pharmacyValues, ...values }
+
+  const stepper = registerPopup.querySelector('.auth-register-stepper')
+  if (stepper) {
+    stepper.style.display = 'flex'
+    stepper.innerHTML = `
+      <span class="${stage === 1 ? 'is-active' : 'is-complete'}">${stage > 1 ? icon('check') : '1'} <small>Details</small></span>
+      <i></i>
+      <span class="${stage === 2 ? 'is-active' : (stage > 2 ? 'is-complete' : '')}">${stage > 2 ? icon('check') : '2'} <small>Verify</small></span>
+      <i></i>
+      <span class="${stage === 3 ? 'is-active' : ''}">3 <small>Operations & Location</small></span>
+    `
+  }
+
+  const headingEl = registerPopup.querySelector('.auth-form-heading h2')
+  const subEl = registerPopup.querySelector('.auth-form-heading p')
+  const kickerEl = registerPopup.querySelector('.auth-form-kicker')
+  if (kickerEl) kickerEl.textContent = 'Pharmacy registration'
+
+  const regFields = registerPopup.querySelector('.auth-register-fields')
+  const actionsBar = form.querySelector('.auth-stage-actions')
+  const backBtn = actionsBar?.querySelector('.auth-stage-back')
+  const submitBtn = actionsBar?.querySelector('.auth-submit')
+  if (actionsBar) actionsBar.style.display = 'flex'
+
+  if (stage === 1) {
+    if (headingEl) headingEl.textContent = 'Pharmacy registration details'
+    if (subEl) subEl.textContent = 'Add the details needed to verify your pharmacy account and orders.'
+    if (submitBtn) submitBtn.innerHTML = `Continue to next stage ${icon('arrow')}`
+    regFields.innerHTML = pharmacyStage1Markup(form._pharmacyValues || {})
+    setupPortalFieldEvents(form, 'pharmacy', ctx)
+    if (backBtn) {
+      backBtn.setAttribute('data-portal-back', '')
+      backBtn.innerHTML = `${icon('chevron')} Portals`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openAuthModal('register', ctx)
+      }
+    }
+  } else if (stage === 2) {
+    if (headingEl) headingEl.textContent = 'Verify your account'
+    if (subEl) subEl.textContent = 'Enter the 6-digit code sent to your official email address.'
+    if (submitBtn) submitBtn.innerHTML = `Verify & Continue ${icon('arrow')}`
+    regFields.innerHTML = portalVerificationStageMarkup(form._pharmacyValues?.email, form._pharmacyValues?.code)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const codeInput = form.querySelector('#popup-verification-code')
+        if (codeInput) form._pharmacyValues.code = codeInput.value
+        setPharmacyStage(registerPopup, form, 1, form._pharmacyValues, ctx)
+      }
+    }
+  } else if (stage === 3) {
+    if (headingEl) headingEl.textContent = 'Operations & Location'
+    if (subEl) subEl.textContent = 'Specify pharmacy type, drug licenses, services, timings, and store location.'
+    if (submitBtn) submitBtn.innerHTML = `Complete registration ${icon('check')}`
+    regFields.innerHTML = pharmacyStage2Markup(form._pharmacyValues || {})
+    setupPortalFieldEvents(form, 'pharmacy', ctx)
+    if (backBtn) {
+      backBtn.removeAttribute('data-portal-back')
+      backBtn.innerHTML = `${icon('chevron')} Back`
+      backBtn.onclick = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const currentData = Object.fromEntries(new FormData(form))
+        const hiddenServicesVal = form.querySelector('#hidden-pharmacyServices')?.value || ''
+        const selectedServices = hiddenServicesVal.split(',').map(s => s.trim()).filter(Boolean)
+        const selectedDays = Array.from(form.querySelectorAll('.pharmacy-stage-fields input[name="workingDays"]:checked')).map(cb => cb.value)
+        const licenseInput = form.querySelector('#pharmacy-license')
+        const licenseFile = licenseInput?.files?.[0]
+        form._pharmacyValues = { 
+          ...form._pharmacyValues, 
+          ...currentData,
+          services: selectedServices,
+          workingDays: selectedDays,
+          licenseCertificate: licenseFile || form._pharmacyValues?.licenseCertificate
+        }
+        setPharmacyStage(registerPopup, form, 2, form._pharmacyValues, ctx)
+      }
+    }
+  }
+
+  registerPopup.scrollTop = 0
+}
+
+function setupPortalFieldEvents(form, portalType, ctx) {
+  form.querySelectorAll(`.${portalType}-stage-fields input[type="file"]`).forEach(input => {
     input.addEventListener('change', () => {
       const file = input.files?.[0]
       const labelSpan = input.closest('.doctor-upload-field')?.querySelector('.upload-btn-label')
       if (file && labelSpan) {
+        if (file.size > 10 * 1024 * 1024) {
+          if (ctx?.showToast) {
+            ctx.showToast(`"${file.name}" is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Please choose a file smaller than 10MB.`)
+          }
+          input.value = ''
+          labelSpan.textContent = 'Click to upload'
+          return
+        }
         labelSpan.textContent = file.name
         labelSpan.title = file.name
       }
     })
   })
 
-  const phoneCodeSelect = form.querySelector('#diagnostic-phone-country-code')
-  const phoneInput = form.querySelector('#diagnostic-phone')
-  const phoneHint = form.querySelector('#diagnostic-phone-hint')
+  const phoneCodeSelect = form.querySelector(`#${portalType}-phone-country-code`)
+  const phoneInput = form.querySelector(`#${portalType}-phone`)
+  const phoneHint = form.querySelector(`#${portalType}-phone-hint`)
   if (phoneCodeSelect && phoneInput) {
-    const updateDiagnosticPhoneConstraints = () => {
+    const updatePhoneConstraints = () => {
       const opt = phoneCodeSelect.options[phoneCodeSelect.selectedIndex]
       const digits = parseInt(opt?.getAttribute('data-digits') || '10', 10)
       const name = opt?.getAttribute('data-name') || 'selected country'
@@ -162,7 +1320,7 @@ function setupDiagnosticFieldEvents(form) {
       if (phoneInput.value.length > digits) phoneInput.value = phoneInput.value.slice(0, digits)
     }
     phoneCodeSelect.addEventListener('change', () => {
-      updateDiagnosticPhoneConstraints()
+      updatePhoneConstraints()
       phoneInput.focus()
     })
     phoneInput.addEventListener('input', () => {
@@ -171,13 +1329,180 @@ function setupDiagnosticFieldEvents(form) {
       const digits = parseInt(opt?.getAttribute('data-digits') || '10', 10)
       if (phoneInput.value.length > digits) phoneInput.value = phoneInput.value.slice(0, digits)
     })
-    updateDiagnosticPhoneConstraints()
+    updatePhoneConstraints()
   }
+
+  const stateSelect = form.querySelector(`#${portalType}-state`)
+  const districtSelect = form.querySelector(`#${portalType}-district`)
+  const citySelect = form.querySelector(`#${portalType}-city`)
+
+  if (stateSelect && districtSelect && citySelect) {
+    stateSelect.addEventListener('change', () => {
+      const st = stateSelect.value
+      const districts = st ? (indianStatesAndDistricts[st] || []) : []
+      if (districts.length > 0) {
+        districtSelect.innerHTML = `<option value="">Select District</option>` + districts.map(d => `<option value="${d}">${d}</option>`).join('')
+        districtSelect.disabled = false
+      } else {
+        districtSelect.innerHTML = `<option value="">Select District</option>`
+        districtSelect.disabled = true
+      }
+      citySelect.innerHTML = `<option value="">Select City / Town</option>`
+      citySelect.disabled = true
+    })
+
+    districtSelect.addEventListener('change', () => {
+      const dist = districtSelect.value
+      const cities = dist ? getCitiesForDistrict(dist) : []
+      if (cities.length > 0) {
+        citySelect.innerHTML = `<option value="">Select City / Town</option>` + cities.map(c => `<option value="${c}">${c}</option>`).join('')
+        citySelect.disabled = false
+      } else {
+        citySelect.innerHTML = `<option value="">Select City / Town</option>`
+        citySelect.disabled = true
+      }
+    })
+  }
+
+  const setupChipSelect = (fieldName) => {
+    const select = form.querySelector(`#select-${fieldName}`)
+    const container = form.querySelector(`#chips-${fieldName}`)
+    const hiddenInput = form.querySelector(`#hidden-${fieldName}`)
+    const otherWrap = form.querySelector(`#other-wrap-${fieldName}`)
+    const otherInput = form.querySelector(`#other-input-${fieldName}`)
+    const otherBtn = form.querySelector(`button[data-field="${fieldName}"].doctor-chip-other-btn`)
+
+    if (!select && !container && !hiddenInput) return
+
+    const getSelected = () => {
+      if (!hiddenInput || !hiddenInput.value) return []
+      return hiddenInput.value.split(',').map(s => s.trim()).filter(Boolean)
+    }
+
+    const setSelected = (items) => {
+      const unique = Array.from(new Set(items.map(s => s.trim()).filter(Boolean)))
+      if (hiddenInput) {
+        hiddenInput.value = unique.join(', ')
+      }
+      if (container) {
+        container.style.display = unique.length ? 'flex' : 'none'
+        container.innerHTML = unique.map(item => `
+          <span class="doctor-chip">
+            <span>${escapeHtml(item)}</span>
+            <button type="button" class="doctor-chip-remove" data-field="${fieldName}" data-val="${escapeHtml(item)}" aria-label="Remove ${escapeHtml(item)}">&times;</button>
+          </span>
+        `).join('')
+      }
+    }
+
+    if (select) {
+      select.addEventListener('change', () => {
+        const val = select.value.trim()
+        if (!val) return
+        if (val === 'Other') {
+          if (otherWrap) {
+            otherWrap.style.display = 'flex'
+            otherInput?.focus()
+          }
+          select.value = ''
+          return
+        }
+        const current = getSelected()
+        if (!current.includes(val)) {
+          setSelected([...current, val])
+        }
+        select.value = ''
+      })
+    }
+
+    const addOther = () => {
+      if (!otherInput) return
+      const val = otherInput.value.trim()
+      if (val) {
+        const current = getSelected()
+        if (!current.includes(val)) {
+          setSelected([...current, val])
+        }
+        otherInput.value = ''
+      }
+      if (otherWrap) otherWrap.style.display = 'none'
+    }
+
+    if (otherBtn) {
+      otherBtn.addEventListener('click', (e) => {
+        e.preventDefault()
+        addOther()
+      })
+    }
+
+    if (otherInput) {
+      otherInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          addOther()
+        } else if (e.key === 'Escape') {
+          if (otherWrap) otherWrap.style.display = 'none'
+        }
+      })
+    }
+
+    if (container) {
+      container.addEventListener('click', (e) => {
+        const btn = e.target.closest('.doctor-chip-remove')
+        if (btn) {
+          e.preventDefault()
+          const val = btn.dataset.val
+          const current = getSelected()
+          setSelected(current.filter(item => item !== val))
+        }
+      })
+    }
+  }
+
+  if (portalType === 'diagnostic') {
+    setupChipSelect('diagnosticServices')
+    form.querySelectorAll('.diagnostic-stage-fields input[name="workingDays"]').forEach(input => {
+      input.addEventListener('change', () => {
+        input.closest('.doctor-pill-checkbox')?.classList.toggle('is-checked', input.checked)
+      })
+    })
+  }
+
+  if (portalType === 'clinic') {
+    setupChipSelect('clinicSpecialties')
+    form.querySelectorAll('.clinic-stage-fields input[name="workingDays"]').forEach(input => {
+      input.addEventListener('change', () => {
+        input.closest('.doctor-pill-checkbox')?.classList.toggle('is-checked', input.checked)
+      })
+    })
+  }
+
+  if (portalType === 'pharmacy') {
+    setupChipSelect('pharmacyServices')
+    form.querySelectorAll('.pharmacy-stage-fields input[name="workingDays"]').forEach(input => {
+      input.addEventListener('change', () => {
+        input.closest('.doctor-pill-checkbox')?.classList.toggle('is-checked', input.checked)
+      })
+    })
+  }
+}
+
+function setupDiagnosticFieldEvents(form, ctx) {
+  setupPortalFieldEvents(form, 'diagnostic', ctx)
 }
 
 function registrationFieldsMarkup(type) {
   if (type === 'diagnostic') {
     return diagnosticRegistrationMarkup()
+  }
+  if (type === 'clinic') {
+    return clinicRegistrationMarkup()
+  }
+  if (type === 'hospital') {
+    return hospitalRegistrationMarkup()
+  }
+  if (type === 'pharmacy') {
+    return pharmacyRegistrationMarkup()
   }
   return portalRegistrationFields[type].map(([name, label, inputType, placeholder]) => {
     if (inputType === 'password') {
@@ -190,8 +1515,6 @@ function registrationFieldsMarkup(type) {
 function portalLabel(type) {
   return portalOptions.find(option => option.value === type)?.label || 'Portal'
 }
-
-const indianStates = Object.keys(indianStatesAndDistricts).sort()
 
 const doctorStages = ['PERSONAL', 'VERIFICATION', 'EDUCATION & PRACTICE', 'LOCATION', 'REVIEW']
 const doctorStageKeys = ['personal', 'verification', 'education', 'location', 'review']
@@ -2650,8 +3973,15 @@ function doctorStageIndex(stage) {
 
 function renderRegistrationVerification(backdrop, ctx, values, close) {
   const portal = portalLabel(values.portal)
+  const isMultiStage = values.portal === 'diagnostic' || values.portal === 'hospital' || values.portal === 'clinic' || values.portal === 'pharmacy'
+  const secondStageLabel = values.portal === 'diagnostic' 
+    ? 'Services & Location' 
+    : (values.portal === 'clinic' ? 'Consultation & Location' : (values.portal === 'pharmacy' ? 'Operations & Location' : 'Classification & Location'))
+  const stepperHtml = isMultiStage
+    ? `<div class="auth-register-stepper"><span class="is-complete">${icon('check')} <small>Details</small></span><i></i><span class="is-complete">${icon('check')} <small>${secondStageLabel}</small></span><i></i><span class="is-active">3 <small>Verify</small></span></div>`
+    : `<div class="auth-register-stepper"><span class="is-complete">1 <small>Details</small></span><i></i><span class="is-active">2 <small>Verify</small></span></div>`
   const popup = backdrop.querySelector('.auth-popup')
-  popup.innerHTML = `<button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button><div class="auth-register-stepper"><span class="is-complete">1 <small>Details</small></span><i></i><span class="is-active">2 <small>Verify</small></span></div><div class="auth-form-heading"><span class="auth-form-kicker">${portal} registration</span><h2>Verify your account</h2><p>Enter the 6-digit code sent to your official email address.</p></div><form class="auth-form" id="popup-verification-form"><label for="popup-verification-code">Verification code</label><input class="auth-text-input auth-code-input" id="popup-verification-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required><p class="auth-form-hint">For this demo, enter any 6-digit verification code.</p><button class="button button-primary auth-submit" type="submit">Complete registration ${icon('check')}</button></form><button class="auth-popup-back auth-edit-registration" type="button">${icon('chevron')} Edit registration details</button>`
+  popup.innerHTML = `<button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button>${stepperHtml}<div class="auth-form-heading"><span class="auth-form-kicker">${portal} registration</span><h2>Verify your account</h2><p>Enter the 6-digit code sent to your official email address.</p></div><form class="auth-form" id="popup-verification-form"><label for="popup-verification-code">Verification code</label><input class="auth-text-input auth-code-input" id="popup-verification-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required><button class="button button-primary auth-submit" type="submit">Complete registration ${icon('check')}</button></form><button class="auth-popup-back auth-edit-registration" type="button">${icon('chevron')} Edit registration details</button>`
   popup.querySelector('.auth-popup-close').addEventListener('click', close)
   popup.querySelector('.auth-edit-registration').addEventListener('click', () => openAuthModal('register', ctx, values.portal, values))
   popup.querySelector('#popup-verification-form').addEventListener('submit', event => {
@@ -2691,6 +4021,29 @@ function renderRegistrationVerification(backdrop, ctx, values, close) {
   })
 }
 
+function showPortalRegistrationSuccess(backdrop, portal, values, close, ctx) {
+  const label = portalLabel(portal)
+  const orgOrName = values.organisation || values.name || label
+  registerPortal({ ...values, portal, name: orgOrName })
+  const popup = backdrop.querySelector('.auth-popup')
+  popup.innerHTML = `
+    <button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button>
+    <div class="auth-registration-success">
+      <span class="auth-success-icon">${icon('check')}</span>
+      <span class="auth-form-kicker">Registration complete</span>
+      <h2>${label} portal is ready</h2>
+      <p>Your details have been verified and submitted. You can now use your portal workspace.</p>
+      <button class="button button-primary auth-submit" type="button" data-close-registration>Continue to Tatito ${icon('arrow')}</button>
+    </div>
+  `
+  popup.querySelector('.auth-popup-close').addEventListener('click', close)
+  popup.querySelector('[data-close-registration]').addEventListener('click', () => {
+    close()
+    ctx.navigate('home')
+  })
+  ctx.showToast(`${label} registration completed successfully!`)
+}
+
 function authShell(content, active, ctx) {
   return `<main class="auth-page"><div class="auth-page-top"><a class="brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em>Health+</em></span></a><span class="auth-page-status">${icon('shield')} Private & secure</span></div><section class="auth-form-card">${content}<div class="auth-switch">${active === 'login' ? 'New to Tatito?' : 'Already have a portal account?'} <button data-nav="${active === 'login' ? 'register' : 'login'}">${active === 'login' ? 'Register a portal account' : 'Log in'}</button></div></section><p class="auth-page-footer">By continuing, you agree to Tatito Health+ terms and privacy policy.</p></main>`
 }
@@ -2720,7 +4073,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
   backdrop.addEventListener('click', event => {
     if (event.target === backdrop) close()
     const backBtn = event.target.closest('[data-portal-back]')
-    if (backBtn) {
+    if (backBtn && !event.defaultPrevented) {
       event.preventDefault()
       openAuthModal('register', ctx)
     }
@@ -2799,14 +4152,19 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       return
     }
     if (card.dataset.portal === 'diagnostic') {
-      form.dataset.portal = 'diagnostic'
-      registerPopup.querySelector('.auth-form-heading h2').textContent = 'Diagnostics registration details'
-      registerPopup.querySelector('.auth-form-heading p').textContent = 'Add the details needed to verify your diagnostic centre.'
-      registerPopup.querySelector('.auth-register-stepper span:first-child').classList.replace('is-active', 'is-complete')
-      registerPopup.querySelector('.auth-register-stepper span:last-child').classList.add('is-active')
-      const regFields = backdrop.querySelector('.auth-register-fields')
-      regFields.innerHTML = diagnosticRegistrationMarkup(form._diagnosticValues || {})
-      setupDiagnosticFieldEvents(form)
+      setDiagnosticStage(registerPopup, form, 1, form._diagnosticValues || {}, ctx)
+      return
+    }
+    if (card.dataset.portal === 'clinic') {
+      setClinicStage(registerPopup, form, 1, form._clinicValues || {}, ctx)
+      return
+    }
+    if (card.dataset.portal === 'hospital') {
+      setHospitalStage(registerPopup, form, 1, form._hospitalValues || {}, ctx)
+      return
+    }
+    if (card.dataset.portal === 'pharmacy') {
+      setPharmacyStage(registerPopup, form, 1, form._pharmacyValues || {}, ctx)
       return
     }
     backdrop.querySelector('.auth-register-fields').innerHTML = registrationFieldsMarkup(card.dataset.portal)
@@ -2822,6 +4180,15 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       const form = backdrop.querySelector('#popup-register-form')
       if (defaultPortal === 'diagnostic' && initialValues && Object.keys(initialValues).length > 0 && form) {
         form._diagnosticValues = initialValues
+      }
+      if (defaultPortal === 'clinic' && initialValues && Object.keys(initialValues).length > 0 && form) {
+        form._clinicValues = initialValues
+      }
+      if (defaultPortal === 'hospital' && initialValues && Object.keys(initialValues).length > 0 && form) {
+        form._hospitalValues = initialValues
+      }
+      if (defaultPortal === 'pharmacy' && initialValues && Object.keys(initialValues).length > 0 && form) {
+        form._pharmacyValues = initialValues
       }
       if (defaultPortal === 'user' && initialValues && Object.keys(initialValues).length > 0 && form) {
         form._userValues = initialValues
@@ -3348,74 +4715,676 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       popup.querySelector('.auth-popup-close').addEventListener('click', close)
       popup.querySelector('[data-close-registration]').addEventListener('click', close)
     } else if (!isPortalLogin && form.dataset.portal === 'diagnostic') {
-      const passInput = form.querySelector('#diagnostic-password')
-      const confirmInput = form.querySelector('#diagnostic-confirmPassword')
-      if (passInput) passInput.setCustomValidity('')
-      if (confirmInput) confirmInput.setCustomValidity('')
+      const currentStage = parseInt(form.dataset.stage || '1', 10)
+      if (currentStage === 1) {
+        const passInput = form.querySelector('#diagnostic-password')
+        const confirmInput = form.querySelector('#diagnostic-confirmPassword')
+        if (passInput) passInput.setCustomValidity('')
+        if (confirmInput) confirmInput.setCustomValidity('')
 
-      const passErr = validatePasswordRules(values.password || '')
-      if (passErr && passInput) {
-        passInput.setCustomValidity(passErr)
-        passInput.reportValidity()
-        return
-      }
-      if (values.password !== values.confirmPassword && confirmInput) {
-        confirmInput.setCustomValidity('Passwords do not match')
-        confirmInput.reportValidity()
-        return
-      }
-
-      const phoneCode = values.phoneCountryCode || '+91'
-      const expectedDigits = getCountryDigits(phoneCode)
-      const countryObj = getCountryByCode(phoneCode)
-      const rawPhone = String(values.phone || values.mobile || '').replace(/\D/g, '')
-
-      if (rawPhone.length !== expectedDigits) {
-        const pInput = form.querySelector('#diagnostic-phone')
-        if (pInput) {
-          pInput.setCustomValidity(`Enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name}`)
-          pInput.reportValidity()
-        } else {
-          ctx.showToast(`Please enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name} (${phoneCode}).`)
+        const passErr = validatePasswordRules(values.password || '')
+        if (passErr && passInput) {
+          passInput.setCustomValidity(passErr)
+          passInput.reportValidity()
+          return
         }
+        if (values.password !== values.confirmPassword && confirmInput) {
+          confirmInput.setCustomValidity('Passwords do not match')
+          confirmInput.reportValidity()
+          return
+        }
+
+        const phoneCode = values.phoneCountryCode || '+91'
+        const expectedDigits = getCountryDigits(phoneCode)
+        const countryObj = getCountryByCode(phoneCode)
+        const rawPhone = String(values.phone || values.mobile || '').replace(/\D/g, '')
+
+        if (rawPhone.length !== expectedDigits) {
+          const pInput = form.querySelector('#diagnostic-phone')
+          if (pInput) {
+            pInput.setCustomValidity(`Enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name}`)
+            pInput.reportValidity()
+          } else {
+            ctx.showToast(`Please enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name} (${phoneCode}).`)
+          }
+          return
+        }
+
+        const logoInput = form.querySelector('#diagnostic-logo')
+        const licenseInput = form.querySelector('#diagnostic-license')
+        const photoInput = form.querySelector('#diagnostic-photo')
+        const logoFile = logoInput?.files?.[0]
+        const licenseFile = licenseInput?.files?.[0]
+        const photoFile = photoInput?.files?.[0]
+
+        if (!photoFile && !form._diagnosticValues?.profilePhoto) {
+          ctx.showToast('Please upload your Profile Photo.')
+          return
+        }
+        if (!logoFile && !form._diagnosticValues?.logo) {
+          ctx.showToast('Please upload the Diagnostic Centre Logo.')
+          return
+        }
+        if (!licenseFile && !form._diagnosticValues?.licenseCertificate) {
+          ctx.showToast('Please upload the License Certificate.')
+          return
+        }
+
+        const oversizedFile = [logoFile, licenseFile, photoFile].find(file => file instanceof File && file.size > 10 * 1024 * 1024)
+        if (oversizedFile) {
+          ctx.showToast(`"${oversizedFile.name}" is too large (${(oversizedFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
+          return
+        }
+
+        form._diagnosticValues = {
+          ...form._diagnosticValues,
+          ...values,
+          profilePhoto: photoFile || form._diagnosticValues?.profilePhoto,
+          logo: logoFile || form._diagnosticValues?.logo,
+          licenseCertificate: licenseFile || form._diagnosticValues?.licenseCertificate
+        }
+
+        setDiagnosticStage(backdrop.querySelector('.auth-popup-register'), form, 2, form._diagnosticValues, ctx)
+        return
+      } else if (currentStage === 2) {
+        const codeInput = form.querySelector('#popup-verification-code')
+        const code = (codeInput?.value || values.code || '').trim()
+        if (!/^\d{6}$/.test(code)) {
+          if (codeInput) {
+            codeInput.setCustomValidity('Please enter a valid 6-digit verification code.')
+            codeInput.reportValidity()
+            codeInput.focus()
+          } else {
+            ctx.showToast('Please enter a valid 6-digit verification code.')
+          }
+          return
+        }
+        form._diagnosticValues = {
+          ...form._diagnosticValues,
+          code,
+          isVerified: true
+        }
+        ctx.showToast('Email verified successfully.')
+        setDiagnosticStage(backdrop.querySelector('.auth-popup-register'), form, 3, form._diagnosticValues, ctx)
+        return
+      } else if (currentStage === 3) {
+        const hiddenServicesVal = form.querySelector('#hidden-diagnosticServices')?.value || ''
+        const selectedServices = hiddenServicesVal.split(',').map(s => s.trim()).filter(Boolean)
+        if (selectedServices.length === 0) {
+          ctx.showToast('Please select at least one diagnostic service.')
+          const sSelect = form.querySelector('#select-diagnosticServices')
+          if (sSelect) sSelect.focus()
+          return
+        }
+        values.services = selectedServices
+
+        if (!values.homeCollection) {
+          ctx.showToast('Please select Home Sample Collection availability.')
+          const hcSelect = form.querySelector('#diagnostic-homeCollection')
+          if (hcSelect) {
+            hcSelect.focus()
+            hcSelect.reportValidity()
+          }
+          return
+        }
+
+        const selectedDays = Array.from(form.querySelectorAll('input[name="workingDays"]:checked')).map(cb => cb.value)
+        if (selectedDays.length === 0) {
+          ctx.showToast('Please select at least one working day.')
+          return
+        }
+        values.workingDays = selectedDays
+
+        if (!values.workingHoursFrom || !values.workingHoursTo) {
+          ctx.showToast('Please enter operating hours (From and To).')
+          return
+        }
+        values.operatingHours = `${values.workingHoursFrom} - ${values.workingHoursTo}`
+
+        if (!values.address) {
+          ctx.showToast('Please enter the Diagnostic Centre Address.')
+          return
+        }
+        if (!values.state) {
+          ctx.showToast('Please select a State.')
+          return
+        }
+        if (!values.district) {
+          ctx.showToast('Please select a District.')
+          return
+        }
+        if (!values.city) {
+          ctx.showToast('Please select a City / Town.')
+          return
+        }
+        if (!values.pincode || !/^\d{6}$/.test(String(values.pincode).trim())) {
+          ctx.showToast('Please enter a valid 6-digit Pincode.')
+          return
+        }
+
+        form._diagnosticValues = {
+          ...form._diagnosticValues,
+          ...values
+        }
+
+        showPortalRegistrationSuccess(backdrop, 'diagnostic', form._diagnosticValues, close, ctx)
         return
       }
+    } else if (!isPortalLogin && form.dataset.portal === 'hospital') {
+      const currentStage = parseInt(form.dataset.stage || '1', 10)
+      if (currentStage === 1) {
+        const passInput = form.querySelector('#hospital-password')
+        const confirmInput = form.querySelector('#hospital-confirmPassword')
+        if (passInput) passInput.setCustomValidity('')
+        if (confirmInput) confirmInput.setCustomValidity('')
 
-      const logoInput = form.querySelector('#diagnostic-logo')
-      const licenseInput = form.querySelector('#diagnostic-license')
-      const photoInput = form.querySelector('#diagnostic-photo')
-      const logoFile = logoInput?.files?.[0]
-      const licenseFile = licenseInput?.files?.[0]
-      const photoFile = photoInput?.files?.[0]
+        const passErr = validatePasswordRules(values.password || '')
+        if (passErr && passInput) {
+          passInput.setCustomValidity(passErr)
+          passInput.reportValidity()
+          return
+        }
+        if (values.password !== values.confirmPassword && confirmInput) {
+          confirmInput.setCustomValidity('Passwords do not match')
+          confirmInput.reportValidity()
+          return
+        }
 
-      if (!photoFile && !form._diagnosticValues?.profilePhoto) {
-        ctx.showToast('Please upload your Profile Photo.')
+        const phoneCode = values.phoneCountryCode || '+91'
+        const expectedDigits = getCountryDigits(phoneCode)
+        const countryObj = getCountryByCode(phoneCode)
+        const rawPhone = String(values.phone || values.mobile || '').replace(/\D/g, '')
+
+        if (rawPhone.length !== expectedDigits) {
+          const pInput = form.querySelector('#hospital-phone')
+          if (pInput) {
+            pInput.setCustomValidity(`Enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name}`)
+            pInput.reportValidity()
+          } else {
+            ctx.showToast(`Please enter a valid ${expectedDigits}-digit helpline number for ${countryObj.name} (${phoneCode}).`)
+          }
+          return
+        }
+
+        if (!values.ceaNumber) {
+          ctx.showToast('Please enter the Clinical Establishment Act (CEA) No.')
+          return
+        }
+
+        const logoInput = form.querySelector('#hospital-logo')
+        const licenseInput = form.querySelector('#hospital-license')
+        const photoInput = form.querySelector('#hospital-photo')
+        const logoFile = logoInput?.files?.[0]
+        const licenseFile = licenseInput?.files?.[0]
+        const photoFile = photoInput?.files?.[0]
+
+        if (!photoFile && !form._hospitalValues?.profilePhoto) {
+          ctx.showToast('Please upload the Superintendent Profile Photo.')
+          return
+        }
+        if (!logoFile && !form._hospitalValues?.logo) {
+          ctx.showToast('Please upload the Hospital Logo.')
+          return
+        }
+        if (!licenseFile && !form._hospitalValues?.licenseCertificate) {
+          ctx.showToast('Please upload the Registration Certificate.')
+          return
+        }
+
+        const oversizedFile = [logoFile, licenseFile, photoFile].find(file => file instanceof File && file.size > 10 * 1024 * 1024)
+        if (oversizedFile) {
+          ctx.showToast(`"${oversizedFile.name}" is too large (${(oversizedFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
+          return
+        }
+
+        form._hospitalValues = {
+          ...form._hospitalValues,
+          ...values,
+          profilePhoto: photoFile || form._hospitalValues?.profilePhoto,
+          logo: logoFile || form._hospitalValues?.logo,
+          licenseCertificate: licenseFile || form._hospitalValues?.licenseCertificate
+        }
+
+        setHospitalStage(backdrop.querySelector('.auth-popup-register'), form, 2, form._hospitalValues, ctx)
+        return
+      } else if (currentStage === 2) {
+        const codeInput = form.querySelector('#popup-verification-code')
+        const code = (codeInput?.value || values.code || '').trim()
+        if (!/^\d{6}$/.test(code)) {
+          if (codeInput) {
+            codeInput.setCustomValidity('Please enter a valid 6-digit verification code.')
+            codeInput.reportValidity()
+            codeInput.focus()
+          } else {
+            ctx.showToast('Please enter a valid 6-digit verification code.')
+          }
+          return
+        }
+        form._hospitalValues = {
+          ...form._hospitalValues,
+          code,
+          isVerified: true
+        }
+        ctx.showToast('Email verified successfully.')
+        setHospitalStage(backdrop.querySelector('.auth-popup-register'), form, 3, form._hospitalValues, ctx)
+        return
+      } else if (currentStage === 3) {
+        if (!values.hospitalCategory) {
+          ctx.showToast('Please select a Hospital Category.')
+          const catSelect = form.querySelector('#hospital-category')
+          if (catSelect) {
+            catSelect.focus()
+            catSelect.reportValidity()
+          }
+          return
+        }
+        if (!values.bedCapacity || parseInt(values.bedCapacity, 10) < 1) {
+          ctx.showToast('Please enter total registered inpatient beds.')
+          return
+        }
+        if (values.icuBeds === undefined || values.icuBeds === '' || parseInt(values.icuBeds, 10) < 0) {
+          ctx.showToast('Please enter dedicated ICU/Critical care beds.')
+          return
+        }
+        if (!values.emergencyCare) {
+          ctx.showToast('Please select 24/7 Emergency & Trauma Care availability.')
+          const ecSelect = form.querySelector('#hospital-emergencyCare')
+          if (ecSelect) {
+            ecSelect.focus()
+            ecSelect.reportValidity()
+          }
+          return
+        }
+        if (!values.bloodBank) {
+          ctx.showToast('Please select In-House Blood Bank availability.')
+          const bbSelect = form.querySelector('#hospital-bloodBank')
+          if (bbSelect) {
+            bbSelect.focus()
+            bbSelect.reportValidity()
+          }
+          return
+        }
+
+        if (!values.address) {
+          ctx.showToast('Please enter the Hospital Address.')
+          return
+        }
+        if (!values.state) {
+          ctx.showToast('Please select a State.')
+          return
+        }
+        if (!values.district) {
+          ctx.showToast('Please select a District.')
+          return
+        }
+        if (!values.city) {
+          ctx.showToast('Please select a City / Town.')
+          return
+        }
+        if (!values.pincode || !/^\d{6}$/.test(String(values.pincode).trim())) {
+          ctx.showToast('Please enter a valid 6-digit Pincode.')
+          return
+        }
+
+        form._hospitalValues = {
+          ...form._hospitalValues,
+          ...values
+        }
+
+        showPortalRegistrationSuccess(backdrop, 'hospital', form._hospitalValues, close, ctx)
         return
       }
-      if (!logoFile && !form._diagnosticValues?.logo) {
-        ctx.showToast('Please upload the Diagnostic Centre Logo.')
+    } else if (!isPortalLogin && form.dataset.portal === 'clinic') {
+      const currentStage = parseInt(form.dataset.stage || '1', 10)
+      if (currentStage === 1) {
+        const passInput = form.querySelector('#clinic-password')
+        const confirmInput = form.querySelector('#clinic-confirmPassword')
+        if (passInput) passInput.setCustomValidity('')
+        if (confirmInput) confirmInput.setCustomValidity('')
+
+        const passErr = validatePasswordRules(values.password || '')
+        if (passErr && passInput) {
+          passInput.setCustomValidity(passErr)
+          passInput.reportValidity()
+          return
+        }
+        if (values.password !== values.confirmPassword && confirmInput) {
+          confirmInput.setCustomValidity('Passwords do not match')
+          confirmInput.reportValidity()
+          return
+        }
+
+        const phoneCode = values.phoneCountryCode || '+91'
+        const expectedDigits = getCountryDigits(phoneCode)
+        const countryObj = getCountryByCode(phoneCode)
+        const rawPhone = String(values.phone || values.mobile || '').replace(/\D/g, '')
+
+        if (rawPhone.length !== expectedDigits) {
+          const pInput = form.querySelector('#clinic-phone')
+          if (pInput) {
+            pInput.setCustomValidity(`Enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name}`)
+            pInput.reportValidity()
+          } else {
+            ctx.showToast(`Please enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name} (${phoneCode}).`)
+          }
+          return
+        }
+
+        const logoInput = form.querySelector('#clinic-logo')
+        const photoInput = form.querySelector('#clinic-photo')
+        const logoFile = logoInput?.files?.[0]
+        const photoFile = photoInput?.files?.[0]
+
+        if (!photoFile && !form._clinicValues?.profilePhoto) {
+          ctx.showToast('Please upload an Admin Profile Photo.')
+          return
+        }
+        if (!logoFile && !form._clinicValues?.logo) {
+          ctx.showToast('Please upload the Clinic Logo.')
+          return
+        }
+
+        const oversizedFile = [logoFile, photoFile].find(file => file instanceof File && file.size > 10 * 1024 * 1024)
+        if (oversizedFile) {
+          ctx.showToast(`"${oversizedFile.name}" is too large (${(oversizedFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
+          return
+        }
+
+        form._clinicValues = {
+          ...form._clinicValues,
+          ...values,
+          profilePhoto: photoFile || form._clinicValues?.profilePhoto,
+          logo: logoFile || form._clinicValues?.logo
+        }
+
+        setClinicStage(backdrop.querySelector('.auth-popup-register'), form, 2, form._clinicValues, ctx)
+        return
+      } else if (currentStage === 2) {
+        const codeInput = form.querySelector('#popup-verification-code')
+        const code = (codeInput?.value || values.code || '').trim()
+        if (!/^\d{6}$/.test(code)) {
+          if (codeInput) {
+            codeInput.setCustomValidity('Please enter a valid 6-digit verification code.')
+            codeInput.reportValidity()
+            codeInput.focus()
+          } else {
+            ctx.showToast('Please enter a valid 6-digit verification code.')
+          }
+          return
+        }
+        form._clinicValues = {
+          ...form._clinicValues,
+          code,
+          isVerified: true
+        }
+        ctx.showToast('Email verified successfully.')
+        setClinicStage(backdrop.querySelector('.auth-popup-register'), form, 3, form._clinicValues, ctx)
+        return
+      } else if (currentStage === 3) {
+        if (!values.clinicType) {
+          ctx.showToast('Please select a Clinic Type.')
+          const ctSelect = form.querySelector('#clinic-clinicType')
+          if (ctSelect) { ctSelect.focus(); ctSelect.reportValidity() }
+          return
+        }
+        if (!values.consultationModes) {
+          ctx.showToast('Please select a Consultation Mode.')
+          const cmSelect = form.querySelector('#clinic-consultationModes')
+          if (cmSelect) { cmSelect.focus(); cmSelect.reportValidity() }
+          return
+        }
+
+        const hiddenSpecsVal = form.querySelector('#hidden-clinicSpecialties')?.value || ''
+        const selectedSpecialties = hiddenSpecsVal.split(',').map(s => s.trim()).filter(Boolean)
+        if (selectedSpecialties.length === 0) {
+          ctx.showToast('Please select at least one primary specialty.')
+          const sSelect = form.querySelector('#select-clinicSpecialties')
+          if (sSelect) sSelect.focus()
+          return
+        }
+        values.specialties = selectedSpecialties
+
+        if (!values.ceaNumber) {
+          ctx.showToast('Please enter the Clinic Registration / CEA No.')
+          const ceaInput = form.querySelector('#clinic-ceaNumber')
+          if (ceaInput) { ceaInput.focus(); ceaInput.reportValidity() }
+          return
+        }
+
+        const licenseInput = form.querySelector('#clinic-license')
+        const licenseFile = licenseInput?.files?.[0]
+        if (!licenseFile && !form._clinicValues?.licenseCertificate) {
+          ctx.showToast('Please upload the Registration Certificate.')
+          return
+        }
+        if (licenseFile && licenseFile.size > 10 * 1024 * 1024) {
+          ctx.showToast(`"${licenseFile.name}" is too large (${(licenseFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
+          return
+        }
+
+        const selectedDays = Array.from(form.querySelectorAll('.clinic-stage-fields input[name="workingDays"]:checked')).map(cb => cb.value)
+        if (selectedDays.length === 0) {
+          ctx.showToast('Please select at least one working day.')
+          return
+        }
+        values.workingDays = selectedDays
+
+        if (!values.workingHoursFrom || !values.workingHoursTo) {
+          ctx.showToast('Please enter OPD working hours (From and To).')
+          return
+        }
+        values.timings = `${values.workingDays.join(', ')}: ${values.workingHoursFrom} - ${values.workingHoursTo}`
+
+        if (!values.address) {
+          ctx.showToast('Please enter the Clinic Address.')
+          return
+        }
+        if (!values.state) {
+          ctx.showToast('Please select a State.')
+          return
+        }
+        if (!values.district) {
+          ctx.showToast('Please select a District.')
+          return
+        }
+        if (!values.city) {
+          ctx.showToast('Please select a City / Town.')
+          return
+        }
+        if (!values.pincode || !/^\d{6}$/.test(String(values.pincode).trim())) {
+          ctx.showToast('Please enter a valid 6-digit Pincode.')
+          return
+        }
+
+        form._clinicValues = {
+          ...form._clinicValues,
+          ...values,
+          licenseCertificate: licenseFile || form._clinicValues?.licenseCertificate
+        }
+
+        showPortalRegistrationSuccess(backdrop, 'clinic', form._clinicValues, close, ctx)
         return
       }
-      if (!licenseFile && !form._diagnosticValues?.licenseCertificate) {
-        ctx.showToast('Please upload the License Certificate.')
+    } else if (!isPortalLogin && form.dataset.portal === 'pharmacy') {
+      const currentStage = parseInt(form.dataset.stage || '1', 10)
+      if (currentStage === 1) {
+        const passInput = form.querySelector('#pharmacy-password')
+        const confirmInput = form.querySelector('#pharmacy-confirmPassword')
+        if (passInput) passInput.setCustomValidity('')
+        if (confirmInput) confirmInput.setCustomValidity('')
+
+        const passErr = validatePasswordRules(values.password || '')
+        if (passErr && passInput) {
+          passInput.setCustomValidity(passErr)
+          passInput.reportValidity()
+          return
+        }
+        if (values.password !== values.confirmPassword && confirmInput) {
+          confirmInput.setCustomValidity('Passwords do not match')
+          confirmInput.reportValidity()
+          return
+        }
+
+        const phoneCode = values.phoneCountryCode || '+91'
+        const expectedDigits = getCountryDigits(phoneCode)
+        const countryObj = getCountryByCode(phoneCode)
+        const rawPhone = String(values.phone || values.mobile || '').replace(/\D/g, '')
+
+        if (rawPhone.length !== expectedDigits) {
+          const pInput = form.querySelector('#pharmacy-phone')
+          if (pInput) {
+            pInput.setCustomValidity(`Enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name}`)
+            pInput.reportValidity()
+          } else {
+            ctx.showToast(`Please enter a valid ${expectedDigits}-digit mobile number for ${countryObj.name} (${phoneCode}).`)
+          }
+          return
+        }
+
+        const logoInput = form.querySelector('#pharmacy-logo')
+        const photoInput = form.querySelector('#pharmacy-photo')
+        const logoFile = logoInput?.files?.[0]
+        const photoFile = photoInput?.files?.[0]
+
+        if (!photoFile && !form._pharmacyValues?.profilePhoto) {
+          ctx.showToast('Please upload a Pharmacist Profile Photo.')
+          return
+        }
+        if (!logoFile && !form._pharmacyValues?.logo) {
+          ctx.showToast('Please upload the Pharmacy Storefront / Logo.')
+          return
+        }
+
+        const oversizedFile = [logoFile, photoFile].find(file => file instanceof File && file.size > 10 * 1024 * 1024)
+        if (oversizedFile) {
+          ctx.showToast(`"${oversizedFile.name}" is too large (${(oversizedFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
+          return
+        }
+
+        form._pharmacyValues = {
+          ...form._pharmacyValues,
+          ...values,
+          profilePhoto: photoFile || form._pharmacyValues?.profilePhoto,
+          logo: logoFile || form._pharmacyValues?.logo
+        }
+
+        setPharmacyStage(backdrop.querySelector('.auth-popup-register'), form, 2, form._pharmacyValues, ctx)
+        return
+      } else if (currentStage === 2) {
+        const codeInput = form.querySelector('#popup-verification-code')
+        const code = (codeInput?.value || values.code || '').trim()
+        if (!/^\d{6}$/.test(code)) {
+          if (codeInput) {
+            codeInput.setCustomValidity('Please enter a valid 6-digit verification code.')
+            codeInput.reportValidity()
+            codeInput.focus()
+          } else {
+            ctx.showToast('Please enter a valid 6-digit verification code.')
+          }
+          return
+        }
+        form._pharmacyValues = {
+          ...form._pharmacyValues,
+          code,
+          isVerified: true
+        }
+        ctx.showToast('Email verified successfully.')
+        setPharmacyStage(backdrop.querySelector('.auth-popup-register'), form, 3, form._pharmacyValues, ctx)
+        return
+      } else if (currentStage === 3) {
+        if (!values.pharmacyType) {
+          ctx.showToast('Please select a Pharmacy Type.')
+          const ptSelect = form.querySelector('#pharmacy-pharmacyType')
+          if (ptSelect) { ptSelect.focus(); ptSelect.reportValidity() }
+          return
+        }
+        if (!values.councilRegNumber) {
+          ctx.showToast('Please enter Pharmacist Council Registration Number.')
+          const crInput = form.querySelector('#pharmacy-councilRegNumber')
+          if (crInput) { crInput.focus(); crInput.reportValidity() }
+          return
+        }
+        if (!values.drugLicenseNumber) {
+          ctx.showToast('Please enter Drug License Number (Form 20 / 21).')
+          const dlInput = form.querySelector('#pharmacy-drugLicenseNumber')
+          if (dlInput) { dlInput.focus(); dlInput.reportValidity() }
+          return
+        }
+
+        const licenseInput = form.querySelector('#pharmacy-license')
+        const licenseFile = licenseInput?.files?.[0]
+        if (!licenseFile && !form._pharmacyValues?.licenseCertificate) {
+          ctx.showToast('Please upload the Drug License Certificate.')
+          return
+        }
+        if (licenseFile && licenseFile.size > 10 * 1024 * 1024) {
+          ctx.showToast(`"${licenseFile.name}" is too large (${(licenseFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
+          return
+        }
+        if (licenseFile) {
+          values.licenseCertificate = licenseFile
+        }
+
+        const hiddenServicesVal = form.querySelector('#hidden-pharmacyServices')?.value || ''
+        const selectedServices = hiddenServicesVal.split(',').map(s => s.trim()).filter(Boolean)
+        if (selectedServices.length === 0) {
+          ctx.showToast('Please select at least one pharmacy service.')
+          const sSelect = form.querySelector('#select-pharmacyServices')
+          if (sSelect) sSelect.focus()
+          return
+        }
+        values.services = selectedServices
+
+        if (!values.homeDelivery) {
+          ctx.showToast('Please select Home Delivery availability.')
+          const hdSelect = form.querySelector('#pharmacy-homeDelivery')
+          if (hdSelect) { hdSelect.focus(); hdSelect.reportValidity() }
+          return
+        }
+
+        const selectedDays = Array.from(form.querySelectorAll('.pharmacy-stage-fields input[name="workingDays"]:checked')).map(cb => cb.value)
+        if (selectedDays.length === 0) {
+          ctx.showToast('Please select at least one working day.')
+          return
+        }
+        values.workingDays = selectedDays
+
+        if (!values.workingHoursFrom || !values.workingHoursTo) {
+          ctx.showToast('Please enter operating hours (From and To).')
+          return
+        }
+        values.operatingHours = `${values.workingHoursFrom} - ${values.workingHoursTo}`
+
+        if (!values.address) {
+          ctx.showToast('Please enter the Pharmacy Address.')
+          return
+        }
+        if (!values.state) {
+          ctx.showToast('Please select a State.')
+          return
+        }
+        if (!values.district) {
+          ctx.showToast('Please select a District.')
+          return
+        }
+        if (!values.city) {
+          ctx.showToast('Please select a City / Town.')
+          return
+        }
+        if (!values.pincode || !/^\d{6}$/.test(String(values.pincode).trim())) {
+          ctx.showToast('Please enter a valid 6-digit Pincode.')
+          return
+        }
+
+        form._pharmacyValues = {
+          ...form._pharmacyValues,
+          ...values,
+          licenseCertificate: licenseFile || form._pharmacyValues?.licenseCertificate
+        }
+
+        showPortalRegistrationSuccess(backdrop, 'pharmacy', form._pharmacyValues, close, ctx)
         return
       }
-
-      const oversizedFile = [logoFile, licenseFile, photoFile].find(file => file instanceof File && file.size > 10 * 1024 * 1024)
-      if (oversizedFile) {
-        ctx.showToast(`"${oversizedFile.name}" is too large (${(oversizedFile.size / (1024 * 1024)).toFixed(1)}MB). Please upload a file smaller than 10MB.`)
-        return
-      }
-
-      form._diagnosticValues = {
-        ...values,
-        portal: 'diagnostic',
-        profilePhoto: photoFile || form._diagnosticValues?.profilePhoto,
-        logo: logoFile || form._diagnosticValues?.logo,
-        licenseCertificate: licenseFile || form._diagnosticValues?.licenseCertificate
-      }
-
-      renderRegistrationVerification(backdrop, ctx, { ...values, portal: 'diagnostic' }, close)
     } else if (!isPortalLogin) {
       renderRegistrationVerification(backdrop, ctx, values, close)
     } else {
