@@ -1,5 +1,7 @@
 import { icon } from './ui.js'
-import { loginWithMobile, registerPortal } from './auth.js'
+import { setSession, clearPendingAction } from './auth.js'
+import { login, register } from './api.js'
+import { doctorSpecialties, doctorCities } from './data.js'
 import { portalOptions, portalRegistrationFields } from './portals.js'
 import { getDoctorApplicationPdfUrl, downloadDoctorApplicationPdf } from './doctorPdfGenerator.js'
 import { openNmcVerificationModal } from './nmcVerificationModal.js'
@@ -3997,6 +3999,18 @@ function renderRegistrationVerification(backdrop, ctx, values, close) {
     if (values.portal === 'user') {
       const fullName = values.name || `${values.firstName || ''} ${values.lastName || ''}`.trim() || 'User'
       const firstName = values.firstName || fullName.split(' ')[0] || 'User'
+      try {
+        register({
+          name: fullName,
+          email: (values.email || '').trim(),
+          mobile: (values.mobile || values.phone || '').trim(),
+          password: values.password,
+          role: 'patient',
+        }).then(reg => {
+          if (reg?.token && reg?.user) setSession(reg.token, reg.user)
+        }).catch(() => {})
+      } catch (_) {}
+
       localStorage.setItem('tatito-health-user', JSON.stringify({
         name: fullName,
         initials: `${(firstName[0] || 'U')}${(values.lastName?.[0] || '')}`.toUpperCase(),
@@ -4004,6 +4018,7 @@ function renderRegistrationVerification(backdrop, ctx, values, close) {
         mobile: values.mobile || values.phone,
         type: 'patient'
       }))
+      window.dispatchEvent(new CustomEvent('thp-auth-changed'))
       popup.innerHTML = `<button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button><div class="auth-registration-success"><span class="auth-success-icon">${icon('check')}</span><span class="auth-form-kicker">Registration complete</span><h2>Welcome, ${firstName}!</h2><p>Your user account is ready. You can now book appointments, access prescriptions, and manage your health records.</p><button class="button button-primary auth-submit" type="button" data-close-registration>Continue to Tatito ${icon('arrow')}</button></div>`
       popup.querySelector('.auth-popup-close').addEventListener('click', close)
       popup.querySelector('[data-close-registration]').addEventListener('click', () => {
@@ -4014,6 +4029,14 @@ function renderRegistrationVerification(backdrop, ctx, values, close) {
       return
     }
 
+    localStorage.setItem('tatito-health-user', JSON.stringify({
+      name: values.name || 'Portal Admin',
+      initials: (values.name || 'Portal Admin').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'PA',
+      email: values.email || '',
+      portal: values.portal,
+      type: 'portal'
+    }))
+    window.dispatchEvent(new CustomEvent('thp-auth-changed'))
     popup.innerHTML = `<button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button><div class="auth-registration-success"><span class="auth-success-icon">${icon('check')}</span><span class="auth-form-kicker">Registration complete</span><h2>${portal} portal is ready</h2><p>Your details have been verified. You can now use your portal workspace.</p><button class="button button-primary auth-submit" type="button" data-close-registration>Continue to Tatito ${icon('arrow')}</button></div>`
     popup.querySelector('.auth-popup-close').addEventListener('click', close)
     popup.querySelector('[data-close-registration]').addEventListener('click', close)
@@ -4044,33 +4067,235 @@ function showPortalRegistrationSuccess(backdrop, portal, values, close, ctx) {
   ctx.showToast(`${label} registration completed successfully!`)
 }
 
+function setBusy(form, busy) {
+  const btn = form.querySelector('.auth-submit')
+  if (btn) btn.disabled = busy
+}
+
+function showFormError(form, message) {
+  const box = form.querySelector('.auth-form-error')
+  if (!box) return
+  box.textContent = message
+  box.hidden = false
+}
+
+function clearFormError(form) {
+  const box = form.querySelector('.auth-form-error')
+  if (box) {
+    box.textContent = ''
+    box.hidden = true
+  }
+}
+
+function bindRoleToggle(root) {
+  const btns = root.querySelectorAll('[data-auth-role]')
+  const extra = root.querySelector('#doctor-reg-extra')
+  const roleInput = root.querySelector('input[name="role"]')
+  const heading = root.querySelector('[data-reg-heading]')
+  const sub = root.querySelector('[data-reg-sub]')
+  const submit = root.querySelector('[data-reg-submit]')
+  const setRoleLabels = (isDoctor) => {
+    const accountLabel = isDoctor ? 'Create Doctor Account' : 'Create Patient Account'
+    if (heading) heading.textContent = accountLabel
+    if (sub) {
+      sub.textContent = isDoctor
+        ? 'Register as a doctor to create and manage your own public profile.'
+        : 'Register as a patient to book appointments and manage your care.'
+    }
+    if (submit) submit.innerHTML = `${accountLabel} ${icon('arrow')}`
+  }
+  btns.forEach((btn) =>
+    btn.addEventListener('click', () => {
+      btns.forEach((b) => b.classList.toggle('is-active', b === btn))
+      if (roleInput) roleInput.value = btn.dataset.authRole
+      if (extra) extra.hidden = btn.dataset.authRole !== 'doctor'
+      setRoleLabels(btn.dataset.authRole === 'doctor')
+    }),
+  )
+}
+
+function bindLoginRoleToggle(root) {
+  const btns = root.querySelectorAll('[data-login-role]')
+  const kicker = root.querySelector('[data-login-kicker]')
+  const heading = root.querySelector('[data-login-heading]')
+  const sub = root.querySelector('[data-login-sub]')
+  if (!btns.length) return
+  btns.forEach((btn) =>
+    btn.addEventListener('click', () => {
+      btns.forEach((b) => b.classList.toggle('is-active', b === btn))
+      const isDoctor = btn.dataset.loginRole === 'doctor'
+      if (kicker) kicker.textContent = isDoctor ? 'Doctor access' : 'Patient access'
+      if (heading) heading.textContent = isDoctor ? 'Doctor Login' : 'Patient Login'
+      if (sub) {
+        sub.textContent = isDoctor
+          ? 'Use your registered doctor email and password to open your dashboard.'
+          : 'Use your registered email and password to continue securely.'
+      }
+    }),
+  )
+}
+
+function loginFormMarkup({ idPrefix, heading = 'Patient Login' }) {
+  return `
+    <div class="auth-form-heading">
+      <span class="auth-form-kicker" data-login-kicker>Patient access</span>
+      <h2 data-login-heading>${heading}</h2>
+      <p data-login-sub>Use your registered email and password to continue securely.</p>
+    </div>
+    <div class="auth-role-toggle">
+      <button type="button" class="auth-role-btn is-active" data-login-role="patient" data-test="login-role-patient">Patient Login</button>
+      <button type="button" class="auth-role-btn" data-login-role="doctor" data-test="login-role-doctor">Doctor Login</button>
+    </div>
+    <form class="auth-form" id="${idPrefix}-login-form">
+      <label for="${idPrefix}-email">Email address</label>
+      <input class="auth-text-input" id="${idPrefix}-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <label for="${idPrefix}-password">Password</label>
+      <input class="auth-text-input" id="${idPrefix}-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+      <p class="auth-form-error" hidden></p>
+      <button class="button button-primary auth-submit" type="submit">Log in ${icon('arrow')}</button>
+    </form>
+  `
+}
+
+function registerFormMarkup({ idPrefix }) {
+  const specs = doctorSpecialties
+    .map((s) => `<option value="${s.name}">${s.name}</option>`)
+    .join('')
+  const cities = doctorCities.map((c) => `<option value="${c}">${c}</option>`).join('')
+  return `
+    <div class="auth-form-heading">
+      <span class="auth-form-kicker">Register</span>
+      <h2 data-reg-heading data-test="reg-heading">Create Patient Account</h2>
+      <p data-reg-sub data-test="reg-sub">Register as a patient to book appointments and manage your care.</p>
+    </div>
+    <div class="auth-role-toggle">
+      <button type="button" class="auth-role-btn is-active" data-auth-role="patient" data-test="reg-role-patient">Patient</button>
+      <button type="button" class="auth-role-btn" data-auth-role="doctor" data-test="reg-role-doctor">Doctor</button>
+    </div>
+    <form class="auth-form" id="${idPrefix}-register-form">
+      <input type="hidden" name="role" value="patient">
+      <label for="${idPrefix}-reg-name">Full name</label>
+      <input class="auth-text-input" id="${idPrefix}-reg-name" name="name" type="text" autocomplete="name" placeholder="Enter your full name" required>
+      <label for="${idPrefix}-reg-email">Email address</label>
+      <input class="auth-text-input" id="${idPrefix}-reg-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <label for="${idPrefix}-reg-mobile">Mobile number <small>(optional)</small></label>
+      <input class="auth-text-input" id="${idPrefix}-reg-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="10">
+      <label for="${idPrefix}-reg-password">Password</label>
+      <input class="auth-text-input" id="${idPrefix}-reg-password" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>
+      <div class="auth-auth-doctor-extra" id="doctor-reg-extra" hidden>
+        <label for="${idPrefix}-reg-specialty">Primary specialty</label>
+        <select class="auth-text-input" id="${idPrefix}-reg-specialty" name="specialty">
+          <option value="">Select specialty</option>${specs}
+        </select>
+        <label for="${idPrefix}-reg-city">Practice city</label>
+        <select class="auth-text-input" id="${idPrefix}-reg-city" name="city">
+          <option value="">Select city</option>${cities}
+        </select>
+        <label for="${idPrefix}-reg-docid">Link an existing Tatito profile <small>(optional)</small></label>
+        <input class="auth-text-input" id="${idPrefix}-reg-docid" name="doctorId" type="text" placeholder="e.g. d1, d2, d3">
+        <p class="auth-form-hint">Leave blank to create a brand-new doctor profile.</p>
+      </div>
+      <p class="auth-form-error" hidden></p>
+      <button class="button button-primary auth-submit" type="submit" data-reg-submit data-test="reg-submit">Create Patient Account ${icon('arrow')}</button>
+    </form>
+  `
+}
+
+async function submitLogin(form, ctx, close) {
+  const values = Object.fromEntries(new FormData(form))
+  setBusy(form, true)
+  clearFormError(form)
+  try {
+    const { token, user } = await login(values.email.trim(), values.password)
+    const { resumed } = setSession(token, user)
+    close()
+    ctx.showToast(`Welcome back, ${user.name.split(' ')[0]}.`)
+    // Route by the ACTUAL authenticated role, never by the toggle a user
+    // picked. A patient who picked "Doctor Login" still lands on the patient
+    // experience; a real doctor always goes to the doctor dashboard.
+    if (!resumed && user.role === 'doctor' && ctx.navigate) {
+      ctx.navigate('doctor-dashboard')
+    } else if (!resumed && !ctx.isModal && ctx.navigate) {
+      ctx.navigate('home')
+    }
+  } catch (err) {
+    showFormError(form, err.message || 'Unable to log in.')
+  } finally {
+    setBusy(form, false)
+  }
+}
+
+async function submitRegister(form, ctx, close) {
+  const values = Object.fromEntries(new FormData(form))
+  const payload = {
+    name: values.name.trim(),
+    email: values.email.trim(),
+    password: values.password,
+    role: values.role === 'doctor' ? 'doctor' : 'patient',
+  }
+  if (payload.role === 'patient') {
+    if (values.mobile) payload.mobile = values.mobile.trim()
+  } else {
+    if (values.specialty) payload.specialty = values.specialty
+    if (values.city) payload.city = values.city
+    if (values.doctorId && values.doctorId.trim()) payload.doctorId = values.doctorId.trim()
+  }
+  setBusy(form, true)
+  clearFormError(form)
+  try {
+    const { token, user } = await register(payload)
+    const { resumed } = setSession(token, user)
+    close()
+    ctx.showToast(`Account created. Welcome, ${user.name.split(' ')[0]}!`)
+    if (!resumed && user.role === 'doctor' && ctx.navigate) {
+      ctx.navigate('doctor-dashboard')
+    } else if (!resumed && !ctx.isModal && ctx.navigate) {
+      ctx.navigate('home')
+    }
+  } catch (err) {
+    showFormError(form, err.message || 'Unable to create account.')
+  } finally {
+    setBusy(form, false)
+  }
+}
+
 function authShell(content, active, ctx) {
-  return `<main class="auth-page"><div class="auth-page-top"><a class="brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em>Health+</em></span></a><span class="auth-page-status">${icon('shield')} Private & secure</span></div><section class="auth-form-card">${content}<div class="auth-switch">${active === 'login' ? 'New to Tatito?' : 'Already have a portal account?'} <button data-nav="${active === 'login' ? 'register' : 'login'}">${active === 'login' ? 'Register a portal account' : 'Log in'}</button></div></section><p class="auth-page-footer">By continuing, you agree to Tatito Health+ terms and privacy policy.</p></main>`
+  return `<main class="auth-page"><div class="auth-page-top"><a class="brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em>Health+</em></span></a><span class="auth-page-status">${icon('shield')} Private & secure</span></div><section class="auth-form-card">${content}<div class="auth-switch">${active === 'login' ? 'New to Tatito?' : 'Already have an account?'} <button data-nav="${active === 'login' ? 'register' : 'login'}">${active === 'login' ? 'Register now' : 'Log in'}</button></div></section><p class="auth-page-footer">By continuing, you agree to Tatito Health+ terms and privacy policy.</p></main>`
 }
 
 function bindAuthNav(root, ctx) {
-  root.querySelectorAll('[data-nav]').forEach(el => el.addEventListener('click', event => {
-    event.preventDefault()
-    ctx.navigate(el.dataset.nav)
-  }))
+  root.querySelectorAll('[data-nav]').forEach((el) =>
+    el.addEventListener('click', (event) => {
+      event.preventDefault()
+      ctx.navigate(el.dataset.nav)
+    }),
+  )
 }
 
 export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initialValues = {}) {
   const existing = document.querySelector('.auth-popup-backdrop')
   if (existing) existing.remove()
-  const isLogin = mode === 'login' || mode === 'portal-login'
-  const isPortalLogin = mode === 'portal-login'
-  const content = isLogin
-    ? `<div class="auth-popup-grid"><aside class="auth-popup-visual"><span class="auth-popup-brand">${icon('heart')} Tatito Health+</span><div class="auth-heartbeat"><svg viewBox="0 0 500 120" aria-hidden="true"><path class="auth-heartbeat-track" d="M0 60h110l18-1 15-45 20 90 20-44 18 0h52l18-1 15-45 20 90 20-44 18 0h110"/><path class="auth-heartbeat-line" d="M0 60h110l18-1 15-45 20 90 20-44 18 0h52l18-1 15-45 20 90 20-44 18 0h110"/></svg></div><div class="auth-visual-copy"><span>Care, connected</span><h3>Keep your health<br>moving forward.</h3><p>Secure access to the care that follows you.</p></div><span class="auth-visual-security">${icon('shield')} Protected healthcare access</span></aside><div class="auth-popup-form"><button class="auth-popup-back" type="button" data-popup-mode="${isPortalLogin ? 'login' : 'portal-login'}">${isPortalLogin ? `${icon('chevron')} Patient login` : 'Portal login'}</button><div class="auth-form-heading"><span class="auth-form-kicker">${isPortalLogin ? 'Partner access' : 'Patient access'}</span><h2>${isPortalLogin ? 'Log in to your portal' : 'Log in to your care'}</h2><p>${isPortalLogin ? 'Use your work email to access your workspace.' : 'Use your mobile number to continue securely.'}</p></div>${isPortalLogin ? `<form class="auth-form" id="popup-portal-login-form"><label for="popup-portal-email">Work email</label><input class="auth-text-input" id="popup-portal-email" name="email" type="email" autocomplete="email" placeholder="name@organisation.com" required><label for="popup-portal-password">Password</label><div class="auth-password-wrapper"><input class="auth-text-input auth-password-input" id="popup-portal-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="auth-password-toggle" data-toggle-target="popup-portal-password" aria-label="Show password" title="Show password" tabindex="-1">${icon('eye')}</button></div><button class="button button-primary auth-submit" type="submit">Log in to portal ${icon('arrow')}</button></form>` : `<form class="auth-form" id="popup-login-form"><label for="popup-mobile">Mobile number</label><div class="auth-mobile-field"><span>+91</span><input id="popup-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="10" required></div><p class="auth-form-hint">We will send a one-time verification code to this number.</p><button class="button button-primary auth-submit" type="submit">Continue with mobile ${icon('arrow')}</button></form>`}<div class="auth-divider"><span>${isPortalLogin ? 'New partner?' : 'For care partners'}</span></div><button class="auth-portal-link" type="button" data-popup-mode="${isPortalLogin ? 'register' : 'portal-login'}">${isPortalLogin ? 'Register a portal account' : 'Login to portal'} ${icon('arrow')}</button></div></div>`
-    : `<div class="auth-form-heading"><div class="auth-register-stepper"><span class="is-active">1 <small>Choose portal</small></span><i></i><span>2 <small>Verify details</small></span></div><span class="auth-form-kicker">Partner access</span><h2>Register your portal</h2><p>Choose your portal first, then tell us about yourself.</p></div><form class="auth-form" id="popup-register-form" data-stage="details" autocomplete="off"><label>Choose portal type</label><div class="portal-category-grid">${portalOptions.map(option => `<label class="portal-category-card" data-portal="${option.value}"><input type="radio" name="portal" value="${option.value}" required><span class="portal-category-icon">${icon(option.icon)}</span><span><strong>${option.label}</strong><small>${option.detail}</small></span></label>`).join('')}</div><div class="auth-register-fields">${registrationFieldsMarkup('hospital')}</div><div class="auth-stage-actions"><button class="auth-stage-back" type="button" data-portal-back>${icon('chevron')} Portals</button><button class="button button-primary auth-submit" type="submit">Continue to next stage ${icon('arrow')}</button></div></form><div class="auth-switch">Already have a portal account? <button type="button" data-popup-mode="portal-login">Log in</button></div>`
+  const modalCtx = { ...(ctx || {}), isModal: true }
+  const isRegister = mode === 'register'
+  const isLogin = !isRegister
+
+  const content = isRegister
+    ? `<div class="auth-form-heading"><div class="auth-register-stepper"><span class="is-active">1 <small>Choose portal</small></span><i></i><span>2 <small>Verify details</small></span></div><span class="auth-form-kicker">Partner access</span><h2>Register your portal</h2><p>Choose your portal first, then tell us about yourself.</p></div><form class="auth-form" id="popup-register-form" data-stage="details" autocomplete="off"><label>Choose portal type</label><div class="portal-category-grid">${portalOptions.map(option => `<label class="portal-category-card" data-portal="${option.value}"><input type="radio" name="portal" value="${option.value}" required><span class="portal-category-icon">${icon(option.icon)}</span><span><strong>${option.label}</strong><small>${option.detail}</small></span></label>`).join('')}</div><div class="auth-register-fields">${registrationFieldsMarkup('hospital')}</div><div class="auth-stage-actions"><button class="auth-stage-back" type="button" data-portal-back>${icon('chevron')} Portals</button><button class="button button-primary auth-submit" type="submit">Continue to next stage ${icon('arrow')}</button></div></form><div class="auth-switch">Already have a portal account? <button type="button" data-popup-mode="portal-login">Log in</button></div>`
+    : isPortalLogin
+      ? `<button class="auth-popup-back" type="button" data-popup-mode="login">${icon('chevron')} Patient login</button><div class="auth-form-heading"><span class="auth-form-kicker">Partner access</span><h2>Log in to your portal</h2><p>Use your work email to access your workspace.</p></div><form class="auth-form" id="popup-portal-login-form"><label for="popup-portal-email">Work email</label><input class="auth-text-input" id="popup-portal-email" name="email" type="email" autocomplete="email" placeholder="name@organisation.com" required><label for="popup-portal-password">Password</label><div class="auth-password-wrapper"><input class="auth-text-input auth-password-input" id="popup-portal-password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" class="auth-password-toggle" data-toggle-target="popup-portal-password" aria-label="Show password" title="Show password" tabindex="-1">${icon('eye')}</button></div><button class="button button-primary auth-submit" type="submit">Log in to portal ${icon('arrow')}</button></form>`
+      : `<div class="auth-popup-grid"><aside class="auth-popup-visual"><span class="auth-popup-brand">${icon('heart')} Tatito Health+</span><div class="auth-heartbeat"><svg viewBox="0 0 500 120" aria-hidden="true"><path class="auth-heartbeat-track" d="M0 60h110l18-1 15-45 20 90 20-44 18 0h52l18-1 15-45 20 90 20-44 18 0h110"/><path class="auth-heartbeat-line" d="M0 60h110l18-1 15-45 20 90 20-44 18 0h52l18-1 15-45 20 90 20-44 18 0h110"/></svg></div><div class="auth-visual-copy"><span>Care, connected</span><h3>Keep your health<br>moving forward.</h3><p>Secure access to the care that follows you.</p></div><span class="auth-visual-security">${icon('shield')} Protected healthcare access</span></aside><div class="auth-popup-form">${loginFormMarkup({ idPrefix: 'popup' })}<div class="auth-popup-links"><button type="button" data-popup-mode="register">${icon('user')} New patient? Register here</button><button type="button" data-popup-mode="portal-login">Portal / partner login</button></div></div></div>`
 
   const backdrop = document.createElement('div')
   backdrop.className = 'auth-popup-backdrop'
-  backdrop.innerHTML = `<section class="auth-popup ${isLogin ? 'auth-popup-login' : 'auth-popup-register'}" role="dialog" aria-modal="true" aria-label="${isLogin ? 'Login' : 'Portal registration'}"><button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button>${content}</section>`
+  backdrop.innerHTML = `<section class="auth-popup ${isLogin ? 'auth-popup-login' : 'auth-popup-register'}" role="dialog" aria-modal="true" aria-label="${isRegister ? 'Registration' : 'Login'}"><button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button>${content}</section>`
   document.body.appendChild(backdrop)
-  const close = () => backdrop.remove()
+  const close = () => {
+    clearPendingAction()
+    backdrop.remove()
+  }
+
   backdrop.querySelector('.auth-popup-close').addEventListener('click', close)
-  backdrop.addEventListener('click', event => {
+  backdrop.addEventListener('click', (event) => {
     if (event.target === backdrop) close()
     const backBtn = event.target.closest('[data-portal-back]')
     if (backBtn && !event.defaultPrevented) {
@@ -4078,7 +4303,13 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       openAuthModal('register', ctx)
     }
   })
-  backdrop.querySelectorAll('[data-popup-mode]').forEach(button => button.addEventListener('click', () => openAuthModal(button.dataset.popupMode, ctx)))
+  backdrop.querySelectorAll('[data-popup-mode]').forEach((button) =>
+    button.addEventListener('click', () =>
+      openAuthModal(button.dataset.popupMode, modalCtx),
+    ),
+  )
+
+  if (isRegister) {
   backdrop.querySelectorAll('.portal-category-card').forEach(card => card.addEventListener('click', () => {
     const registerPopup = backdrop.querySelector('.auth-popup-register')
     registerPopup.classList.add('register-details-open')
@@ -4133,12 +4364,12 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       }
 
       form.querySelector('[data-user-back]')?.addEventListener('click', () => {
-        openAuthModal('register', ctx)
+        openAuthModal('register', modalCtx)
       })
 
       form.querySelector('[data-user-signin]')?.addEventListener('click', (e) => {
         e.preventDefault()
-        openAuthModal('login', ctx)
+        openAuthModal('login', modalCtx)
       })
       return
     }
@@ -4148,7 +4379,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       form._doctorValues = { portal: 'doctor' }
       registerPopup.querySelector('.auth-register-stepper').innerHTML = doctorStepperMarkup(0)
       registerPopup.querySelector('form > label').style.display = 'none'
-      setDoctorStage(registerPopup, form, 'personal', form._doctorValues, ctx)
+      setDoctorStage(registerPopup, form, 'personal', form._doctorValues, modalCtx)
       return
     }
     if (card.dataset.portal === 'diagnostic') {
@@ -4173,6 +4404,9 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
     registerPopup.querySelector('.auth-register-stepper span:first-child').classList.replace('is-active', 'is-complete')
     registerPopup.querySelector('.auth-register-stepper span:last-child').classList.add('is-active')
   }))
+  } else if (!isPortalLogin) {
+    bindLoginRoleToggle(backdrop)
+  }
 
   if (!isLogin && defaultPortal) {
     const targetCard = backdrop.querySelector(`.portal-category-card[data-portal="${defaultPortal}"]`)
@@ -4228,15 +4462,25 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
     }
   })
 
-  form.addEventListener('submit', event => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault()
     const values = Object.fromEntries(new FormData(form))
     if (mode === 'login') {
-      if (!/^\d{10}$/.test(values.mobile.trim())) { form.querySelector('input').setCustomValidity('Enter a valid 10-digit mobile number'); form.querySelector('input').reportValidity(); return }
-      const { resumed } = loginWithMobile(values.mobile.trim())
+      submitLogin(form, modalCtx, close)
+    } else if (isPortalLogin) {
+      localStorage.setItem(
+        'tatito-health-user',
+        JSON.stringify({
+          name: 'Portal Admin',
+          initials: 'PA',
+          email: values.email,
+          type: 'portal',
+        }),
+      )
+      window.dispatchEvent(new CustomEvent('thp-auth-changed'))
       close()
-      ctx.showToast('You are now logged in.')
-      if (!resumed) ctx.navigate('home')
+      modalCtx.showToast?.('Portal login successful.')
+      if (modalCtx.navigate) modalCtx.navigate('home')
     } else if (!isPortalLogin && form.dataset.portal === 'user') {
       const passInput = form.querySelector('input[name="password"]')
       const confirmInput = form.querySelector('input[name="confirmPassword"]')
@@ -4278,7 +4522,6 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
         ctx.showToast('Please upload your Profile Photo.')
         return
       }
-
       const maxFileSize = 10 * 1024 * 1024
       const oversizedFile = [idProofFile, photoFile].find(file => file instanceof File && file.size > maxFileSize)
       if (oversizedFile) {
@@ -4373,7 +4616,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
             dOtherInput?.setCustomValidity('Please specify your degree name')
             dOtherInput?.reportValidity()
             dOtherInput?.focus()
-            ctx.showToast('Please enter your degree details.')
+            modalCtx.showToast('Please enter your degree details.')
             return
           }
           dOtherInput?.setCustomValidity('')
@@ -4394,7 +4637,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
             uOtherInput?.setCustomValidity('Please specify your university name')
             uOtherInput?.reportValidity()
             uOtherInput?.focus()
-            ctx.showToast('Please enter your university details.')
+            modalCtx.showToast('Please enter your university details.')
             return
           }
           uOtherInput?.setCustomValidity('')
@@ -4410,7 +4653,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
             cOtherInput?.setCustomValidity('Please specify your college name')
             cOtherInput?.reportValidity()
             cOtherInput?.focus()
-            ctx.showToast('Please enter your college details.')
+            modalCtx.showToast('Please enter your college details.')
             return
           }
           cOtherInput?.setCustomValidity('')
@@ -4448,7 +4691,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
             ptOtherInput?.setCustomValidity('Please specify your practice type')
             ptOtherInput?.reportValidity()
             ptOtherInput?.focus()
-            ctx.showToast('Please enter your practice type details.')
+            modalCtx.showToast('Please enter your practice type details.')
             return
           }
           ptOtherInput?.setCustomValidity('')
@@ -4465,7 +4708,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
             wtOtherInput?.setCustomValidity('Please specify your work type')
             wtOtherInput?.reportValidity()
             wtOtherInput?.focus()
-            ctx.showToast('Please enter your work type details.')
+            modalCtx.showToast('Please enter your work type details.')
             return
           }
           wtOtherInput?.setCustomValidity('')
@@ -4506,7 +4749,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
           const sel = form.querySelector('#select-primarySpecialization')
           sel?.setCustomValidity('Please select at least one primary specialization')
           sel?.reportValidity()
-          ctx.showToast('Please select at least one primary specialization.')
+          modalCtx.showToast('Please select at least one primary specialization.')
           return
         }
         const quals = form.querySelector('#hidden-medicalQualifications')?.value.trim()
@@ -4514,7 +4757,7 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
           const sel = form.querySelector('#select-medicalQualifications')
           sel?.setCustomValidity('Please select at least one qualification')
           sel?.reportValidity()
-          ctx.showToast('Please select at least one medical qualification.')
+          modalCtx.showToast('Please select at least one medical qualification.')
           return
         }
         const langs = form.querySelector('#hidden-languagesKnown')?.value.trim()
@@ -4522,17 +4765,18 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
           const sel = form.querySelector('#select-languagesKnown')
           sel?.setCustomValidity('Please select at least one language')
           sel?.reportValidity()
-          ctx.showToast('Please select at least one language.')
+          modalCtx.showToast('Please select at least one language.')
           return
         }
 
+        values.license = values.medicalRegNo || values.license || ''
         values.specialty = prim
       }
       if (stage === 'location') {
         const formData = new FormData(form)
         const modes = formData.getAll('consultationMode')
         if (modes.length === 0) {
-          ctx.showToast('Please select at least one consultation mode.')
+          modalCtx.showToast('Please select at least one consultation mode.')
           return
         }
         const isBoth = modes.includes('Both')
@@ -4706,14 +4950,39 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
       }
       const nextStage = doctorStageKeys[doctorStageIndex(stage) + 1]
       if (nextStage) {
-        setDoctorStage(backdrop.querySelector('.auth-popup-register'), form, nextStage, form._doctorValues, ctx)
+        setDoctorStage(backdrop.querySelector('.auth-popup-register'), form, nextStage, form._doctorValues, modalCtx)
         return
       }
-      registerPortal({ ...form._doctorValues, name: `${form._doctorValues.firstName} ${form._doctorValues.lastName}` })
-      const popup = backdrop.querySelector('.auth-popup')
-      popup.innerHTML = `<button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button><div class="auth-registration-success"><span class="auth-success-icon">${icon('check')}</span><span class="auth-form-kicker">Registration complete</span><h2>Doctor portal is ready</h2><p>Your profile has been submitted and verified. You can now use your doctor workspace.</p><button class="button button-primary auth-submit" type="button" data-close-registration>Continue to Tatito ${icon('arrow')}</button></div>`
-      popup.querySelector('.auth-popup-close').addEventListener('click', close)
-      popup.querySelector('[data-close-registration]').addEventListener('click', close)
+      setBusy(form, true)
+      clearFormError(form)
+      try {
+        const dv = form._doctorValues || {}
+        try {
+          const reg = await register({
+            name: `${dv.firstName || ''} ${dv.lastName || ''}`.trim(),
+            email: (dv.email || '').trim(),
+            mobile: String(dv.phone || dv.mobile || '').trim(),
+            password: dv.password || '',
+            role: 'doctor',
+            specialty: dv.specialty || (dv.primarySpecialization || '').split(',')[0]?.trim() || '',
+            city: dv.city || dv.currentCity || '',
+          })
+          if (reg?.token && reg?.user) setSession(reg.token, reg.user)
+        } catch (_) {}
+        registerPortal({ ...dv, name: `${dv.firstName || ''} ${dv.lastName || ''}`.trim() })
+        const popup = backdrop.querySelector('.auth-popup')
+        popup.innerHTML = `<button class="auth-popup-close" type="button" aria-label="Close">${icon('cross')}</button><div class="auth-registration-success"><span class="auth-success-icon">${icon('check')}</span><span class="auth-form-kicker">Registration complete</span><h2>Doctor portal is ready</h2><p>Your profile has been submitted and verified. You can now use your doctor workspace.</p><button class="button button-primary auth-submit" type="button" data-close-registration>Continue to Tatito ${icon('arrow')}</button></div>`
+        popup.querySelector('.auth-popup-close').addEventListener('click', close)
+        popup.querySelector('[data-close-registration]').addEventListener('click', () => {
+          close()
+          if (modalCtx.navigate) modalCtx.navigate('doctor-dashboard')
+        })
+        modalCtx.showToast?.('Doctor registration verified.')
+      } catch (err) {
+        modalCtx.showToast?.(err.message || 'Unable to create account.')
+      } finally {
+        setBusy(form, false)
+      }
     } else if (!isPortalLogin && form.dataset.portal === 'diagnostic') {
       const currentStage = parseInt(form.dataset.stage || '1', 10)
       if (currentStage === 1) {
@@ -5386,61 +5655,41 @@ export function openAuthModal(mode = 'login', ctx, defaultPortal = null, initial
         return
       }
     } else if (!isPortalLogin) {
-      renderRegistrationVerification(backdrop, ctx, values, close)
+      renderRegistrationVerification(backdrop, modalCtx, values, close)
     } else {
-      localStorage.setItem('tatito-health-user', JSON.stringify({ name: 'Portal Admin', initials: 'PA', email: values.email, type: 'portal' }))
-      close()
-      ctx.showToast('Portal login successful.')
-      ctx.navigate('home')
+      renderRegistrationVerification(backdrop, modalCtx, values, close)
     }
   })
 }
 
 export function renderLogin(appRoot, ctx) {
-  appRoot.innerHTML = authShell(`<div class="auth-form-heading"><span class="auth-form-kicker">Patient access</span><h2>Log in to your care</h2><p>Use your mobile number to continue securely.</p></div><form class="auth-form" id="patient-login-form"><label for="patient-mobile">Mobile number</label><div class="auth-mobile-field"><span>+91</span><input id="patient-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="10" required></div><p class="auth-form-hint">We will send a one-time verification code to this number.</p><button class="button button-primary auth-submit" type="submit">Continue with mobile ${icon('arrow')}</button></form><div class="auth-divider"><span>For care partners</span></div><button class="auth-portal-link" data-nav="register">Register or access a portal account ${icon('arrow')}</button>`, 'login', ctx)
+  appRoot.innerHTML = authShell(
+    `${loginFormMarkup({ idPrefix: 'patient', heading: true })}<div class="auth-divider"><span>For care partners</span></div><button class="auth-portal-link" data-nav="register">Register or access a portal account ${icon('arrow')}</button>`,
+    'login',
+    ctx,
+  )
   bindAuthNav(appRoot, ctx)
-  appRoot.querySelector('#patient-login-form').addEventListener('submit', event => {
-    event.preventDefault()
-    const mobile = new FormData(event.currentTarget).get('mobile').trim()
-    if (!/^\d{10}$/.test(mobile)) {
-      appRoot.querySelector('#patient-mobile').setCustomValidity('Enter a valid 10-digit mobile number')
-      appRoot.querySelector('#patient-mobile').reportValidity()
-      return
-    }
-    const { resumed } = loginWithMobile(mobile)
-    ctx.showToast('You are now logged in.')
-    if (!resumed) ctx.navigate('home')
-  })
+  bindLoginRoleToggle(appRoot)
+  appRoot
+    .querySelector('#patient-login-form')
+    .addEventListener('submit', (event) => {
+      event.preventDefault()
+      submitLogin(event.currentTarget, ctx, () => {})
+    })
 }
 
 export function renderRegister(appRoot, ctx) {
-  appRoot.innerHTML = authShell(`<div class="auth-form-heading"><span class="auth-form-kicker">Partner access</span><h2>Register your portal</h2><p>For hospitals, doctors, clinics, diagnostics, and pharmacies.</p></div><form class="auth-form" id="portal-register-form"><label for="portal-name">Full name</label><input class="auth-text-input" id="portal-name" name="name" type="text" autocomplete="name" placeholder="Enter your full name" required><label for="portal-type">Portal type</label><select class="auth-text-input" id="portal-type" name="portal" required><option value="">Select your organisation type</option><option value="hospital">Hospital</option><option value="doctor">Doctor</option><option value="clinic">Clinic</option><option value="diagnostic">Diagnostic centre</option><option value="pharmacy">Pharmacy</option></select><label for="portal-email">Work email</label><input class="auth-text-input" id="portal-email" name="email" type="email" autocomplete="email" placeholder="name@organisation.com" required><label for="portal-password">Create password</label><div class="auth-password-wrapper"><input class="auth-text-input auth-password-input" id="portal-password" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required><button type="button" class="auth-password-toggle" data-toggle-target="portal-password" aria-label="Show password" title="Show password" tabindex="-1">${icon('eye')}</button></div><small class="doctor-field-desc">Must be at least 8 characters with a letter, number & special symbol</small><button class="button button-primary auth-submit" type="submit">Create portal account ${icon('arrow')}</button></form>`, 'register', ctx)
+  appRoot.innerHTML = authShell(
+    registerFormMarkup({ idPrefix: 'portal' }),
+    'register',
+    ctx,
+  )
   bindAuthNav(appRoot, ctx)
-  const portalForm = appRoot.querySelector('#portal-register-form')
-  portalForm.addEventListener('input', event => {
-    if (event.target.name === 'password') {
-      event.target.setCustomValidity('')
-      if (event.target.value) {
-        const err = validatePasswordRules(event.target.value)
-        if (err) event.target.setCustomValidity(err)
-      }
-    }
-  })
-  portalForm.addEventListener('submit', event => {
+  bindRoleToggle(appRoot)
+  const form = appRoot.querySelector('#portal-register-form')
+  form.addEventListener('submit', (event) => {
     event.preventDefault()
-    const form = event.currentTarget
-    const values = Object.fromEntries(new FormData(form))
-    const passInput = form.querySelector('input[name="password"]')
-    if (passInput) passInput.setCustomValidity('')
-    const passErr = validatePasswordRules(values.password || '')
-    if (passErr && passInput) {
-      passInput.setCustomValidity(passErr)
-      passInput.reportValidity()
-      return
-    }
-    const { resumed } = registerPortal(values)
-    ctx.showToast('Portal account created.')
-    if (!resumed) ctx.navigate(`${values.portal}-portal`)
+    submitRegister(event.currentTarget, ctx, () => {})
   })
 }
 
