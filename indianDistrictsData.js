@@ -858,3 +858,84 @@ export const indianStatesAndDistricts = {
     "Uttar Dinajpur"
   ]
 }
+
+export const districtMajorCities = {
+  // Andhra Pradesh
+  "Visakhapatnam": ["Visakhapatnam", "Gajuwaka", "Anandapuram", "Bheemunipatnam", "Pendurthi", "Other"],
+  "NTR": ["Vijayawada", "Ibrahimpatnam", "Mylavaram", "Nandigama", "Jaggayyapeta", "Tiruvuru", "Other"],
+  "Guntur": ["Guntur", "Tenali", "Mangalagiri", "Tadikonda", "Ponnur", "Chebrolu", "Other"],
+  "Tirupati": ["Tirupati", "Srikalahasti", "Chandragiri", "Puttur", "Venkatagiri", "Gudur", "Other"],
+  "Chittoor": ["Chittoor", "Palamaner", "Nagari", "Kuppam", "Punganur", "Other"],
+  "Kurnool": ["Kurnool", "Yemmiganur", "Adoni", "Kodumur", "Mantralayam", "Other"],
+  "Krishna": ["Machilipatnam", "Gudivada", "Pedana", "Vuyyuru", "Pamarru", "Other"],
+  "East Godavari": ["Rajahmundry", "Kovvur", "Nidadavole", "Anaparthy", "Rajanagaram", "Other"],
+  "Kakinada": ["Kakinada", "Samalkota", "Pithapuram", "Tuni", "Peddapuram", "Other"],
+  "West Godavari": ["Bhimavaram", "Tadepalligudem", "Tanuku", "Narasapuram", "Palakollu", "Other"],
+  "Eluru": ["Eluru", "Jangareddygudem", "Chintalapudi", "Denduluru", "Unguturu", "Other"],
+  "YSR Kadapa": ["Kadapa", "Proddatur", "Pulivendula", "Jammalamadugu", "Badvel", "Mydukur", "Other"],
+  "Ananthapuramu": ["Anantapur", "Dharmavaram", "Guntakal", "Tadipatri", "Uravakonda", "Other"],
+  "Nellore": ["Nellore", "Kavali", "Kovur", "Atmakur", "Venkatagiri", "Other"],
+  "Sri Potti Sriramulu Nellore": ["Nellore", "Kavali", "Kovur", "Atmakur", "Venkatagiri", "Other"],
+
+  // Telangana
+  "Hyderabad": ["Hyderabad", "Secunderabad", "Banjara Hills", "Jubilee Hills", "Gachibowli", "Madhapur", "Kukatpally", "Ameerpet", "Charminar", "Dilsukhnagar", "Other"],
+  "Medchal-Malkajgiri": ["Malkajgiri", "Kukatpally", "Medchal", "Alwal", "Quthbullapur", "Bowenpally", "Kompally", "Other"],
+  "Rangareddy": ["Shamshabad", "Rajendranagar", "Serilingampally", "Maheshwaram", "Chevella", "Ibrahimpatnam", "Other"],
+  "Warangal": ["Warangal", "Hanamkonda", "Kazipet", "Narsampet", "Wardhannapet", "Other"],
+  "Hanamkonda": ["Hanamkonda", "Kazipet", "Hasanparthy", "Parkal", "Kamalapur", "Other"],
+  "Karimnagar": ["Karimnagar", "Huzurabad", "Jammikunta", "Choppadandi", "Manakondur", "Other"],
+  "Nizamabad": ["Nizamabad", "Bodhan", "Armoor", "Bheemgal", "Varni", "Other"],
+  "Khammam": ["Khammam", "Madhira", "Sathupalli", "Wyra", "Kalluru", "Other"],
+
+  // Karnataka
+  "Bengaluru Urban": ["Bengaluru", "Whitefield", "Indiranagar", "Koramangala", "Jayanagar", "Yelahanka", "Electronic City", "Hebbal", "Other"],
+  "Bengaluru Rural": ["Doddaballapura", "Devanahalli", "Hosakote", "Nelamangala", "Other"],
+  "Mysuru": ["Mysuru", "Nanjangud", "Hunsur", "T. Narasipura", "K.R. Nagar", "Other"],
+  "Dakshina Kannada": ["Mangaluru", "Bantwal", "Puttur", "Belthangady", "Sullia", "Other"],
+  "Dharwad": ["Hubballi", "Dharwad", "Navalgund", "Kundgol", "Kalghatgi", "Other"],
+  "Belagavi": ["Belagavi", "Gokak", "Chikkodi", "Bailhongal", "Athani", "Other"],
+
+  // Maharashtra
+  "Mumbai City": ["Colaba", "Fort", "Dadar", "Worli", "Marine Lines", "Byculla", "Other"],
+  "Mumbai Suburban": ["Andheri", "Bandra", "Borivali", "Goregaon", "Malad", "Ghatkopar", "Kurla", "Other"],
+  "Pune": ["Pune", "Pimpri-Chinchwad", "Hadapsar", "Kothrud", "Baner", "Hinjawadi", "Viman Nagar", "Baramati", "Other"],
+  "Thane": ["Thane", "Kalyan", "Dombivli", "Mira-Bhayandar", "Navi Mumbai", "Ulhasnagar", "Bhiwandi", "Other"],
+  "Nagpur": ["Nagpur", "Kamptee", "Hingna", "Katol", "Ramtek", "Umred", "Other"],
+  "Nashik": ["Nashik", "Malegaon", "Deolali", "Sinnar", "Niphad", "Igatpuri", "Other"],
+
+  // Tamil Nadu
+  "Chennai": ["Chennai", "T. Nagar", "Adyar", "Anna Nagar", "Velachery", "Mylapore", "Tambaram", "Guindy", "Other"],
+  "Coimbatore": ["Coimbatore", "Pollachi", "Mettupalayam", "Sulur", "Saravanampatti", "Other"],
+  "Madurai": ["Madurai", "Thirumangalam", "Melur", "Usilampatti", "Sholavandan", "Other"],
+  "Kanchipuram": ["Kanchipuram", "Sriperumbudur", "Walajabad", "Kundrathur", "Other"],
+  "Chengalpattu": ["Chengalpattu", "Tambaram", "Pallavaram", "Maraimalai Nagar", "Mahabalipuram", "Other"],
+
+  // Delhi
+  "Central Delhi": ["Connaught Place", "Karol Bagh", "Pahar Ganj", "Daryaganj", "Rajender Nagar", "Other"],
+  "New Delhi": ["Chanakyapuri", "Connaught Place", "Barakhamba", "Vasant Kunj", "Lutyens Delhi", "Other"],
+  "South Delhi": ["Hauz Khas", "Saket", "Greater Kailash", "Malviya Nagar", "Mehrauli", "Other"],
+  "South West Delhi": ["Dwarka", "Vasant Vihar", "Najafgarh", "Delhi Cantt", "Palam", "Other"],
+
+  // West Bengal
+  "Kolkata": ["Kolkata", "Park Street", "Salt Lake", "New Town", "Ballygunge", "Alipore", "Dum Dum", "Howrah", "Other"],
+
+  // Gujarat
+  "Ahmedabad": ["Ahmedabad", "Gandhinagar", "Satellite", "Navrangpura", "Maninagar", "Bopal", "Vastrapur", "Other"],
+  "Surat": ["Surat", "Adajan", "Varachha", "Rander", "Udhna", "Katargam", "Other"]
+}
+
+export const getCitiesForDistrict = (district = '') => {
+  if (!district) return []
+  const d = district.trim()
+  if (districtMajorCities[d]) {
+    return districtMajorCities[d]
+  }
+  // Standard default for any district: District HQ town, North/South zones, Central + Other
+  return [
+    `${d} City`,
+    `${d} Town`,
+    `${d} Central`,
+    `${d} Rural`,
+    'Other'
+  ]
+}

@@ -16,6 +16,19 @@ export const experienceOptions = [
   '10+ Years'
 ]
 
+export const positionRoleOptions = [
+  'General Physician',
+  'Specialist',
+  'Consultant',
+  'Senior Consultant',
+  'Surgeon',
+  'Resident Doctor',
+  'Medical Officer',
+  'Intern',
+  'Professor / Faculty',
+  'Other'
+]
+
 export const primarySpecializations = [
   'General Medicine',
   'General Surgery',
@@ -44,6 +57,209 @@ export const primarySpecializations = [
   'Dental',
   'Other'
 ]
+
+export const primaryToSubSpecializations = {
+  'General Medicine': [
+    'Infectious Diseases',
+    'Geriatric Medicine',
+    'Critical Care',
+    'Internal Medicine',
+    'Preventive Healthcare',
+    'Other'
+  ],
+  'General Surgery': [
+    'Gastrointestinal Surgery',
+    'Laparoscopic Surgery',
+    'Colorectal Surgery',
+    'Endocrine Surgery',
+    'Trauma Surgery',
+    'Other'
+  ],
+  'Cardiology': [
+    'Interventional Cardiology',
+    'Pediatric Cardiology',
+    'Electrophysiology',
+    'Heart Failure & Transplant',
+    'Preventive Cardiology',
+    'Other'
+  ],
+  'Dermatology': [
+    'Clinical Dermatology',
+    'Cosmetic Dermatology',
+    'Hair & Scalp Disorders',
+    'Dermatosurgery',
+    'Pediatric Dermatology',
+    'Other'
+  ],
+  'Neurology': [
+    'Stroke Management',
+    'Epilepsy',
+    'Movement Disorders',
+    'Neuro-immunology',
+    'Neuromuscular Medicine',
+    'Other'
+  ],
+  'Neurosurgery': [
+    'Spine Surgery',
+    'Brain Tumor Surgery',
+    'Cerebrovascular Surgery',
+    'Pediatric Neurosurgery',
+    'Stereotactic Neurosurgery',
+    'Other'
+  ],
+  'Orthopedics': [
+    'Joint Replacement',
+    'Sports Medicine',
+    'Pediatric Orthopedics',
+    'Spine Orthopedics',
+    'Trauma & Fracture Surgery',
+    'Other'
+  ],
+  'Pediatrics': [
+    'Neonatology',
+    'Pediatric Intensive Care',
+    'Pediatric Cardiology',
+    'Pediatric Nephrology',
+    'Developmental Pediatrics',
+    'Other'
+  ],
+  'Obstetrics & Gynecology': [
+    'High-Risk Pregnancy',
+    'Infertility',
+    'Gynecologic Oncology',
+    'Fetal Medicine',
+    'Minimally Invasive Surgery',
+    'Other'
+  ],
+  'Psychiatry': [
+    'Child & Adolescent Psychiatry',
+    'Addiction Psychiatry',
+    'Geriatric Psychiatry',
+    'Neuropsychiatry',
+    'Other'
+  ],
+  'Pulmonology': [
+    'Pulmonary & Critical Care',
+    'Sleep Medicine',
+    'Interventional Pulmonology',
+    'Interstitial Lung Disease',
+    'Other'
+  ],
+  'Gastroenterology': [
+    'Hepatology',
+    'Advanced Therapeutic Endoscopy',
+    'Inflammatory Bowel Disease (IBD)',
+    'Gastrointestinal Motility',
+    'Other'
+  ],
+  'Nephrology': [
+    'Kidney Disease',
+    'Dialysis',
+    'Kidney Transplantation',
+    'Interventional Nephrology',
+    'Other'
+  ],
+  'Urology': [
+    'Urological Surgery',
+    'Endourology & Stone Disease',
+    'Uro-Oncology',
+    'Andrology & Male Infertility',
+    'Other'
+  ],
+  'Oncology': [
+    'Medical Oncology',
+    'Surgical Oncology',
+    'Radiation Oncology',
+    'Hematology-Oncology',
+    'Other'
+  ],
+  'Ophthalmology': [
+    'Cataract Surgery',
+    'Retina & Vitreous',
+    'Cornea & Refractive Surgery',
+    'Glaucoma',
+    'Pediatric Ophthalmology',
+    'Other'
+  ],
+  'ENT': [
+    'ENT Surgery',
+    'Rhinology & Skull Base',
+    'Otology & Neurotology',
+    'Head & Neck Surgery',
+    'Other'
+  ],
+  'Endocrinology': [
+    'Diabetes & Metabolism',
+    'Thyroid Disorders',
+    'Bone & Mineral Metabolism',
+    'Other'
+  ],
+  'Rheumatology': [
+    'Autoimmune Diseases',
+    'Arthritis Care',
+    'Vasculitis',
+    'Other'
+  ],
+  'Radiology': [
+    'Diagnostic Radiology',
+    'Interventional Radiology',
+    'Neuroradiology',
+    'Musculoskeletal Radiology',
+    'Other'
+  ],
+  'Anesthesiology': [
+    'Pain Management',
+    'Cardiac Anesthesia',
+    'Neuroanesthesia',
+    'Critical Care Medicine',
+    'Other'
+  ],
+  'Pathology': [
+    'Histopathology',
+    'Hematopathology',
+    'Cytopathology',
+    'Molecular Pathology',
+    'Other'
+  ],
+  'Emergency Medicine': [
+    'Emergency Care',
+    'Trauma Resuscitation',
+    'Toxicology',
+    'Other'
+  ],
+  'Family Medicine': [
+    'Primary Care',
+    'Community Health',
+    'Preventive Care',
+    'Other'
+  ],
+  'Dental': [
+    'Orthodontics',
+    'Periodontics',
+    'Prosthodontics',
+    'Oral & Maxillofacial Surgery',
+    'Endodontics',
+    'Pedodontics',
+    'Other'
+  ],
+  'Other': [
+    'Other'
+  ]
+}
+
+export const getSubSpecializationsForPrimary = (primaries = []) => {
+  const primaryList = Array.isArray(primaries) ? primaries : (primaries ? [primaries] : [])
+  if (!primaryList.length) {
+    return []
+  }
+  const result = new Set()
+  primaryList.forEach(p => {
+    const subs = primaryToSubSpecializations[p] || []
+    subs.forEach(s => result.add(s))
+  })
+  if (!result.has('Other')) result.add('Other')
+  return Array.from(result)
+}
 
 export const subSpecializations = [
   'Interventional Cardiology',
