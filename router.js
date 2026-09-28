@@ -14,9 +14,7 @@ const listeners = { cartChange: [] }
 // container, or scroll container can ever capture or re-wrap it. It also
 // guarantees a single header instance across routes instead of one being
 // re-created inside each page's shell.
-const globalHeaderRoot = document.createElement('div')
-globalHeaderRoot.id = 'global-header'
-document.body.prepend(globalHeaderRoot)
+const globalHeaderRoot = document.getElementById('global-header')
 
 const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'doctor-profile', 'hospital-portal', 'doctor-portal', 'clinic-portal', 'diagnostic-portal', 'pharmacy-portal']
 

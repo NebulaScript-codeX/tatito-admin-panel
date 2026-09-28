@@ -3,13 +3,13 @@ import { navigate, registerPages, bootRouter, getCurrentContext, renderPage } fr
 import { ensureLive, findDoctor, feeText } from './doctorCache.js'
 import { renderHome } from './home.js'
 import { renderPharmacy } from './pharmacyPage.js'
-import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderRecords, renderPlans, renderDashboard, renderPrescription, renderArticle, renderInternships } from './pages.js'
+import { renderProductDetail, renderDoctors, renderDoctorDetail, renderLabTests, renderTestDetail, renderCart, renderCheckout, renderOrderSuccess, renderEmergency, renderPlans, renderDashboard, renderPrescription, renderArticle, renderInternships } from './pages.js'
 import { renderHospitalPortal, renderDoctorPortal, renderClinicPortal, renderDiagnosticPortal, renderPharmacyPortal } from './portals.js'
 import { openAuthModal } from './authPages.js'
 import { renderDoctorProfile } from './doctorProfile.js'
 import { renderDoctorConsole } from './doctorConsole.js'
 import { initChatbot } from './chatbot.js'
-
+[]
 registerPages({
   home: renderHome,
   pharmacy: renderPharmacy,
@@ -22,7 +22,6 @@ registerPages({
   checkout: renderCheckout,
   'order-success': renderOrderSuccess,
   emergency: renderEmergency,
-  records: renderRecords,
   plans: renderPlans,
   internships: renderInternships,
   dashboard: renderDashboard,
@@ -65,6 +64,9 @@ window.addEventListener('thp-auth-changed', async () => {
   renderPage()
 })
 
-bootRouter()
-initChatbot()
+window.addEventListener('thp-language-change', () => {
+  renderPage()
+})
 
+renderPage()
+initChatbot()

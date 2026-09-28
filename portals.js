@@ -1,4 +1,5 @@
 import { icon } from './ui.js'
+import { sharedHeader, bindNav } from './pages.js'
 
 const portalDetails = {
   user: ['User portal', 'Book appointments, manage prescriptions, and track health.'],
@@ -87,8 +88,49 @@ export const portalRegistrationFields = {
 
 function renderPortal(appRoot, ctx, type) {
   const [title, description] = portalDetails[type]
-  appRoot.innerHTML = `<div class="app-shell"><main class="portal-page section-wrap"><a class="brand portal-brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em>Health+</em></span></a><section class="portal-workspace"><span class="section-kicker">${icon('building')} Partner workspace</span><h1>${title}</h1><p>${description}</p><div class="portal-empty-state">${icon('shield')}<strong>Your workspace is ready</strong><span>Portal tools will appear here after your account is verified.</span><button class="button button-primary" data-nav="home">Back to Tatito</button></div></section></main></div>`
-  appRoot.querySelectorAll('[data-nav]').forEach(el => el.addEventListener('click', () => ctx.navigate(el.dataset.nav)))
+
+  appRoot.innerHTML = `
+    <div class="app-shell">
+
+      ${sharedHeader(ctx)}
+
+      <main class="portal-page section-wrap">
+
+        <section class="portal-workspace">
+
+          <span class="section-kicker">
+            ${icon('building')} Partner workspace
+          </span>
+
+          <h1>${title}</h1>
+
+          <p>${description}</p>
+
+          <div class="portal-empty-state">
+            ${icon('shield')}
+
+            <strong>Your workspace is ready</strong>
+
+            <span>
+              Portal tools will appear here after your account is verified.
+            </span>
+
+            <button
+              class="button button-primary"
+              data-nav="home"
+            >
+              Back to Tatito
+            </button>
+          </div>
+
+        </section>
+
+      </main>
+
+    </div>
+  `
+
+  bindNav(appRoot, ctx)
 }
 
 export const renderHospitalPortal = (root, ctx) => renderPortal(root, ctx, 'hospital')

@@ -1,93 +1,156 @@
-import {
-  icons,
-  icon,
-  avatar,
-  showToast,
-  premiumFooter,
-  mobileBottomNav,
-  accountDrawerHTML,
-  openAccountDrawer,
-  closeAccountDrawer,
-} from "./ui.js";
-import {
-  products,
-  labTests,
-  doctors,
-  doctorReviews,
-  articles,
-  categories,
-  doctorSpecialties,
-  doctorCities,
-  doctorHealthChecks,
-  vitalOrgans,
-  labPackages,
-  internshipPrograms,
-} from "./data.js";
-import {
-  isAuthenticated,
-  getAuthUser,
-  getAuthToken,
-  requireAuth,
-  logoutUser,
-} from "./auth.js";
-import { openAuthModal } from "./authPages.js";
-import {
-  getDoctors as cachedDoctors,
-  findDoctor as cachedFindDoctor,
-  feeText,
-  sortFee,
-  ensureLive,
-} from "./doctorCache.js";
-import { getReviews, createReview } from "./api.js";
+import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
+import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages, internshipPrograms } from './data.js'
+import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js'
+import { openAuthModal } from './authPages.js'
+import { languages, getLanguage, setLanguage, t } from './translations.js'
 
-let doctorHeroCarouselTimer = null
 
 export function sharedHeader(ctx, activeNav) {
-  const { navigate, getCartCount } = ctx;
+  const { navigate, getCartCount } = ctx
+
   const navItems = [
-    { label: "Home", page: "home", icon: "home" },
-    { label: "Doctors", page: "doctors", icon: "doctorCare" },
-    { label: "Pharmacy", page: "pharmacy", icon: "bag" },
-    { label: "Lab Tests", page: "labtests", icon: "flask" },
-    { label: "Health Plans", page: "plans", icon: "shield" },
-    { label: "Health Records", page: "records", icon: "file" },
-    { label: "Internships", page: "internships", icon: "calendar" },
-    { label: "Track Your Orders", page: "trackyourorders", icon: "clock" },
-  ];
-  const isAuth = isAuthenticated();
-  const user = getAuthUser();
+    { label: t('doctors'), page: 'doctors', icon: 'doctorCare' },
+    { label: t('pharmacy'), page: 'pharmacy' },
+    { label: t('labTests'), page: 'labtests' },
+    { label: t('healthPlans'), page: 'plans' },
+    { label: t('internships'), page: 'internships' }
+  ]
+
+  const isAuth = isAuthenticated()
+  const user = getAuthUser()
+  const currentLanguage = getLanguage()
 
   return `
-    <div class="sticky-header-group">
-      <div class="announcement"><span class="announcement-dot"></span> Care that moves with you <span class="announcement-divider"></span><span>24/7 virtual care is now available</span></div>
-      <header class="site-header"><div class="site-header-inner">
-        <a class="brand" data-nav="home"><span class="brand-mark">${icon("heart")}</span><span><strong>Tatito</strong><em>Health+</em></span></a>
-        <div class="header-search-bar">${icon("search")}<input id="global-search" placeholder="Search doctors, medicines, lab tests..." /><button data-nav="pharmacy">Search</button></div>
-        <div class="header-actions">
-          <button class="location-button">${icon("pin")} <span>Brooklyn, NY</span> ${icon("chevron")}</button>
-          <button class="icon-button" aria-label="Notifications">${icon("bell")}<span class="notification-dot"></span></button>
-          <button class="cart-button" data-nav="cart">${icon("bag")}<span>Cart</span><span class="cart-count">${getCartCount()}</span></button>
-          ${
-            isAuth
-              ? `
-            <button class="profile-button">${avatar(user ? user.initials : "JD", "teal")}<span>${user ? user.name.split(" ")[0] : "User"}</span>${icon("chevron")}</button>
-          `
-              : `
-            <button class="auth-nav-button auth-login-button auth-modal-trigger" data-auth-mode="login">${icon("user")}<span>Login</span></button>
-            <button class="auth-nav-button auth-register-button auth-modal-trigger" data-auth-mode="register"><span>Register</span></button>
-          `
-          }
-          <button class="mobile-menu" id="page-mobile-menu" aria-label="Open menu">${icon("menu")}</button>
+    <div class="announcement">
+      <span class="announcement-dot"></span>
+
+      <div class="announcement-slider">
+        <div class="announcement-track">
+          <span>${t('announcementOne')}</span>
+          <span>${t('announcementTwo')}</span>
         </div>
-      </div></header>
-<nav class="sub-nav"><div class="sub-nav-inner">${navItems.map((n) => `<a data-nav="${n.page}" class="${activeNav === n.page ? "nav-active" : ""}">${n.icon ? icon(n.icon) : ""}${n.label}</a>`).join("")}
-        <button class="floating-consult-fab" id="fab-instant-consult">
-          <span class="fab-icon">${icon("phone")}</span>
-          <span>Instant Consult 24/7</span>
-        </button>
-      </div></nav>
+      </div>
     </div>
-    ${accountDrawerHTML(user)}
+
+    <div class="sticky-header-group">
+      <header class="site-header">
+        <div class="site-header-inner">
+
+          <a class="brand" data-nav="home" aria-label="Tatito Health+ home">
+            <img src="/tatito-logo.png" alt="Tatito Health+" class="brand-logo">
+          </a>
+
+          <div class="header-search-bar">
+            ${icon('search')}
+            <input
+              id="global-search"
+              placeholder="${t('searchPlaceholder')}"
+            />
+            <button data-search-btn>${t('search')}</button>
+          </div>
+
+          <div class="header-actions">
+
+            <div class="language-selector">
+              <button
+                class="language-button"
+                id="language-button"
+                type="button"
+                aria-label="Select language"
+              >
+                🌐
+                <span>
+                  ${languages.find(lang => lang.code === currentLanguage)?.nativeName || 'English'}
+                </span>
+                ${icon('chevron')}
+              </button>
+
+              <div class="language-menu" id="language-menu">
+                ${languages.map(lang => `
+                  <button
+                    type="button"
+                    class="language-option ${lang.code === currentLanguage ? 'active' : ''}"
+                    data-language="${lang.code}"
+                  >
+                    <span>${lang.nativeName}</span>
+                    <small>${lang.name}</small>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <button class="location-button">
+              ${icon('pin')}
+              <span id="site-location-text">Detecting location...</span>
+              ${icon('chevron')}
+            </button>
+
+            <button class="icon-button" aria-label="${t('notifications')}">
+              ${icon('bell')}
+              <span class="notification-dot"></span>
+            </button>
+
+            <button class="cart-button" data-nav="cart">
+              ${icon('bag')}
+              <span>${t('cart')}</span>
+              <span class="cart-count">${getCartCount()}</span>
+            </button>
+
+            ${isAuth ? `
+              <button class="profile-button">
+                ${avatar(user ? user.initials : 'JD', 'teal')}
+                <span>${user ? user.name.split(' ')[0] : 'User'}</span>
+                ${icon('chevron')}
+              </button>
+            ` : `
+              <button
+                class="auth-nav-button auth-login-button auth-modal-trigger"
+                data-auth-mode="login"
+              >
+                ${icon('user')}
+                <span>${t('login')}</span>
+              </button>
+
+              <button
+                class="auth-nav-button auth-register-button auth-modal-trigger"
+                data-auth-mode="register"
+              >
+                <span>${t('register')}</span>
+              </button>
+            `}
+
+            <button
+              class="mobile-menu"
+              id="page-mobile-menu"
+              aria-label="Open menu"
+            >
+              ${icon('menu')}
+            </button>
+
+          </div>
+        </div>
+      </header>
+
+      <nav class="sub-nav">
+        <div class="sub-nav-inner">
+          ${navItems.map(n => `
+            <a
+              data-nav="${n.page}"
+              class="${activeNav === n.page ? 'nav-active' : ''}"
+            >
+              ${n.icon ? icon(n.icon) : ""}${n.label}
+            </a>
+          `).join('')}
+
+          <button class="floating-consult-fab" id="fab-instant-consult">
+            <span class="fab-icon">${icon("phone")}</span>
+            <span>Instant Consult 24/7</span>
+          </button>
+        </div>
+      </nav>
+    </div>
+
+    ${accountDrawerHTML()}
   `;
 }
 
@@ -109,9 +172,31 @@ export function bindNav(appRoot, ctx) {
     });
   });
 
-  appRoot.querySelectorAll(".auth-modal-trigger").forEach((el) => {
-    el.addEventListener("click", () => openAuthModal(el.dataset.authMode, ctx));
-  });
+  appRoot.querySelectorAll('.auth-modal-trigger').forEach(el => {
+    el.addEventListener('click', () => openAuthModal(el.dataset.authMode, ctx))
+  })
+
+    // Language selector
+  const languageButton = appRoot.querySelector('#language-button')
+  const languageMenu = appRoot.querySelector('#language-menu')
+
+  if (languageButton && languageMenu) {
+    languageButton.addEventListener('click', (e) => {
+      e.stopPropagation()
+      languageMenu.classList.toggle('is-open')
+    })
+
+    appRoot.querySelectorAll('[data-language]').forEach(el => {
+      el.addEventListener('click', () => {
+        setLanguage(el.dataset.language)
+        languageMenu.classList.remove('is-open')
+      })
+    })
+
+    document.addEventListener('click', () => {
+      languageMenu.classList.remove('is-open')
+    })
+  }
 
   const profileBtn = appRoot.querySelector(".profile-button");
   if (profileBtn) {
@@ -143,18 +228,15 @@ export function bindNav(appRoot, ctx) {
     });
   }
 
-  const mm = appRoot.querySelector("#page-mobile-menu");
-  if (mm)
-    mm.addEventListener("click", () =>
-      document.querySelector(".sub-nav-inner").classList.toggle("mobile-open"),
-    );
-
-  // Instant Consult 24/7 button — now lives in the sub-nav bar (below Register)
+  const mm = appRoot.querySelector('#page-mobile-menu')
   const fabBtn = appRoot.querySelector("#fab-instant-consult");
+
   if (fabBtn)
     fabBtn.addEventListener("click", () =>
       showToast("Connecting to 24/7 Instant Doctor..."),
     );
+  if (mm) mm.addEventListener('click', () => appRoot.querySelector('.sub-nav-inner').classList.toggle('mobile-open'))
+  detectSiteLocation(appRoot)
 }
 
 // === Product Detail Page ===
@@ -596,11 +678,18 @@ export function renderDoctors(appRoot, ctx) {
         
         <!-- Layer 01: Hero — Talk to a Doctor (Doctor Carousel) -->
         <section class="section-wrap doctor-hero-section">
-          <div class="doctor-promo-banner doctor-hero-banner">
-            <button class="spec-slider-arrow spec-slider-arrow-prev doctor-hero-arrow doctor-hero-arrow-prev" id="dhc-prev" type="button" aria-label="Previous doctor">${icon("chevron", "spec-chevron-left")}</button>
-            <div class="doctor-hero-viewport" id="dhc-viewport">
-              <div class="doctor-hero-track" id="dhc-track">
-                ${renderDoctorHeroSlides()}
+          <div class="breadcrumb"><a data-nav="home">${t('home')}</a> ${icon('chevron')} <span>${t('findDoctors')}</span></div>
+          
+          <div class="doctor-promo-banner">
+            <div class="promo-banner-content">
+              <span class="promo-badge">${icon('spark')} Get 5% Off | Use Code CC50</span>
+              <h1>${t('talkToDoctor')} <em class="editorial">${t('instant')}</em> ${t('advice')}</h1>
+              <p>${t('doctorHeroDescription')}</p>
+              
+              <div class="promo-cta-row">
+                <button class="button button-primary" id="instant-consult-btn">${icon('video')} ${t('consultNow')}</button>
+                <span class="promo-trust">${icon('verified')} 4,000+ Verified Doctors</span>
+                <span class="promo-trust">${icon('clock')} 24/7 Priority Care</span>
               </div>
             </div>
             <button class="spec-slider-arrow spec-slider-arrow-next doctor-hero-arrow doctor-hero-arrow-next" id="dhc-next" type="button" aria-label="Next doctor">${icon("chevron")}</button>
@@ -611,21 +700,59 @@ export function renderDoctors(appRoot, ctx) {
           </div>
         </section>
 
-        <!-- Layer 02: Browse by Medical Specialties — Static Grid -->
+        <!-- Layer 02: Browse by Specialties Discovery Grid (24 Specialties) -->
         <section class="section-wrap specialties-wrap">
           <div class="section-heading">
             <div>
-              <span class="section-kicker">01 / SPECIALTIES</span>
-              <h2>Browse by <em class="editorial">Medical</em> Specialties</h2>
-              <p class="section-subtext">Choose from 24+ medical specialties for targeted health care</p>
+              <span class="section-kicker">01 / ${t('specialties')}</span>
+              <h2>${t('browseBy')} <em class="editorial">${t('medical')}</em> ${t('specialties')}</h2>
+              <p class="section-subtext">${t('specialtiesDescription')}</p>
             </div>
           </div>
-          <div class="specialties-grid">
+          <div class="specialties-grid" id="specialties-grid">
             ${renderSpecialtiesGrid()}
           </div>
         </section>
 
-        <!-- Layer 03: Tatito AI Health Intelligence Interface -->
+        <!-- Layer 03: 3-Step Quick Appointment Finder -->
+        <section class="section-wrap finder-widget-wrap">
+          <div class="finder-widget-card">
+            <div class="finder-widget-head">
+              <span class="section-kicker">02 / THREE-STEP BOOKING</span>
+              <h3>${icon('compass')} Find a Doctor in 3 <em class="editorial">easy</em> steps</h3>
+              <span>Quick appointment booking with top medical experts</span>
+            </div>
+            <div class="finder-widget-form">
+              <div class="finder-field">
+                <label>01. Select Speciality*</label>
+                <select id="finder-spec-select" class="finder-select">
+                  <option value="all">Enter or Select Speciality</option>
+                  ${doctorSpecialties.map(s => `<option value="${s.name}" ${selectedSpecialty === s.name ? 'selected' : ''}>${s.name}</option>`).join('')}
+                </select>
+              </div>
+              <div class="finder-field">
+                <label>02. Select Date*</label>
+                <select id="finder-date-select" class="finder-select">
+                  <option value="today">Today (${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})</option>
+                  <option value="tomorrow">Tomorrow</option>
+                  <option value="next3">Within 3 Days</option>
+                </select>
+              </div>
+              <div class="finder-field">
+                <label>03. Preferred Location/Pincode*</label>
+                <div class="finder-input-wrap">
+                  <input id="finder-location-input" placeholder="Search location or city..." value="${selectedCity !== 'all' ? selectedCity : ''}" />
+                  <button class="location-pin-btn" id="detect-loc-btn" title="Detect location">${icon('pin')}</button>
+                </div>
+              </div>
+              <div class="finder-field finder-btn-field">
+                <button class="button button-primary finder-submit-btn" id="finder-submit-btn">${icon('search')} Submit</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Layer 04: Tatito AI Health Intelligence Interface -->
         <section class="section-wrap ai-banner-wrap">
           <div class="ai-banner-card">
             <div class="ai-banner-content">
@@ -2117,16 +2244,6 @@ export function renderLabTests(appRoot, ctx) {
               <button class="button button-primary button-small">${icon("plus")} Upload Rx</button>
             </div>
 
-            <div class="action-card action-card-reports" id="view-reports-card">
-              <div class="action-card-left">
-                <div class="action-icon">${icon("shield")}</div>
-                <div>
-                  <h3>View Reports in My Orders</h3>
-                  <p>Access your past blood test results, smart graphs and health records.</p>
-                </div>
-              </div>
-              <button class="button button-outline button-small" data-nav="records">View Reports ${icon("arrow")}</button>
-            </div>
           </div>
         </section>
 
@@ -3061,60 +3178,6 @@ export function renderEmergency(appRoot, ctx) {
             <h3>Nearby Emergency Hospitals</h3>
             <div class="emergency-hospital-card"><div class="hospital-symbol">${icon("building")}</div><div><strong>Northshore Medical Center</strong><span>0.8 mi · Open 24/7</span><small>Emergency department available</small></div><button class="button button-small button-outline">Directions</button></div>
             <div class="emergency-hospital-card"><div class="hospital-symbol hospital-symbol-blue">${icon("building")}</div><div><strong>St. Clement Health</strong><span>1.4 mi · Open 24/7</span><small>Trauma center · ICU available</small></div><button class="button button-small button-outline">Directions</button></div>
-          </div>
-        </div>
-      </main>
-      ${sharedFooter(ctx)}
-      ${sharedMobileNav(ctx)}
-    </div>
-    <div class="toast" id="toast"><span class="toast-check">${icon("check")}</span><span id="toast-text">Saved</span></div>
-  `;
-  bindNav(appRoot, ctx);
-}
-
-// === Simple placeholder pages ===
-export function renderRecords(appRoot, ctx) {
-  const { navigate } = ctx;
-  appRoot.innerHTML = `
-    <div class="app-shell">
-      ${sharedHeader(ctx, "records")}
-      <main id="top" class="section-wrap records-page-wrap">
-        
-        <div class="records-hero-box">
-          <div class="rh-left">
-            <span class="eyebrow-tag">${icon("shield")} ENCRYPTED HEALTH VAULT</span>
-            <h1>Digital Health <em class="editorial">Records</em></h1>
-            <p>Your encrypted, organized medical history — lab reports, prescriptions, and immunizations stored securely.</p>
-          </div>
-          <div class="rh-right">
-            <span class="rh-security-pill">${icon("verified")} 256-Bit Encrypted · HIPAA Compliant</span>
-          </div>
-        </div>
-
-        <div class="records-grid">
-          <div class="record-type-card">
-            <div class="record-type-icon activity-mint">${icon("flask")}</div>
-            <strong>Lab Reports</strong>
-            <span>3 Reports Available</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Reports</button>
-          </div>
-          <div class="record-type-card">
-            <div class="record-type-icon activity-blue">${icon("file")}</div>
-            <strong>Prescriptions</strong>
-            <span>5 Saved Prescriptions</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Prescriptions</button>
-          </div>
-          <div class="record-type-card">
-            <div class="record-type-icon activity-peach">${icon("heart")}</div>
-            <strong>Vaccinations</strong>
-            <span>2 Immunization Records</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Immunizations</button>
-          </div>
-          <div class="record-type-card">
-            <div class="record-type-icon activity-mint">${icon("shield")}</div>
-            <strong>Allergies & Vitals</strong>
-            <span>1 Active Allergy Record</span>
-            <button class="button button-small button-outline margin-top-sm" data-nav="dashboard">View Vitals</button>
           </div>
         </div>
       </main>
@@ -5199,5 +5262,41 @@ export function renderInternships(appRoot, ctx) {
       );
       closeModal();
     });
+  }
+}
+
+async function detectSiteLocation(appRoot) {
+  const locationElement = appRoot.querySelector('#site-location-text')
+
+  if (!locationElement) return
+
+  try {
+    const savedLocation = localStorage.getItem('thp_location')
+
+    if (savedLocation) {
+      locationElement.textContent = savedLocation
+    }
+
+    const response = await fetch('https://ipapi.co/json/')
+
+    if (!response.ok) {
+      throw new Error('Location request failed')
+    }
+
+    const data = await response.json()
+
+    if (data.city) {
+      const location = data.region
+        ? `${data.city}, ${data.region}`
+        : data.city
+
+      locationElement.textContent = location
+
+      localStorage.setItem('thp_location', location)
+    }
+  } catch (error) {
+    console.warn('Unable to detect user location:', error)
+
+    locationElement.textContent = 'Location unavailable'
   }
 }

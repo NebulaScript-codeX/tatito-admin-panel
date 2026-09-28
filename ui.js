@@ -117,12 +117,6 @@ export function accountDrawerHTML(user) {
           <div class="drawer-menu-text"><strong>Transactions and Payments</strong><span>Payment history & receipts</span></div>
           <span class="drawer-menu-arrow">${icon("chevron")}</span>
         </button>
-        <button class="drawer-menu-item" data-nav="records">
-          <span class="drawer-menu-icon">${icon("shield")}</span>
-          <div class="drawer-menu-text"><strong>All Health Records</strong><span>Encrypted lab reports & Rx</span></div>
-          <span class="drawer-menu-arrow">${icon("chevron")}</span>
-        </button>
-        ${doctorMenu}
         <button class="drawer-menu-item" data-nav="emergency">
           <span class="drawer-menu-icon">${icon("phone")}</span>
           <div class="drawer-menu-text"><strong>Need Help</strong><span>24/7 Priority support hotline</span></div>
@@ -203,7 +197,9 @@ export function premiumFooter() {
     <footer class="premium-footer">
       <div class="pf-top">
         <div class="pf-brand-col">
-          <a class="brand" data-nav="home"><span class="brand-mark">${icon('heart')}</span><span><strong>Tatito</strong><em class="brand-sub">Health+</em></span></a>
+          <a class="brand footer-brand-logo" data-nav="home" aria-label="Tatito Health+ home">
+            <img src="/tatito-logo.png" alt="Tatito Health+" class="footer-logo">
+          </a>
           <p class="pf-tagline">Your Health. Connected.<br>Complete human-centered digital healthcare on one intelligent super-app platform.</p>
           <div class="pf-social">
             <a class="pf-social-btn" aria-label="Facebook"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9h3l1-4h-4V3h-4v6H8v4h2v8h4v-8h2.5l.5-4h-3V9Z"/></svg></a>
@@ -225,7 +221,6 @@ export function premiumFooter() {
           <a data-nav="doctors">Doctor Consultation</a>
           <a data-nav="pharmacy">Order Medicines</a>
           <a data-nav="labtests">Lab Tests & Scans</a>
-          <a data-nav="records">Health Records</a>
           <a data-nav="plans">Health Plans</a>
         </div>
         <div class="pf-links-col">
