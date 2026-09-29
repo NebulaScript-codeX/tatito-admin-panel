@@ -1,5 +1,6 @@
 import { cart } from './data.js'
 import { requireAuth, isAuthenticated, getAuthUser } from './auth.js'
+import { isAdminAuthenticated } from './admin/adminAuth.js'
 
 export const cartState = cart
 export let currentPage = 'home'
@@ -23,6 +24,24 @@ const protectedPages = ['cart', 'checkout', 'records', 'dashboard', 'doctor-prof
 // the doctor dashboard (and an anonymous visitor must hit the login flow).
 const rolePages = {
   'doctor-dashboard': 'doctor',
+}
+
+const adminPages = ['admin/login', 'admin/dashboard']
+
+function guardAdminPage(page) {
+  if (!adminPages.includes(page)) return page
+
+  // Login page should be accessible only when not already logged in.
+  if (page === 'admin/login' && isAdminAuthenticated()) {
+    return 'admin/dashboard'
+  }
+
+  // Dashboard requires an authenticated admin.
+  if (page === 'admin/dashboard' && !isAdminAuthenticated()) {
+    return 'admin/login'
+  }
+
+  return page
 }
 
 function guardPage(page) {
@@ -59,20 +78,32 @@ function urlToRoute() {
 
 function renderFromLocation() {
   const { page, params } = urlToRoute()
-  const target = guardPage(page)
-  if (target !== page) {
-    currentPage = 'home'
-    currentParams = {}
-  } else if (protectedPages.includes(page) && !isAuthenticated()) {
-    currentPage = 'home'
+
+  // Admin routes have their own authentication guard.
+  const adminTarget = guardAdminPage(page)
+
+  if (adminTarget !== page) {
+    currentPage = adminTarget
     currentParams = {}
   } else {
-    currentPage = page
-    currentParams = params
+    const target = guardPage(page)
+
+    if (target !== page) {
+      currentPage = 'home'
+      currentParams = {}
+    } else if (protectedPages.includes(page) && !isAuthenticated()) {
+      currentPage = 'home'
+      currentParams = {}
+    } else {
+      currentPage = page
+      currentParams = params
+    }
   }
+
   window.scrollTo(0, 0)
   renderPage()
 }
+
 
 export function onCartChange(fn) { listeners.cartChange.push(fn) }
 export function notifyCartChange() { listeners.cartChange.forEach(fn => fn()) }
@@ -123,6 +154,13 @@ export function navigate(page, params = {}) {
     currentParams = params
     window.scrollTo(0, 0)
     renderPage()
+  }
+
+  const adminTarget = guardAdminPage(page)
+
+  if (adminTarget !== page) {
+    navigate(adminTarget, {})
+    return
   }
 
   const target = guardPage(page)
@@ -179,10 +217,20 @@ export function renderPage() {
   // the persistent global header root (a direct child of <body>). Pages
   // without a site header render nothing here, clearing any stale pinned
   // header from a previous route.
-  const headerGroup = app.querySelector('.sticky-header-group')
-  if (headerGroup) globalHeaderRoot.replaceChildren(headerGroup)
-  else globalHeaderRoot.replaceChildren()
+  if (currentPage.startsWith('admin/')) {
+    globalHeaderRoot.replaceChildren()
+    document.documentElement.style.setProperty('--thp-header-h', '0px')
+  } else {
+    const headerGroup = app.querySelector('.sticky-header-group')
+
+    if (headerGroup) {
+    globalHeaderRoot.replaceChildren(headerGroup)
+    } else {
+      globalHeaderRoot.replaceChildren()
+    }
+
   syncFixedHeader()
+}
   if (window.thpInitChatbot) window.thpInitChatbot()
 }
 

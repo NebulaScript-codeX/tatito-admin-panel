@@ -1,4 +1,5 @@
 import './style.css'
+import { renderAdminLogin, renderAdminDashboard } from './admin/adminPages.js'
 import { navigate, registerPages, bootRouter, getCurrentContext, renderPage } from './router.js'
 import { ensureLive, findDoctor, feeText } from './doctorCache.js'
 import { renderHome } from './home.js'
@@ -33,7 +34,11 @@ registerPages({
   'doctor-portal': renderDoctorPortal,
   'clinic-portal': renderClinicPortal,
   'diagnostic-portal': renderDiagnosticPortal,
-  'pharmacy-portal': renderPharmacyPortal
+  'pharmacy-portal': renderPharmacyPortal,
+ 
+  // Admin routes
+  'admin/login': renderAdminLogin,
+  'admin/dashboard': renderAdminDashboard,
 })
 
 window.addEventListener('thp-auth-required', () => openAuthModal('login', getCurrentContext()))
