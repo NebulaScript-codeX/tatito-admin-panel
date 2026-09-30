@@ -5,6 +5,7 @@ from .views import (
     AdminLogoutView,
     AdminMeView,
     ModuleListView,
+    RoleDetailView,
     RoleListCreateView,
     RolePermissionsView,
     StaffActiveToggleView,
@@ -24,5 +25,6 @@ urlpatterns = [
     path("staff/<int:pk>/activate/", StaffActiveToggleView.as_view(activate=True), name="staff-activate"),
     path("staff/<int:pk>/reset-password/", StaffResetPasswordView.as_view(), name="staff-reset-password"),
     path("roles/", RoleListCreateView.as_view(), name="role-list"),
+    path("roles/<int:pk>/", RoleDetailView.as_view(), name="role-detail"),
     path("roles/<int:pk>/permissions/", RolePermissionsView.as_view(), name="role-permissions"),
 ]

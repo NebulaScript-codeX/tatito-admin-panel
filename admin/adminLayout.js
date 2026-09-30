@@ -1,9 +1,18 @@
-import { getAdminSession, logoutAdminRemote } from "./adminAuth.js";
+import {
+  getAdminSession,
+  hasPermission,
+  logoutAdminRemote,
+} from "./adminAuth.js";
 import { escapeHtml } from "./adminChart.js";
 
 // Modules that have a real page behind them. Dashboard widgets use this to
 // avoid linking to pages that have not been implemented yet.
-const BUILT_MODULES = new Set(["dashboard"]);
+const BUILT_MODULES = new Set([
+  "dashboard",
+  "users",
+  "staff",
+  "coupons_offers_marketing",
+]);
 
 export function isModuleAvailable(key) {
   return BUILT_MODULES.has(key);
@@ -12,8 +21,13 @@ export function isModuleAvailable(key) {
 export function openModule(key) {
   if (!isModuleAvailable(key)) return;
 
-  window.location.hash =
-    key === "dashboard" ? "#/admin/dashboard" : `#/admin/${key}`;
+  const routes = {
+    dashboard: "dashboard",
+    users: "users",
+    staff: "staff",
+    coupons_offers_marketing: "coupons-offers-marketing",
+  };
+  window.location.hash = `#/admin/${routes[key]}`;
 }
 
 const sidebarGroups = [
@@ -25,7 +39,11 @@ const sidebarGroups = [
     title: "PEOPLE",
     items: [
       { key: "users", label: "Users", icon: "♙" },
-      { key: "staff", label: "Staff, Roles & Admin", icon: "♧" },
+      {
+        key: "staff",
+        label: "Staff, Roles & Admin",
+        icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M20 8v6m3-3h-6"/></svg>',
+      },
     ],
   },
   {
@@ -98,6 +116,7 @@ const pageTitles = {
   uploaded_files: "Uploaded Files & Documents",
   settings: "Settings & Security",
   audit_logs: "Audit Logs",
+  "access-denied": "Access Restricted",
 };
 
 export function renderAdminLayout(
@@ -127,6 +146,13 @@ export function renderAdminLayout(
 
         <nav class="thp-admin-navigation">
           ${sidebarGroups
+            .map((group) => ({
+              ...group,
+              items: group.items.filter((item) =>
+                hasPermission(item.key, "view"),
+              ),
+            }))
+            .filter((group) => group.items.length)
             .map(
               (group) => `
             <div class="thp-admin-nav-group">
@@ -161,7 +187,7 @@ export function renderAdminLayout(
 
       </aside>
 
-      <section class="thp-admin-main">
+      <section class="thp-admin-main ${activePage === "users" ? "thp-admin-main-users" : ""} ${activePage === "staff" ? "thp-admin-main-staff" : ""}">
 
         <header class="thp-admin-topbar">
 
@@ -211,12 +237,12 @@ export function renderAdminLayout(
 
         </header>
 
-        <main class="thp-admin-content">
+        <main class="thp-admin-content ${activePage === "users" ? "thp-admin-content-users" : ""} ${activePage === "staff" ? "thp-admin-content-staff" : ""}">
 
-          <div class="thp-admin-page-heading">
+          <div class="thp-admin-page-heading ${activePage === "users" ? "thp-admin-users-page-heading" : ""} ${activePage === "staff" ? "thp-admin-staff-page-heading" : ""}">
             <div class="thp-admin-page-title">
               <p class="thp-admin-eyebrow">TATITO HEALTH+</p>
-              <h1>${pageTitles[activePage] || "Admin Panel"}</h1>
+              <h1>${activePage === "users" ? '<span class="thp-admin-users-title-strong">Manage</span> <em>Users</em>' : activePage === "staff" ? '<span class="thp-admin-staff-title-strong">Staff &amp;</span> <em>Roles</em>' : pageTitles[activePage] || "Admin Panel"}</h1>
               ${subtitle ? `<p class="thp-admin-subtitle" id="thp-admin-subtitle">${escapeHtml(subtitle)}</p>` : ""}
             </div>
 
@@ -229,6 +255,10 @@ export function renderAdminLayout(
 
       </section>
 
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <span class="toast-check" aria-hidden="true">&#10003;</span>
+      <span id="toast-text">Updated</span>
     </div>
   `;
 

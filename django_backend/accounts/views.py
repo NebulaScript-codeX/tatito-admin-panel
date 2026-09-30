@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -301,6 +302,7 @@ class StaffActiveToggleView(APIView):
 
     permission_classes = [ModulePermission]
     module = "staff"
+    action_map = {"post": "edit"}
     activate = False
 
     @transaction.atomic
@@ -337,6 +339,7 @@ class StaffActiveToggleView(APIView):
 class StaffResetPasswordView(APIView):
     permission_classes = [ModulePermission]
     module = "staff"
+    action_map = {"post": "edit"}
 
     @transaction.atomic
     def post(self, request, pk):
@@ -407,6 +410,78 @@ class RoleListCreateView(APIView):
         log_action(request, "create", module="staff", target_type="role",
                    target_id=role.id, description=f"Created role '{role.name}'")
         return Response({"success": True, "role": role_payload(role)}, status=status.HTTP_201_CREATED)
+
+
+class RoleDetailView(APIView):
+    permission_classes = [ModulePermission]
+    module = "staff"
+
+    def get(self, request, pk):
+        role = Role.objects.filter(pk=pk).first()
+        if role is None:
+            return fail("Role not found.", status.HTTP_404_NOT_FOUND)
+        return Response({"success": True, "role": role_payload(role)})
+
+    @transaction.atomic
+    def patch(self, request, pk):
+        role = Role.objects.select_for_update().filter(pk=pk).first()
+        if role is None:
+            return fail("Role not found.", status.HTTP_404_NOT_FOUND)
+        if role.is_system_role or role.name == SUPER_ADMIN:
+            return fail("System roles cannot be renamed.", status.HTTP_403_FORBIDDEN)
+
+        changes = {}
+        if "name" in request.data:
+            name = str(request.data.get("name") or "").strip()
+            if not name:
+                return fail("Role name is required.", errors={"name": "Required."})
+            if Role.objects.filter(name__iexact=name).exclude(pk=role.pk).exists():
+                return fail("Role already exists.", errors={"name": "Already exists."})
+            if name != role.name:
+                changes["name"] = {"from": role.name, "to": name}
+                role.name = name
+        if "description" in request.data:
+            description = str(request.data.get("description") or "").strip()
+            if description != role.description:
+                changes["description"] = True
+                role.description = description
+
+        if not changes:
+            return Response({"success": True, "role": role_payload(role)})
+        role.save()
+        log_action(request, "edit", module="staff", target_type="role",
+                   target_id=role.id, description=f"Updated role '{role.name}'",
+                   metadata={"changes": changes})
+        return Response({"success": True, "role": role_payload(role)})
+
+    @transaction.atomic
+    def delete(self, request, pk):
+        role = Role.objects.select_for_update().filter(pk=pk).first()
+        if role is None:
+            return fail("Role not found.", status.HTTP_404_NOT_FOUND)
+        if role.is_system_role or role.name == SUPER_ADMIN:
+            return fail("System roles cannot be deleted.", status.HTTP_403_FORBIDDEN)
+
+        assigned_staff = role.admin_profiles.count()
+        if assigned_staff:
+            return fail(
+                "This role is still assigned to staff. Reassign those accounts before deleting it.",
+                status.HTTP_409_CONFLICT,
+                assigned_staff=assigned_staff,
+            )
+
+        role_name = role.name
+        role_id = role.id
+        try:
+            role.delete()
+        except ProtectedError:
+            return fail(
+                "This role was assigned to staff and cannot be deleted.",
+                status.HTTP_409_CONFLICT,
+            )
+        log_action(request, "delete", module="staff", target_type="role",
+                   target_id=role_id, description=f"Deleted role '{role_name}'")
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RolePermissionsView(APIView):

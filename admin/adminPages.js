@@ -1,17 +1,36 @@
-import './admin.css'
-import { adminLogin, isAdminAuthenticated } from './adminAuth.js'
-import { renderAdminLayout } from './adminLayout.js'
+import "./admin.css";
 import {
+  adminLogin,
+  getAdminSession,
+  hasPermission,
+  isAdminAuthenticated,
+  refreshAdminSession,
+} from "./adminAuth.js";
+import { renderAdminLayout } from "./adminLayout.js";
+import { doctors, getUsers } from "../data.js";
+import {
+  createAdminRole,
+  createAdminStaff,
+  deleteAdminRole,
+  getAdminModules,
+  getAdminRoles,
+  getAdminStaff,
+  getAdminUsers,
   getCoupons,
+  resetAdminStaffPassword,
+  setAdminStaffActive,
   toggleCouponStatus,
   deleteCoupon,
   updateCoupon,
-  createCoupon
-} from './adminApi.js'
+  updateAdminRole,
+  updateAdminRolePermissions,
+  updateAdminStaff,
+  createCoupon,
+} from "./adminApi.js";
 
 // The dashboard lives in adminDashboard.js; re-exported so main.js keeps
 // importing both admin pages from one place.
-export { renderAdminDashboard } from './adminDashboard.js'
+export { renderAdminDashboard } from "./adminDashboard.js";
 
 /* =========================================================
    ADMIN LOGIN
@@ -80,7 +99,6 @@ export function renderAdminLogin(app) {
 
           </div>
 
-
           <p
             id="admin-login-error"
             class="admin-login-error"
@@ -106,49 +124,1455 @@ export function renderAdminLogin(app) {
       </section>
 
     </main>
-  `
+  `;
 
-  const form = document.querySelector('#admin-login-form')
-  const button = document.querySelector('#admin-login-button')
-  const errorElement = document.querySelector('#admin-login-error')
+  const form = document.querySelector("#admin-login-form");
+  const button = document.querySelector("#admin-login-button");
+  const errorElement = document.querySelector("#admin-login-error");
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault()
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-    const username = document
-      .querySelector('#admin-username')
-      .value
-      .trim()
+    const username = document.querySelector("#admin-username").value.trim();
 
-    const password =
-      document.querySelector('#admin-password').value
+    const password = document.querySelector("#admin-password").value;
 
-    errorElement.hidden = true
-    errorElement.textContent = ''
+    errorElement.hidden = true;
+    errorElement.textContent = "";
 
-    button.disabled = true
-    button.textContent = 'Signing in...'
+    button.disabled = true;
+    button.textContent = "Signing in...";
 
     try {
-      await adminLogin(username, password)
-      window.location.hash = '#/admin/dashboard'
+      const session = await adminLogin(username, password);
+      const accessibleRoute = [
+        ["dashboard", "dashboard"],
+        ["users", "users"],
+        ["staff", "staff"],
+        ["coupons_offers_marketing", "coupons-offers-marketing"],
+      ].find(([module]) => session.admin?.permissions?.[module]?.view);
+      window.location.hash = accessibleRoute
+        ? `#/admin/${accessibleRoute[1]}`
+        : "#/admin/access-denied";
     } catch (error) {
-      errorElement.textContent =
-        error.message || 'Unable to sign in.'
+      errorElement.textContent = error.message || "Unable to sign in.";
 
-      errorElement.hidden = false
+      errorElement.hidden = false;
     } finally {
-      button.disabled = false
-      button.textContent = 'Sign In'
+      button.disabled = false;
+      button.textContent = "Sign In";
     }
-  })
+  });
 }
 
-
-export function renderAdminCouponsOffersMarketing(app) {
+export function renderAdminAccessDenied(app) {
   if (!isAdminAuthenticated()) {
-    window.location.hash = '#/admin/login'
-    return
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  renderAdminLayout(
+    app,
+    "access-denied",
+    `<section class="thp-admin-empty-state"><div class="thp-admin-empty-icon">!</div><strong>Access restricted</strong><span>Your role does not have permission to view this module.</span></section>`,
+  );
+}
+
+export async function renderAdminStaff(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  if (!window.location.hash.startsWith("#/admin/staff")) return;
+  if (!hasPermission("staff", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  const state = {
+    view: "staff",
+    staff: [],
+    roles: [],
+    modules: [],
+    search: "",
+    roleFilter: "",
+    sortKey: "name",
+    sortDirection: 1,
+    page: 1,
+    pageSize: 10,
+    selectedRoleId: null,
+    loading: true,
+    error: "",
+    modal: null,
+  };
+  renderAdminLayout(
+    app,
+    "staff",
+    '<section id="admin-staff-workspace" class="thp-admin-staff-workspace"></section>',
+    {
+      subtitle:
+        "Enterprise Role-Based Access Control (RBAC), permission matrix, and administrative staff management.",
+    },
+  );
+  const render = () => {
+    const workspace = app.querySelector("#admin-staff-workspace");
+    if (workspace) workspace.innerHTML = renderStaffWorkspace(state);
+  };
+
+  app._adminStaffEvents?.abort();
+  const eventController = new AbortController();
+  app._adminStaffEvents = eventController;
+
+  app.addEventListener(
+    "click",
+    (event) => {
+      const tab = event.target.closest("[data-staff-view]");
+      if (tab) {
+        state.view = tab.dataset.staffView;
+        state.page = 1;
+        render();
+        return;
+      }
+      if (event.target.closest("[data-staff-retry]")) {
+        loadStaffData();
+        return;
+      }
+      if (event.target.closest("[data-modal-close]")) {
+        state.modal = null;
+        render();
+        return;
+      }
+      const sortButton = event.target.closest("[data-staff-sort]");
+      if (sortButton) {
+        const key = sortButton.dataset.staffSort;
+        state.sortDirection = state.sortKey === key ? -state.sortDirection : 1;
+        state.sortKey = key;
+        renderStaffListing(state);
+        return;
+      }
+      if (event.target.closest("[data-staff-export]")) {
+        exportStaffCsv(state);
+        return;
+      }
+      const pageButton = event.target.closest("[data-staff-page]");
+      if (pageButton) {
+        state.page = Number(pageButton.dataset.staffPage);
+        renderStaffListing(state);
+        return;
+      }
+      const confirmButton = event.target.closest("[data-staff-confirm]");
+      if (confirmButton) {
+        runStaffConfirmation(confirmButton.dataset.staffConfirm);
+        return;
+      }
+      const staffAction = event.target.closest("[data-staff-action]");
+      if (staffAction) {
+        const id = Number(staffAction.dataset.staffId);
+        const person = state.staff.find((item) => Number(item.id) === id);
+        const action = staffAction.dataset.staffAction;
+        if (action === "create")
+          state.modal = { type: "staff", mode: "create" };
+        if (action === "edit" && person)
+          state.modal = { type: "staff", mode: "edit", person };
+        if (action === "toggle" && person) {
+          state.modal = {
+            type: "confirm",
+            action: person.is_active ? "deactivate" : "activate",
+            person,
+          };
+        }
+        if (action === "password" && person)
+          state.modal = { type: "password", person };
+        render();
+        return;
+      }
+      const roleAction = event.target.closest("[data-role-action]");
+      if (roleAction) {
+        const role = state.roles.find(
+          (item) => Number(item.id) === Number(roleAction.dataset.roleId),
+        );
+        if (roleAction.dataset.roleAction === "create")
+          state.modal = { type: "role", mode: "create" };
+        if (roleAction.dataset.roleAction === "rename" && role)
+          state.modal = { type: "role", mode: "edit", role };
+        if (roleAction.dataset.roleAction === "delete" && role) {
+          if (role.staff_count) {
+            showAdminToast(
+              `Cannot delete ${role.name}: ${role.staff_count} staff account${role.staff_count === 1 ? " is" : "s are"} assigned.`,
+            );
+            return;
+          }
+          state.modal = { type: "confirm", action: "delete-role", role };
+        }
+        render();
+        return;
+      }
+    },
+    { signal: eventController.signal },
+  );
+  app.addEventListener(
+    "input",
+    (event) => {
+      if (event.target.id !== "admin-staff-search") return;
+      state.search = event.target.value;
+      state.page = 1;
+      renderStaffListing(state);
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "change",
+    (event) => {
+      if (event.target.id === "admin-staff-role-filter") {
+        state.roleFilter = event.target.value;
+        state.page = 1;
+        renderStaffListing(state);
+        return;
+      }
+      if (event.target.id === "admin-selected-role") {
+        state.selectedRoleId = Number(event.target.value);
+        render();
+        return;
+      }
+      const checkbox = event.target.closest("[data-permission-module]");
+      if (!checkbox) return;
+      savePermissionChange(checkbox);
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "submit",
+    (event) => {
+      const form = event.target.closest("[data-staff-form]");
+      if (!form) return;
+      event.preventDefault();
+      if (state.modal?.type === "staff") saveStaffForm(form);
+      if (state.modal?.type === "role") saveRoleForm(form);
+      if (state.modal?.type === "password") savePasswordForm(form);
+    },
+    { signal: eventController.signal },
+  );
+
+  render();
+  await loadStaffData();
+
+  async function loadStaffData() {
+    if (!app.querySelector("#admin-staff-workspace")) return;
+    state.loading = true;
+    state.error = "";
+    render();
+    try {
+      const [staffData, roleData, moduleData] = await Promise.all([
+        getAdminStaff(),
+        getAdminRoles(),
+        getAdminModules(),
+      ]);
+      state.staff = staffData.results || [];
+      state.roles = roleData.results || [];
+      state.modules = moduleData.modules || [];
+      state.selectedRoleId ||= state.roles[0]?.id || null;
+      if (!state.selectedRoleId && state.roles.length)
+        state.selectedRoleId = state.roles[0].id;
+    } catch (error) {
+      state.error = error.message || "Unable to load staff and role data.";
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function saveStaffForm(form) {
+    const values = Object.fromEntries(new FormData(form));
+    const modal = state.modal;
+    const payload = {
+      email: String(values.email || "").trim(),
+      first_name: String(values.first_name || "").trim(),
+      last_name: String(values.last_name || "").trim(),
+      role_id: Number(values.role_id),
+    };
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      if (modal.mode === "create") {
+        payload.username = String(values.username || "").trim();
+        payload.password = String(values.password || "");
+        await createAdminStaff(payload);
+        showAdminToast("Staff account created.");
+      } else {
+        if (Number(modal.person.id) !== Number(getAdminSession()?.admin?.id)) {
+          payload.role_id = Number(values.role_id);
+        } else {
+          delete payload.role_id;
+        }
+        await updateAdminStaff(modal.person.id, payload);
+        showAdminToast("Staff account updated.");
+      }
+      state.modal = null;
+      await loadStaffData();
+    } catch (error) {
+      showAdminToast(apiErrorMessage(error));
+      submit.disabled = false;
+    }
+  }
+
+  async function saveRoleForm(form) {
+    const values = Object.fromEntries(new FormData(form));
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      if (state.modal.mode === "create") {
+        const result = await createAdminRole({
+          name: String(values.name || "").trim(),
+          description: String(values.description || "").trim(),
+        });
+        state.modal = null;
+        state.selectedRoleId = result.role.id;
+        const blankPermissions = Object.fromEntries(
+          state.modules.map((module) => [
+            module.key,
+            { view: false, create: false, edit: false, delete: false },
+          ]),
+        );
+        try {
+          await updateAdminRolePermissions(result.role.id, blankPermissions);
+          showAdminToast("Custom role created.");
+        } catch (error) {
+          showAdminToast(
+            `Role created with no permissions; matrix initialization failed: ${apiErrorMessage(error)}`,
+          );
+        }
+      } else {
+        await updateAdminRole(state.modal.role.id, {
+          name: String(values.name || "").trim(),
+          description: String(values.description || "").trim(),
+        });
+        showAdminToast("Role renamed.");
+      }
+      state.modal = null;
+      await loadStaffData();
+    } catch (error) {
+      showAdminToast(apiErrorMessage(error));
+      submit.disabled = false;
+    }
+  }
+
+  async function savePasswordForm(form) {
+    const values = Object.fromEntries(new FormData(form));
+    if (values.new_password !== values.confirm_password) {
+      showAdminToast("The passwords do not match.");
+      return;
+    }
+    const submit = form.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      await resetAdminStaffPassword(state.modal.person.id, values.new_password);
+      state.modal = null;
+      render();
+      showAdminToast(
+        "Password reset. The staff member must sign in with the new password.",
+      );
+    } catch (error) {
+      showAdminToast(apiErrorMessage(error));
+      submit.disabled = false;
+    }
+  }
+
+  async function runStaffConfirmation(action) {
+    const modal = state.modal;
+    if (!modal || modal.action !== action) return;
+    try {
+      if (action === "delete-role") {
+        await deleteAdminRole(modal.role.id);
+        state.selectedRoleId = null;
+        showAdminToast("Custom role deleted.");
+      } else {
+        const active = action === "activate";
+        await setAdminStaffActive(modal.person.id, active);
+        showAdminToast(
+          active ? "Staff account activated." : "Staff account deactivated.",
+        );
+      }
+      state.modal = null;
+      await loadStaffData();
+    } catch (error) {
+      state.modal = null;
+      render();
+      showAdminToast(apiErrorMessage(error));
+    }
+  }
+
+  async function savePermissionChange(checkbox) {
+    const role = state.roles.find(
+      (item) => Number(item.id) === Number(state.selectedRoleId),
+    );
+    if (!role) return;
+    if (role.name === "Super Admin") {
+      checkbox.checked = true;
+      showAdminToast("Super Admin permissions are locked.");
+      return;
+    }
+    const previous = Boolean(
+      role.permissions?.[checkbox.dataset.permissionModule]?.[
+        checkbox.dataset.permissionAction
+      ],
+    );
+    const permissions = structuredClone(role.permissions || {});
+    permissions[checkbox.dataset.permissionModule] ||= {
+      view: false,
+      create: false,
+      edit: false,
+      delete: false,
+    };
+    permissions[checkbox.dataset.permissionModule][
+      checkbox.dataset.permissionAction
+    ] = checkbox.checked;
+    checkbox.disabled = true;
+    try {
+      const response = await updateAdminRolePermissions(role.id, permissions);
+      const index = state.roles.findIndex(
+        (item) => Number(item.id) === Number(role.id),
+      );
+      state.roles[index] = response.role;
+      showAdminToast("Permission updated.");
+      render();
+    } catch (error) {
+      checkbox.checked = previous;
+      checkbox.disabled = false;
+      showAdminToast(apiErrorMessage(error));
+    }
+  }
+}
+
+function renderStaffWorkspace(state) {
+  const activeCount = state.staff.filter((person) => person.is_active).length;
+  return `
+    <nav class="thp-admin-staff-tabs" aria-label="Staff and roles">
+      <span class="thp-admin-staff-tab-indicator" aria-hidden="true" style="--tab-index:${state.view === "staff" ? 0 : 1}"></span>
+      <button type="button" role="tab" aria-selected="${state.view === "staff"}" class="${state.view === "staff" ? "is-active" : ""}" data-staff-view="staff"><span>Active Staff</span><span class="thp-admin-staff-tab-count">${activeCount}</span></button>
+      <button type="button" role="tab" aria-selected="${state.view === "roles"}" class="${state.view === "roles" ? "is-active" : ""}" data-staff-view="roles"><span>Permission Matrix</span><span class="thp-admin-staff-tab-count">${state.roles.length}</span></button>
+    </nav>
+    ${state.error ? `<div class="thp-admin-users-alert" role="alert">${escapeHtml(state.error)} <button type="button" data-staff-retry>Retry</button></div>` : ""}
+    ${state.loading ? `<div class="thp-admin-panel"><div class="thp-admin-loading-state">Loading staff and roles...</div></div>` : state.view === "staff" ? renderStaffPanel(state) : renderRolesPanel(state)}
+    ${renderStaffModal(state)}
+  `;
+}
+
+function renderStaffPanel(state) {
+  const roleOptions = state.roles;
+  return `
+    <section class="thp-admin-staff-directory-card">
+      <header class="thp-admin-panel-heading thp-admin-staff-panel-heading">
+        <div><h3>Administrative Staff</h3><p>Users with system dashboard access</p></div>
+        ${hasPermission("staff", "create") ? `<button type="button" class="thp-admin-users-add" data-staff-action="create">${userIcon("plus")}<span>Invite Staff</span></button>` : ""}
+      </header>
+      <div class="thp-admin-users-toolbar thp-admin-staff-toolbar">
+        <label class="thp-admin-users-searchbox">${userIcon("search")}<input id="admin-staff-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search staff by name or email..." aria-label="Search staff by name or email" /></label>
+        <div class="thp-admin-users-toolbar-actions">
+          <label class="thp-admin-users-filterbox"><span class="thp-admin-sr-only">Filter by role</span><select id="admin-staff-role-filter" aria-label="Filter staff by role"><option value="">All Role</option>${roleOptions.map((role) => `<option value="${escapeHtml(role.name)}" ${state.roleFilter === role.name ? "selected" : ""}>${escapeHtml(role.name)}</option>`).join("")}</select>${userIcon("chevronDown")}</label>
+          <button type="button" class="thp-admin-users-export" data-staff-export ${getFilteredStaff(state).length ? "" : "disabled"}>${userIcon("download")}<span>Export CSV</span></button>
+        </div>
+      </div>
+      <div id="admin-staff-table-region">${renderStaffTable(state)}</div>
+    </section>
+  `;
+}
+
+function renderStaffTable(state) {
+  const filtered = getFilteredStaff(state);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+  state.page = Math.min(state.page, pageCount);
+  if (!filtered.length)
+    return `<div class="thp-admin-empty-state"><div class="thp-admin-empty-icon">♙</div><strong>${state.staff.length ? "No matching staff" : "No staff accounts"}</strong><span>${state.staff.length ? "Try another search or role." : "Invite staff to begin administration."}</span></div><footer class="thp-admin-staff-pagination"><span>Showing 0 to 0 of 0 records</span></footer>`;
+  const start = (state.page - 1) * state.pageSize;
+  const staff = filtered.slice(start, start + state.pageSize);
+  const sortHeader = (label, key) =>
+    `<th aria-sort="${state.sortKey === key ? (state.sortDirection === 1 ? "ascending" : "descending") : "none"}"><button class="thp-admin-users-sort ${state.sortKey === key ? "is-sorted" : ""}" type="button" data-staff-sort="${key}"><span>${label}</span>${userIcon(state.sortKey === key && state.sortDirection < 0 ? "sortDown" : "sortUp")}</button></th>`;
+  return `<div class="thp-admin-table-wrapper thp-admin-staff-table-wrapper"><table class="thp-admin-table thp-admin-staff-table"><thead><tr>${sortHeader("STAFF MEMBER", "name")}<th>EMAIL ADDRESS</th>${sortHeader("ASSIGNED ROLE", "role")}<th>LAST LOGIN</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>${staff
+    .map(
+      (person) => `
+    <tr>
+      <td><strong>${escapeHtml(person.name || person.username || "—")}</strong></td>
+      <td>${escapeHtml(person.email || "—")}</td>
+      <td><span class="thp-admin-user-role">${escapeHtml(person.role?.name || "—")}</span></td>
+      <td>${escapeHtml(formatAdminTimestamp(person.last_login))}</td>
+      <td>${renderStatus(Boolean(person.is_active))}</td>
+      <td><div class="thp-admin-users-row-actions">
+        ${canManageStaffAccount(person) ? `<button class="thp-admin-users-icon-button" type="button" data-staff-action="password" data-staff-id="${person.id}" aria-label="Reset password for ${escapeHtml(person.username)}" title="Reset password">${userIcon("key")}</button><button class="thp-admin-users-icon-button is-edit" type="button" data-staff-action="edit" data-staff-id="${person.id}" aria-label="Edit ${escapeHtml(person.username)}" title="Edit">${userIcon("edit")}</button><button class="thp-admin-users-icon-button is-suspend" type="button" data-staff-action="toggle" data-staff-active="${person.is_active}" data-staff-id="${person.id}" aria-label="${person.is_active ? "Deactivate" : "Activate"} ${escapeHtml(person.username)}" title="${person.is_active ? "Deactivate" : "Activate"}" ${Number(person.id) === Number(getAdminSession()?.admin?.id) && person.is_active ? "disabled" : ""}>${userIcon(person.is_active ? "pause" : "refresh")}</button>` : ""}
+      </div></td>
+    </tr>`,
+    )
+    .join(
+      "",
+    )}</tbody></table></div><footer class="thp-admin-staff-pagination"><span>Showing ${start + 1} to ${Math.min(start + staff.length, filtered.length)} of ${filtered.length} records</span><div><button type="button" data-staff-page="${Math.max(1, state.page - 1)}" aria-label="Previous page" ${state.page <= 1 ? "disabled" : ""}>${userIcon("chevronLeft")}</button><span>Page ${state.page} of ${pageCount}</span><button type="button" data-staff-page="${Math.min(pageCount, state.page + 1)}" aria-label="Next page" ${state.page >= pageCount ? "disabled" : ""}>${userIcon("chevronRight")}</button></div></footer>`;
+}
+
+function getFilteredStaff(state) {
+  const search = state.search.trim().toLowerCase();
+  return state.staff
+    .filter(
+      (person) =>
+        !search ||
+        [person.name, person.email].some((value) =>
+          String(value || "")
+            .toLowerCase()
+            .includes(search),
+        ),
+    )
+    .filter(
+      (person) => !state.roleFilter || person.role?.name === state.roleFilter,
+    )
+    .sort((left, right) => {
+      const first =
+        state.sortKey === "role" ? left.role?.name || "" : left.name || "";
+      const second =
+        state.sortKey === "role" ? right.role?.name || "" : right.name || "";
+      return (
+        String(first).localeCompare(String(second), undefined, {
+          sensitivity: "base",
+        }) * state.sortDirection
+      );
+    });
+}
+
+function renderStaffListing(state) {
+  const region = document.querySelector("#admin-staff-table-region");
+  if (region) region.innerHTML = renderStaffTable(state);
+  const exportButton = document.querySelector("[data-staff-export]");
+  if (exportButton)
+    exportButton.disabled = getFilteredStaff(state).length === 0;
+}
+
+function exportStaffCsv(state) {
+  const columns = [
+    "Staff member",
+    "Email address",
+    "Assigned role",
+    "Last login",
+    "Status",
+  ];
+  const rows = getFilteredStaff(state).map((person) => [
+    person.name || person.username,
+    person.email,
+    person.role?.name,
+    person.last_login,
+    person.is_active ? "Active" : "Inactive",
+  ]);
+  const csv = [columns, ...rows]
+    .map((row) => row.map(csvCell).join(","))
+    .join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `tatito-staff-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function canManageStaffAccount(person) {
+  const actorIsSuperAdmin = getAdminSession()?.admin?.role === "Super Admin";
+  return (
+    hasPermission("staff", "edit") &&
+    (actorIsSuperAdmin || person.role?.name !== "Super Admin")
+  );
+}
+
+function renderRolesPanel(state) {
+  const selectedRole = state.roles.find(
+    (role) => Number(role.id) === Number(state.selectedRoleId),
+  );
+  if (!selectedRole) {
+    return `<section class="thp-admin-staff-matrix-card"><div class="thp-admin-empty-state"><strong>No roles found</strong><span>Roles will appear here when loaded from the admin system.</span></div></section>`;
+  }
+  return `<section class="thp-admin-staff-matrix-card">${renderPermissionMatrix(state, selectedRole)}</section>`;
+}
+
+function renderPermissionMatrix(state, role) {
+  const immutable = role.name === "Super Admin";
+  const ownRole = role.name === getAdminSession()?.admin?.role;
+  const locked = immutable || ownRole;
+  return `<header class="thp-admin-staff-matrix-heading">
+    <div><h3>Live RBAC Permission Matrix</h3><p>Changes apply immediately across all navigation items, routes, and action buttons.</p></div>
+    <div class="thp-admin-staff-matrix-controls">
+      <label class="thp-admin-staff-role-select"><span class="thp-admin-sr-only">Select role</span><select id="admin-selected-role" aria-label="Select role">${state.roles.map((item) => `<option value="${item.id}" ${Number(item.id) === Number(role.id) ? "selected" : ""}>Role: ${escapeHtml(item.name)}</option>`).join("")}</select>${userIcon("chevronDown")}</label>
+      ${hasPermission("staff", "create") ? `<button type="button" class="thp-admin-users-add" data-role-action="create">${userIcon("plus")}<span>Add Role</span></button>` : ""}
+      <div class="thp-admin-role-actions">
+        ${hasPermission("staff", "edit") && !role.is_system_role ? `<button type="button" class="thp-admin-secondary-button" data-role-action="rename" data-role-id="${role.id}">Rename</button>` : ""}
+        ${hasPermission("staff", "delete") && !role.is_system_role ? `<button type="button" class="thp-admin-row-button is-danger" data-role-action="delete" data-role-id="${role.id}" ${role.staff_count ? `title="Reassign ${role.staff_count} staff account${role.staff_count === 1 ? "" : "s"} before deleting"` : ""}>Delete</button>` : ""}
+      </div>
+    </div>
+  </header>
+  <div class="thp-admin-staff-role-meta"><span>${role.is_system_role ? "System role" : "Custom role"}</span><span>${role.staff_count} assigned staff</span>${immutable ? `<span class="is-locked">${userIcon("lock")}Permissions locked</span>` : ownRole ? `<span class="is-locked">${userIcon("lock")}Your role cannot be edited here</span>` : ""}</div>
+  <div class="thp-admin-permission-matrix-wrap"><table class="thp-admin-permission-matrix"><thead><tr><th>MODULE NAME</th><th>VIEW</th><th>CREATE</th><th>EDIT</th><th>DELETE</th></tr></thead><tbody>${state.modules.map((module) => `<tr><th scope="row">${escapeHtml(module.label)}</th>${["view", "create", "edit", "delete"].map((action) => `<td><input type="checkbox" data-permission-module="${escapeHtml(module.key)}" data-permission-action="${action}" ${role.permissions?.[module.key]?.[action] ? "checked" : ""} ${locked || !hasPermission("staff", "edit") ? "disabled" : ""} aria-label="${escapeHtml(module.label)} ${action}" /></td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderStaffModal(state) {
+  const modal = state.modal;
+  if (!modal) return "";
+  const roleOptions = state.roles
+    .filter(
+      (role) =>
+        role.name !== "Super Admin" ||
+        getAdminSession()?.admin?.role === "Super Admin",
+    )
+    .map(
+      (role) =>
+        `<option value="${role.id}" ${Number(role.id) === Number(modal.person?.role?.id) ? "selected" : ""}>${escapeHtml(role.name)}</option>`,
+    )
+    .join("");
+
+  if (modal.type === "confirm") {
+    const deletingRole = modal.action === "delete-role";
+    const title = deletingRole
+      ? "Delete custom role?"
+      : modal.action === "deactivate"
+        ? "Deactivate staff account?"
+        : "Activate staff account?";
+    const description = deletingRole
+      ? `Delete the custom role “${modal.role.name}”? This cannot be undone.`
+      : `${modal.action === "deactivate" ? "Deactivate" : "Activate"} ${modal.person.name || modal.person.username}?`;
+    return `<div class="thp-admin-modal" data-staff-modal><div class="thp-admin-modal-backdrop" data-modal-close></div><section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="staff-confirm-title"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">CONFIRM ACTION</p><h2 id="staff-confirm-title">${title}</h2></div><button class="thp-admin-modal-close" type="button" data-modal-close aria-label="Close">×</button></header><div class="thp-admin-staff-modal-body"><p>${escapeHtml(description)}</p>${deletingRole ? `<p class="thp-admin-form-note">The server will reject deletion if any staff account is still assigned to this role.</p>` : ""}<footer class="thp-admin-modal-footer"><button type="button" class="thp-admin-secondary-button" data-modal-close>Cancel</button><button type="button" class="thp-admin-primary-button ${modal.action === "deactivate" || deletingRole ? "is-danger" : ""}" data-staff-confirm="${modal.action}">${deletingRole ? "Delete Role" : modal.action === "deactivate" ? "Deactivate" : "Activate"}</button></footer></div></section></div>`;
+  }
+
+  if (modal.type === "staff") {
+    const edit = modal.mode === "edit";
+    const person = modal.person || {};
+    const firstName = person.first_name || person.name?.split(" ")[0] || "";
+    const lastName =
+      person.last_name || person.name?.split(" ").slice(1).join(" ") || "";
+    const ownAccount =
+      edit && Number(person.id) === Number(getAdminSession()?.admin?.id);
+    return `<div class="thp-admin-modal" data-staff-modal><div class="thp-admin-modal-backdrop" data-modal-close></div><section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="staff-form-title"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">STAFF MANAGEMENT</p><h2 id="staff-form-title">${edit ? "Edit Staff Account" : "Create Staff Account"}</h2></div><button class="thp-admin-modal-close" type="button" data-modal-close aria-label="Close">×</button></header><form data-staff-form class="thp-admin-staff-form">
+      <div class="thp-admin-form-grid">
+        <div class="thp-admin-form-group"><label for="staff-first-name">First name <b>*</b></label><input id="staff-first-name" name="first_name" type="text" maxlength="150" value="${escapeHtml(firstName)}" required /></div>
+        <div class="thp-admin-form-group"><label for="staff-last-name">Last name</label><input id="staff-last-name" name="last_name" type="text" maxlength="150" value="${escapeHtml(lastName)}" /></div>
+        <div class="thp-admin-form-group"><label for="staff-username">Username <b>*</b></label><input id="staff-username" name="username" type="text" value="${escapeHtml(person.username || "")}" ${edit ? "readonly" : "required"} autocomplete="username" /></div>
+        <div class="thp-admin-form-group"><label for="staff-email">Email <b>*</b></label><input id="staff-email" name="email" type="email" value="${escapeHtml(person.email || "")}" autocomplete="email" required /></div>
+        ${edit ? "" : `<div class="thp-admin-form-group"><label for="staff-password">Initial password <b>*</b></label><input id="staff-password" name="password" type="password" minlength="8" autocomplete="new-password" required /><small>Must meet the server's password rules.</small></div>`}
+        <div class="thp-admin-form-group"><label for="staff-role">Role <b>*</b></label><select id="staff-role" name="role_id" required ${ownAccount ? "disabled" : ""}>${roleOptions}</select>${ownAccount ? `<small>You cannot change your own role.</small>` : ""}</div>
+      </div>
+      <p class="thp-admin-form-note">Phone numbers are not part of the existing admin account model. New accounts are active by default.</p>
+      <footer class="thp-admin-modal-footer"><button type="button" class="thp-admin-secondary-button" data-modal-close>Cancel</button><button type="submit" class="thp-admin-primary-button">${edit ? "Save Changes" : "Create Account"}</button></footer>
+    </form></section></div>`;
+  }
+
+  if (modal.type === "password") {
+    return `<div class="thp-admin-modal" data-staff-modal><div class="thp-admin-modal-backdrop" data-modal-close></div><section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="staff-password-title"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">ACCOUNT SECURITY</p><h2 id="staff-password-title">Reset Password</h2></div><button class="thp-admin-modal-close" type="button" data-modal-close aria-label="Close">×</button></header><form data-staff-form class="thp-admin-staff-form"><p class="thp-admin-form-note">Set a new password for ${escapeHtml(modal.person.name || modal.person.username)}. The existing password is never displayed.</p><div class="thp-admin-form-group"><label for="staff-new-password">New password <b>*</b></label><input id="staff-new-password" name="new_password" type="password" minlength="8" autocomplete="new-password" required /></div><div class="thp-admin-form-group"><label for="staff-confirm-password">Confirm new password <b>*</b></label><input id="staff-confirm-password" name="confirm_password" type="password" minlength="8" autocomplete="new-password" required /></div><footer class="thp-admin-modal-footer"><button type="button" class="thp-admin-secondary-button" data-modal-close>Cancel</button><button type="submit" class="thp-admin-primary-button">Reset Password</button></footer></form></section></div>`;
+  }
+
+  const role = modal.role || {};
+  return `<div class="thp-admin-modal" data-staff-modal><div class="thp-admin-modal-backdrop" data-modal-close></div><section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="role-form-title"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">ROLE MANAGEMENT</p><h2 id="role-form-title">${modal.mode === "edit" ? "Rename Custom Role" : "Create Custom Role"}</h2></div><button class="thp-admin-modal-close" type="button" data-modal-close aria-label="Close">×</button></header><form data-staff-form class="thp-admin-staff-form"><div class="thp-admin-form-grid"><div class="thp-admin-form-group"><label for="role-name">Role name <b>*</b></label><input id="role-name" name="name" type="text" maxlength="100" value="${escapeHtml(role.name || "")}" required /></div><div class="thp-admin-form-group"><label for="role-description">Description</label><input id="role-description" name="description" type="text" value="${escapeHtml(role.description || "")}" /></div></div><p class="thp-admin-form-note">${modal.mode === "create" ? "New roles start with no permissions. Configure the permission matrix after creation." : "System roles cannot be renamed."}</p><footer class="thp-admin-modal-footer"><button type="button" class="thp-admin-secondary-button" data-modal-close>Cancel</button><button type="submit" class="thp-admin-primary-button">${modal.mode === "edit" ? "Save Role" : "Create Role"}</button></footer></form></section></div>`;
+}
+
+function formatAdminDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+}
+
+function formatAdminTimestamp(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+}
+
+export async function renderAdminUsers(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  if (!window.location.hash.startsWith("#/admin/users")) return;
+  if (!hasPermission("users", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  const staticAccounts = getUsers().map(normalizeUserRecord);
+  const state = {
+    activeTab: "patients",
+    search: "",
+    filter: "",
+    sortKey: "name",
+    sortDirection: 1,
+    apiUsers: [],
+    loading: true,
+    error: "",
+    feedback: "",
+    visibleRows: [],
+  };
+
+  renderAdminLayout(
+    app,
+    "users",
+    '<section id="admin-users-workspace" class="thp-admin-users-workspace"></section>',
+    {
+      subtitle:
+        "Comprehensive administration for patients, verified clinical doctors, and healthcare partners.",
+    },
+  );
+  app._adminUsersEvents?.abort();
+  const eventController = new AbortController();
+  app._adminUsersEvents = eventController;
+  const renderToken = Symbol("admin-users-render");
+  app._adminUsersRenderToken = renderToken;
+
+  const render = () => {
+    if (app._adminUsersRenderToken !== renderToken) return;
+    const workspace = app.querySelector("#admin-users-workspace");
+    if (!workspace) return;
+    workspace.innerHTML = renderUsersWorkspace(state, staticAccounts);
+    renderUsersTableRegion(state, staticAccounts);
+  };
+
+  const updateTable = () => renderUsersTableRegion(state, staticAccounts);
+
+  app.addEventListener(
+    "click",
+    (event) => {
+      const tabButton = event.target.closest("[data-user-tab]");
+      if (tabButton) {
+        state.activeTab = tabButton.dataset.userTab;
+        state.search = "";
+        state.filter = "";
+        state.sortKey = "name";
+        state.sortDirection = 1;
+        state.feedback = "";
+        render();
+        return;
+      }
+
+      if (event.target.closest("[data-user-retry]")) {
+        loadUsers();
+        return;
+      }
+
+      const sortButton = event.target.closest("[data-user-sort]");
+      if (sortButton) {
+        const key = sortButton.dataset.userSort;
+        state.sortDirection = state.sortKey === key ? -state.sortDirection : 1;
+        state.sortKey = key;
+        updateTable();
+        return;
+      }
+
+      if (event.target.closest("[data-user-export]")) {
+        exportUsersCsv(state);
+        return;
+      }
+
+      const closeButton = event.target.closest("[data-user-close]");
+      if (closeButton) {
+        app.querySelector("#admin-user-details")?.close();
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-user-action]");
+      if (!actionButton) return;
+      const action = actionButton.dataset.userAction;
+      if (action === "view") {
+        const row = state.visibleRows.find(
+          (item) => userRowKey(item) === actionButton.dataset.userKey,
+        );
+        if (row) openUserDetails(app, row);
+        return;
+      }
+
+      state.feedback =
+        action === "add"
+          ? "Account creation is not available: the existing admin users endpoint is read-only."
+          : "This action is not available because the existing admin users endpoint is read-only.";
+      renderFeedback(app, state.feedback);
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "input",
+    (event) => {
+      if (event.target.id !== "admin-users-search") return;
+      state.search = event.target.value;
+      updateTable();
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "change",
+    (event) => {
+      if (event.target.id !== "admin-users-filter") return;
+      state.filter = event.target.value;
+      updateTable();
+    },
+    { signal: eventController.signal },
+  );
+
+  render();
+  loadUsers();
+
+  async function loadUsers() {
+    state.loading = true;
+    state.error = "";
+    render();
+    try {
+      const apiUsers = await getAdminUsers();
+      if (app._adminUsersRenderToken !== renderToken) return;
+      state.apiUsers = apiUsers;
+    } catch (error) {
+      if (app._adminUsersRenderToken !== renderToken) return;
+      state.error = error.message || "Unable to load the live user list.";
+    } finally {
+      if (app._adminUsersRenderToken !== renderToken) return;
+      state.loading = false;
+      render();
+    }
+  }
+}
+
+const USER_TAB_CONTENT = {
+  patients: {
+    label: "Patients",
+    title: "Patient Directory",
+    subtitle:
+      "Registered patient accounts, wallet credits, and emergency profiles",
+    search: "Search patients by name, email, phone...",
+    add: "Add Patient",
+  },
+  doctors: {
+    label: "Doctors",
+    title: "Clinical Specialist Directory",
+    subtitle: "Verification pipeline, board documents, and consult fees",
+    search: "Search doctors by name, specialty, hospital...",
+    add: "Add Doctor",
+  },
+  partners: {
+    label: "Partners",
+    title: "Healthcare Partners & Logistics",
+    subtitle:
+      "Pharmacists, Lab Technicians, Phlebotomists, and SwiftMed Riders",
+    search: "Search partners...",
+    add: "Add Partner",
+  },
+};
+
+const PARTNER_ROLE_FILTERS = [
+  "Pharmacist",
+  "Lab Technician",
+  "Phlebotomist",
+  "Delivery",
+];
+
+function renderUsersWorkspace(state, staticAccounts) {
+  const counts = getUserTabRows(state, staticAccounts);
+  const activeTab = USER_TAB_CONTENT[state.activeTab];
+  const exportCount =
+    state.loading && state.activeTab === "patients"
+      ? 0
+      : counts[state.activeTab].filter((row) => matchesUserFilters(row, state))
+          .length;
+  const statusValues = [
+    ...new Set(
+      counts[state.activeTab]
+        .map((row) => userStatus(row, state.activeTab))
+        .filter((value) => value !== "" && value != null),
+    ),
+  ];
+  const filterOptions =
+    state.activeTab === "partners" ? PARTNER_ROLE_FILTERS : statusValues;
+  const filterLabel =
+    state.activeTab === "partners" ? "All Role" : "All Status";
+
+  return `
+    <div class="thp-admin-users-tabs" role="tablist" aria-label="User categories">
+      <span class="thp-admin-users-tab-indicator" aria-hidden="true" style="--tab-index:${["patients", "doctors", "partners"].indexOf(state.activeTab)}"></span>
+      ${Object.entries(USER_TAB_CONTENT)
+        .map(
+          ([key, tab]) => `
+        <button class="thp-admin-users-tab ${key === state.activeTab ? "is-active" : ""}" type="button" role="tab" aria-selected="${key === state.activeTab}" data-user-tab="${key}">
+          <span>${tab.label}</span>
+          <span class="thp-admin-users-tab-count">${counts[key].length}</span>
+        </button>
+      `,
+        )
+        .join("")}
+    </div>
+    ${
+      state.error
+        ? `
+      <div class="thp-admin-users-alert" role="alert">
+        <span><strong>Live account data could not be refreshed.</strong> ${escapeHtml(state.error)} Static project records remain available below.</span>
+        <button type="button" class="thp-admin-users-retry" data-user-retry>${userIcon("refresh")}<span>Retry</span></button>
+      </div>
+    `
+        : ""
+    }
+    <div id="admin-users-feedback" class="thp-admin-users-feedback" role="status" aria-live="polite" hidden></div>
+    <section class="thp-admin-users-card" role="tabpanel" aria-label="${activeTab.label}">
+      <header class="thp-admin-users-card-heading">
+        <div>
+          <h2>${activeTab.title}</h2>
+          <p>${activeTab.subtitle}</p>
+        </div>
+        ${hasPermission("users", "create") ? `<button type="button" class="thp-admin-users-add" data-user-action="add">${userIcon("plus")}<span>${activeTab.add}</span></button>` : ""}
+      </header>
+      <div class="thp-admin-users-toolbar">
+        <label class="thp-admin-users-searchbox">
+          ${userIcon("search")}
+          <input id="admin-users-search" type="search" value="${escapeHtml(state.search)}" placeholder="${activeTab.search}" aria-label="${activeTab.search}" />
+        </label>
+        <div class="thp-admin-users-toolbar-actions">
+          <label class="thp-admin-users-filterbox">
+            <span class="thp-admin-sr-only">${filterLabel}</span>
+            <select id="admin-users-filter" aria-label="${filterLabel}" ${state.activeTab !== "partners" && !statusValues.length ? "disabled" : ""}>
+              <option value="">${filterLabel}</option>
+              ${filterOptions.map((option) => `<option value="${escapeHtml(option)}" ${state.filter === String(option) ? "selected" : ""}>${escapeHtml(statusOptionLabel(option))}</option>`).join("")}
+            </select>
+            ${userIcon("chevronDown")}
+          </label>
+          <button type="button" class="thp-admin-users-export" data-user-export ${exportCount ? "" : "disabled"}>${userIcon("download")}<span>Export CSV</span></button>
+        </div>
+      </div>
+      <div id="admin-users-table-region" class="thp-admin-users-table-region"></div>
+    </section>
+    <dialog id="admin-user-details" class="thp-admin-user-dialog">
+      <div class="thp-admin-user-dialog-head"><h2>User details</h2><button type="button" data-user-close aria-label="Close details">${userIcon("close")}</button></div>
+      <div id="admin-user-details-body"></div>
+    </dialog>
+  `;
+}
+
+function getUserTabRows(state, staticAccounts) {
+  const accounts = mergeUserAccounts(staticAccounts, state.apiUsers);
+  const patients = accounts.filter(
+    (user) => user.role.toLowerCase() === "patient",
+  );
+  const doctorAccounts = accounts.filter(
+    (user) => user.role.toLowerCase() === "doctor",
+  );
+  const matchedDoctorAccounts = new Set();
+  const doctorRows = doctors.map((doctor) => {
+    const account = doctorAccounts.find(
+      (user) =>
+        (user.doctorId && user.doctorId === doctor.id) ||
+        (user.name && user.name.toLowerCase() === doctor.name.toLowerCase()),
+    );
+    if (account) matchedDoctorAccounts.add(userRowKey(account));
+    return {
+      ...doctor,
+      email: account?.email || "",
+      mobile: account?.mobile || "",
+      doctorId: doctor.id,
+      credentialStatus:
+        account?.credential_status ||
+        account?.verification_status ||
+        account?.status ||
+        doctor.credentialStatus ||
+        "",
+    };
+  });
+  doctorAccounts.forEach((account) => {
+    if (matchedDoctorAccounts.has(userRowKey(account))) return;
+    doctorRows.push({
+      ...account,
+      specialty: account.specialty || "",
+      city: account.city || "",
+      location: account.location || account.hospital || "",
+      fee: account.fee,
+      rating: account.rating,
+      initials: initialsFor(account.name),
+      doctorId: account.doctorId || account.id,
+      credentialStatus:
+        account.credential_status ||
+        account.verification_status ||
+        account.status ||
+        "",
+    });
+  });
+
+  return { patients, doctors: doctorRows, partners: [] };
+}
+
+function mergeUserAccounts(staticAccounts, apiUsers) {
+  const records = new Map();
+  [...staticAccounts, ...apiUsers.map(normalizeUserRecord)].forEach((user) => {
+    const key = String(
+      user.email || user.id || `${user.role}:${user.name}`,
+    ).toLowerCase();
+    const previous = records.get(key) || {};
+    records.set(key, {
+      ...previous,
+      ...user,
+      mobile: user.mobile || previous.mobile || "",
+    });
+  });
+  return [...records.values()];
+}
+
+function normalizeUserRecord(user) {
+  return {
+    ...user,
+    id: user.id || user._id || "",
+    name: String(user.name || ""),
+    email: String(user.email || ""),
+    role: String(user.role || ""),
+    mobile: String(user.mobile || user.phone || ""),
+    doctorId: user.doctor_id || user.doctorId || "",
+  };
+}
+
+function renderUsersTableRegion(state, staticAccounts) {
+  const region = document.querySelector("#admin-users-table-region");
+  if (!region) return;
+  if (state.loading && state.activeTab === "patients") {
+    region.innerHTML = renderUserSkeleton();
+    return;
+  }
+
+  const rows = getUserTabRows(state, staticAccounts)[state.activeTab];
+  const filtered = rows.filter((row) => matchesUserFilters(row, state));
+  const sorted = sortUserRows(
+    filtered,
+    state.sortKey,
+    state.sortDirection,
+    state.activeTab,
+  );
+  state.visibleRows = sorted;
+  region.innerHTML = sorted.length
+    ? renderUsersTable(sorted, state.activeTab, state)
+    : renderUsersEmpty(
+        state.activeTab,
+        rows.length ? "No matching records" : "No records available",
+        rows.length
+          ? "Change your search or filter and try again."
+          : "There are no records for this category in the available project data.",
+      );
+  const images = region.querySelectorAll("[data-doctor-avatar]");
+  images.forEach((image) => {
+    image.addEventListener("error", () => {
+      image.hidden = true;
+    });
+  });
+}
+
+function matchesUserFilters(row, state) {
+  const query = state.search.trim().toLowerCase();
+  const fields =
+    state.activeTab === "patients"
+      ? [row.name, row.email, row.mobile, row.phone]
+      : state.activeTab === "doctors"
+        ? [row.name, row.specialty, row.city, row.location, row.email]
+        : [row.name, partnerRole(row), row.city];
+  const filterValue =
+    state.activeTab === "partners"
+      ? partnerRole(row)
+      : userStatus(row, state.activeTab);
+  return (
+    (!query ||
+      fields.some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(query),
+      )) &&
+    (!state.filter || String(filterValue) === state.filter)
+  );
+}
+
+function sortUserRows(rows, sortKey, direction, tab) {
+  return [...rows].sort((left, right) => {
+    const a = sortValue(left, sortKey, tab);
+    const b = sortValue(right, sortKey, tab);
+    if (a === "" && b !== "") return 1;
+    if (b === "" && a !== "") return -1;
+    if (typeof a === "number" && typeof b === "number")
+      return (a - b) * direction;
+    return (
+      String(a).localeCompare(String(b), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }) * direction
+    );
+  });
+}
+
+function sortValue(row, key, tab) {
+  if (tab === "patients") {
+    if (key === "wallet") return patientWallet(row) ?? "";
+    return key === "name" ? row.name || "" : (row[key] ?? "");
+  }
+  if (tab === "doctors") {
+    if (key === "name") return row.name || "";
+    if (key === "fee")
+      return Number.isFinite(Number(row.fee)) ? Number(row.fee) : "";
+    if (key === "rating")
+      return Number.isFinite(Number(row.rating)) ? Number(row.rating) : "";
+  }
+  if (tab === "partners")
+    return key === "role" ? partnerRole(row) : row[key] || "";
+  return "";
+}
+
+function renderUsersTable(rows, tab, state) {
+  const sortHeader = (label, key) => `
+    <th aria-sort="${state.sortKey === key ? (state.sortDirection === 1 ? "ascending" : "descending") : "none"}">
+      <button type="button" class="thp-admin-users-sort ${state.sortKey === key ? "is-sorted" : ""}" data-user-sort="${key}">
+        <span>${label}</span>${userIcon(state.sortKey === key && state.sortDirection === -1 ? "sortDown" : "sortUp")}
+      </button>
+    </th>
+  `;
+  let headings = "";
+  let renderRow;
+
+  if (tab === "patients") {
+    headings = `${sortHeader("PATIENT NAME", "name")}<th>CONTACT</th><th>GENDER / BLOOD</th>${sortHeader("WALLET", "wallet")}<th>STATUS</th><th>ACTIONS</th>`;
+    renderRow = (row) => `
+      <td><strong>${escapeHtml(row.name || "—")}</strong><small>${escapeHtml(row.email || "—")}</small></td>
+      <td>${escapeHtml(row.mobile || row.phone || "—")}</td>
+      <td>${escapeHtml(patientGenderBlood(row))}</td>
+      <td><strong>${escapeHtml(formatWallet(patientWallet(row)))}</strong></td>
+      <td>${renderStatus(userStatus(row, tab))}</td>
+      <td>${renderUserActions(tab, row)}</td>
+    `;
+  } else if (tab === "doctors") {
+    headings = `${sortHeader("DOCTOR", "name")}<th>HOSPITAL / CLINIC</th>${sortHeader("CONSULT FEE", "fee")}${sortHeader("RATING", "rating")}<th>CREDENTIAL STATUS</th><th>ACTIONS</th>`;
+    renderRow = (row) => `
+      <td><div class="thp-admin-doctor-identity"><span class="thp-admin-doctor-avatar"><span>${escapeHtml(row.initials || initialsFor(row.name))}</span>${row.photo ? `<img src="${escapeHtml(row.photo)}" alt="" data-doctor-avatar>` : ""}</span><span class="thp-admin-doctor-copy"><strong>${escapeHtml(row.name || "—")}</strong><small>${escapeHtml([row.specialty, row.city].filter(Boolean).join(" • ") || "—")}</small></span></div></td>
+      <td>${escapeHtml(row.location || row.hospital || row.clinic || "—")}</td>
+      <td><strong>${escapeHtml(row.fee == null || row.fee === "" ? "—" : formatRupees(row.fee))}</strong></td>
+      <td>${row.rating == null || row.rating === "" ? "—" : `<span class="thp-admin-doctor-rating">${userIcon("star")}${escapeHtml(row.rating)}</span>`}</td>
+      <td>${renderStatus(userStatus(row, tab), true)}</td>
+      <td>${renderUserActions(tab, row)}</td>
+    `;
+  } else {
+    headings = `${sortHeader("PARTNER NAME", "name")}${sortHeader("PARTNER ROLE", "role")}<th>CITY</th><th>AVAILABILITY</th><th>STATUS</th><th>ACTIONS</th>`;
+    renderRow = (row) => `
+      <td><strong>${escapeHtml(row.name || "—")}</strong></td>
+      <td><span class="thp-admin-partner-role">${escapeHtml(partnerRole(row) || "—")}</span></td>
+      <td>${escapeHtml(row.city || "—")}</td>
+      <td>${renderStatus(row.availability || "")}</td>
+      <td>${renderStatus(row.status || "")}</td>
+      <td>${renderUserActions(tab, row)}</td>
+    `;
+  }
+
+  return `
+    <div class="thp-admin-table-wrapper thp-admin-users-table-wrap">
+      <table class="thp-admin-table thp-admin-users-table">
+        <thead><tr>${headings}</tr></thead>
+        <tbody>${rows.map((row, index) => `<tr style="animation-delay:${Math.min(index * 32, 320)}ms" data-user-row-key="${escapeHtml(userRowKey(row))}">${renderRow(row)}</tr>`).join("")}</tbody>
+      </table>
+    </div>
+    <div class="thp-admin-users-result-count">${rows.length} ${rows.length === 1 ? "record" : "records"}</div>
+  `;
+}
+
+function renderUserActions(tab, row) {
+  const key = escapeHtml(userRowKey(row));
+  const buttons =
+    tab === "patients"
+      ? [
+          ["view", "View patient", "eye"],
+          ["edit", "Edit patient", "edit"],
+          ["delete", "Delete patient", "trash"],
+        ]
+      : tab === "doctors"
+        ? [
+            ["suspend", "Suspend doctor", "pause"],
+            ["view", "View doctor", "eye"],
+            ["edit", "Edit doctor", "edit"],
+            ["delete", "Delete doctor", "trash"],
+          ]
+        : [
+            ["edit", "Edit partner", "edit"],
+            ["delete", "Delete partner", "trash"],
+          ];
+  const available = buttons.filter(
+    ([action]) =>
+      action === "view" ||
+      hasPermission("users", action === "delete" ? "delete" : "edit"),
+  );
+  return `<div class="thp-admin-users-row-actions">${available.map(([action, label, icon]) => `<button type="button" class="thp-admin-users-icon-button is-${action}" data-user-action="${action}" data-user-key="${key}" aria-label="${label}" title="${label}">${userIcon(icon)}</button>`).join("")}</div>`;
+}
+
+function renderStatus(value, credential = false) {
+  if (value === "" || value == null) return "—";
+  const label =
+    typeof value === "boolean"
+      ? value
+        ? "Active"
+        : "Inactive"
+      : titleCase(String(value));
+  const normalized =
+    typeof value === "boolean"
+      ? value
+        ? "active"
+        : "inactive"
+      : String(value).toLowerCase();
+  const tone = /active|verified|available|approved/.test(normalized)
+    ? "is-success"
+    : /pending|review/.test(normalized)
+      ? "is-warning"
+      : /suspend|inactive|unavailable|reject/.test(normalized)
+        ? "is-muted"
+        : "is-neutral";
+  return `<span class="thp-admin-users-status ${tone} ${credential ? "is-credential" : ""}"><i></i>${escapeHtml(label)}</span>`;
+}
+
+function renderUserSkeleton() {
+  return `<div class="thp-admin-users-skeleton" aria-label="Loading patient records">${Array.from({ length: 5 }, (_, index) => `<div class="thp-admin-users-skeleton-row" style="--row-index:${index}"><i></i><i></i><i></i><i></i><i></i></div>`).join("")}</div>`;
+}
+
+function renderUsersEmpty(tab, title, message) {
+  const label = USER_TAB_CONTENT[tab].label.toLowerCase();
+  return `<div class="thp-admin-users-empty"><span class="thp-admin-users-empty-icon">${userIcon(tab === "doctors" ? "doctor" : "user")}</span><h3>${escapeHtml(title)}</h3><p>${escapeHtml(message)}</p><span class="thp-admin-users-empty-context">${escapeHtml(label)}</span></div>`;
+}
+
+function userStatus(row, tab) {
+  if (tab === "doctors")
+    return (
+      row.credentialStatus ||
+      row.credential_status ||
+      row.verification_status ||
+      ""
+    );
+  if (row.status != null) return row.status;
+  if (typeof row.is_active === "boolean") return row.is_active;
+  return "";
+}
+
+function patientWallet(row) {
+  return row.wallet_balance ?? row.walletBalance ?? row.wallet ?? null;
+}
+
+function patientGenderBlood(row) {
+  const gender = row.gender || "";
+  const blood = row.blood_group || row.bloodGroup || row.blood_type || "";
+  if (!gender && !blood) return "—";
+  return `${gender}${blood ? `${gender ? " " : ""}(${blood})` : ""}`;
+}
+
+function formatWallet(value) {
+  if (value == null || value === "" || !Number.isFinite(Number(value)))
+    return "—";
+  return `$${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatRupees(value) {
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    ? amount.toLocaleString("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+      })
+    : "—";
+}
+
+function partnerRole(row) {
+  const role = String(
+    row.role || row.partner_role || row.type || "",
+  ).toLowerCase();
+  if (role.includes("pharmac")) return "Pharmacist";
+  if (role.includes("lab")) return "Lab Technician";
+  if (role.includes("phlebotom")) return "Phlebotomist";
+  if (
+    role.includes("deliver") ||
+    role.includes("rider") ||
+    role.includes("swiftmed")
+  )
+    return "Delivery";
+  return row.role || row.partner_role || row.type || "";
+}
+
+function initialsFor(name) {
+  return (
+    String(name || "?")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "?"
+  );
+}
+
+function userRowKey(row) {
+  return String(row.id || row.doctorId || row.email || row.name || "record");
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function statusOptionLabel(value) {
+  if (typeof value === "boolean") return value ? "Active" : "Inactive";
+  return titleCase(value);
+}
+
+function exportUsersCsv(state) {
+  const tab = state.activeTab;
+  const columns =
+    tab === "patients"
+      ? [
+          ["Patient name", (row) => row.name],
+          ["Email", (row) => row.email],
+          ["Contact", (row) => row.mobile || row.phone],
+          ["Gender / blood", patientGenderBlood],
+          ["Wallet", patientWallet],
+          ["Status", (row) => userStatus(row, tab)],
+        ]
+      : tab === "doctors"
+        ? [
+            ["Doctor", (row) => row.name],
+            ["Specialty", (row) => row.specialty],
+            ["City", (row) => row.city],
+            ["Hospital / clinic", (row) => row.location],
+            ["Consult fee", (row) => row.fee],
+            ["Rating", (row) => row.rating],
+            ["Credential status", (row) => userStatus(row, tab)],
+          ]
+        : [
+            ["Partner", (row) => row.name],
+            ["Partner role", partnerRole],
+            ["City", (row) => row.city],
+            ["Availability", (row) => row.availability],
+            ["Status", (row) => row.status],
+          ];
+  const csv = [
+    columns.map(([label]) => csvCell(label)).join(","),
+    ...state.visibleRows.map((row) =>
+      columns.map(([, value]) => csvCell(value(row))).join(","),
+    ),
+  ].join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `tatito-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function csvCell(value) {
+  let text = value == null ? "" : String(value);
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function openUserDetails(app, row) {
+  const dialog = app.querySelector("#admin-user-details");
+  const body = app.querySelector("#admin-user-details-body");
+  const visibleEntries = Object.entries(row).filter(
+    ([, value]) =>
+      ["string", "number", "boolean"].includes(typeof value) && value !== "",
+  );
+  body.innerHTML = `<dl>${visibleEntries.map(([key, value]) => `<div><dt>${escapeHtml(titleCase(key))}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>`;
+  dialog?.showModal();
+}
+
+function renderFeedback(app, message) {
+  const feedback = app.querySelector("#admin-users-feedback");
+  if (!feedback) return;
+  feedback.textContent = message;
+  feedback.hidden = !message;
+}
+
+function userIcon(name) {
+  const paths = {
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    download:
+      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+    sortUp: '<path d="m7 14 5-5 5 5"/>',
+    sortDown: '<path d="m7 10 5 5 5-5"/>',
+    chevronLeft: '<path d="m15 18-6-6 6-6"/>',
+    chevronRight: '<path d="m9 18 6-6-6-6"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    edit: '<path d="m15 5 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15v5Z"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/>',
+    pause: '<circle cx="12" cy="12" r="9"/><path d="M10 8v8m4-8v8"/>',
+    refresh:
+      '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3"/>',
+    close: '<path d="m18 6-12 12M6 6l12 12"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7 2 2-2 2 1.5 1.5-2 2-1.5-1.5-4 4"/>',
+    lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    doctor:
+      '<path d="M6 3v6a4 4 0 0 0 8 0V3M6 5h2m6 0h2M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/>',
+    star: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',
+    chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  };
+  return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || ""}</svg>`;
+}
+
+function showAdminToast(message) {
+  if (window.thpShowToast) {
+    window.thpShowToast(message);
+    return;
+  }
+  const text = document.querySelector("#toast-text");
+  const toast = document.querySelector("#toast");
+  if (!text || !toast) return;
+  text.textContent = message;
+  toast.classList.add("is-visible");
+  window.setTimeout(() => toast.classList.remove("is-visible"), 2800);
+}
+
+function apiErrorMessage(error) {
+  const fields = Object.values(error?.data?.errors || {})
+    .flat()
+    .filter(Boolean)
+    .join(" ");
+  return fields || error?.message || "The request could not be completed.";
+}
+
+export async function renderAdminCouponsOffersMarketing(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  if (!window.location.hash.startsWith("#/admin/coupons-offers-marketing"))
+    return;
+  if (!hasPermission("coupons_offers_marketing", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
   }
 
   const content = `
@@ -162,13 +1586,17 @@ export function renderAdminCouponsOffersMarketing(app) {
           </p>
         </div>
 
-        <button
+        ${
+          hasPermission("coupons_offers_marketing", "create")
+            ? `<button
           type="button"
           class="thp-admin-primary-button"
           id="create-coupon-button"
         >
           + Create Coupon
-        </button>
+        </button>`
+            : ""
+        }
       </div>
 
       <div class="thp-admin-panel">
@@ -392,23 +1820,19 @@ export function renderAdminCouponsOffersMarketing(app) {
     </div>    
 
     
-  `
+  `;
 
-  renderAdminLayout(
-    app,
-    'coupons_offers_marketing',
-    content
-  )
+  renderAdminLayout(app, "coupons_offers_marketing", content);
 
-  setupCouponModalEvents()
-  loadCoupons()
+  setupCouponModalEvents();
+  loadCoupons();
 }
 
 async function loadCoupons() {
-  const container = document.querySelector('#coupons-content')
+  const container = document.querySelector("#coupons-content");
 
   if (!container) {
-    return
+    return;
   }
 
   try {
@@ -416,11 +1840,11 @@ async function loadCoupons() {
       <div class="thp-admin-loading-state">
         Loading coupons...
       </div>
-    `
+    `;
 
-    const coupons = await getCoupons()
+    const coupons = await getCoupons();
 
-    console.log('Coupons loaded from Django:', coupons)
+    console.log("Coupons loaded from Django:", coupons);
 
     if (!coupons.length) {
       container.innerHTML = `
@@ -429,8 +1853,8 @@ async function loadCoupons() {
           <strong>No coupons found</strong>
           <span>Create your first coupon to get started.</span>
         </div>
-      `
-      return
+      `;
+      return;
     }
 
     container.innerHTML = `
@@ -451,7 +1875,9 @@ async function loadCoupons() {
           </thead>
 
           <tbody>
-            ${coupons.map(coupon => `
+            ${coupons
+              .map(
+                (coupon) => `
               <tr>
 
                 <td>
@@ -476,7 +1902,7 @@ async function loadCoupons() {
                           Max ₹${formatMoney(coupon.maximum_discount)}
                         </small>
                       `
-                      : ''
+                      : ""
                   }
                 </td>
 
@@ -502,77 +1928,79 @@ async function loadCoupons() {
                   ${
                     coupon.usage_limit
                       ? ` / ${coupon.usage_limit}`
-                      : ' / Unlimited'
+                      : " / Unlimited"
                   }
                 </td>
 
                 <td>
                   <span
                     class="thp-admin-status-badge ${
-                      coupon.is_currently_active
-                        ? 'is-active'
-                        : 'is-inactive'
+                      coupon.is_currently_active ? "is-active" : "is-inactive"
                     }"
                   >
-                    ${
-                      coupon.is_currently_active
-                        ? 'Active'
-                        : 'Inactive'
-                    }
+                    ${coupon.is_currently_active ? "Active" : "Inactive"}
                   </span>
                 </td>
 
                 <td>
                   <div class="thp-admin-row-actions">
 
-                    <button
+                    ${
+                      hasPermission("coupons_offers_marketing", "edit")
+                        ? `<button
                       type="button"
                       class="thp-admin-row-button"
                       data-coupon-action="edit"
                       data-coupon-id="${coupon.id}"
                     >
                       Edit
-                    </button>
+                    </button>`
+                        : ""
+                    }
 
-                    <button
+                    ${
+                      hasPermission("coupons_offers_marketing", "edit")
+                        ? `<button
                       type="button"
                       class="thp-admin-row-button"
                       data-coupon-action="toggle"
                       data-coupon-id="${coupon.id}"
                     >
-                      ${
-                        coupon.is_active
-                          ? 'Deactivate'
-                          : 'Activate'
-                      }
-                    </button>
+                      ${coupon.is_active ? "Deactivate" : "Activate"}
+                    </button>`
+                        : ""
+                    }
 
-                    <button
+                    ${
+                      hasPermission("coupons_offers_marketing", "delete")
+                        ? `<button
                       type="button"
                       class="thp-admin-row-button is-danger"
                       data-coupon-action="delete"
                       data-coupon-id="${coupon.id}"
                     >
                       Delete
-                    </button>
+                    </button>`
+                        : ""
+                    }
 
                   </div>
                 </td>
 
               </tr>
-            `).join('')}
+            `,
+              )
+              .join("")}
           </tbody>
 
         </table>
 
       </div>
-    `
+    `;
 
-    setupCouponTableEvents(coupons)
-
+    setupCouponTableEvents(coupons);
   } catch (error) {
-
-    console.error('Failed to load coupons:', error)
+    console.error("Failed to load coupons:", error);
 
     container.innerHTML = `
       <div class="thp-admin-empty-state">
@@ -588,414 +2016,358 @@ async function loadCoupons() {
         </span>
 
       </div>
-    `
+    `;
   }
 }
 
 function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatMoney(value) {
-  const number = Number(value || 0)
+  const number = Number(value || 0);
 
-  return number.toLocaleString('en-IN', {
+  return number.toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })
+  });
 }
 
 function formatDiscount(coupon) {
-  const value = formatMoney(coupon.discount_value)
+  const value = formatMoney(coupon.discount_value);
 
-  return coupon.discount_type === 'percentage'
-    ? `${value}%`
-    : `₹${value}`
+  return coupon.discount_type === "percentage" ? `${value}%` : `₹${value}`;
 }
 
 function formatAppliesTo(value) {
   const labels = {
-    pharmacy: 'Pharmacy',
-    lab: 'Lab',
-    doctor: 'Doctor',
-    plans: 'Health Plans',
-    all: 'All Services',
-  }
+    pharmacy: "Pharmacy",
+    lab: "Lab",
+    doctor: "Doctor",
+    plans: "Health Plans",
+    all: "All Services",
+  };
 
-  return labels[value] || value
+  return labels[value] || value;
 }
 
 function formatDate(value) {
   if (!value) {
-    return '—'
+    return "—";
   }
 
-  const date = new Date(value)
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return '—'
+    return "—";
   }
 
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
-
 
 async function setupCouponTableEvents(coupons) {
-  document
-    .querySelectorAll('[data-coupon-action]')
-    .forEach(button => {
+  document.querySelectorAll("[data-coupon-action]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const action = button.dataset.couponAction;
+      const couponId = Number(button.dataset.couponId);
 
-      button.addEventListener('click', async () => {
+      const coupon = coupons.find((item) => item.id === couponId);
 
-        const action = button.dataset.couponAction
-        const couponId = Number(button.dataset.couponId)
-
-        const coupon = coupons.find(
-          item => item.id === couponId
-        )
-
-        if (!coupon) {
-          return
-        }
-
-        if (action === 'delete') {
-          const confirmed = window.confirm(
-            `Delete coupon "${coupon.code}"? This action cannot be undone.`
-          )
-
-          if (!confirmed) {
-            return
-          }
-
-          button.disabled = true
-          button.textContent = 'Deleting...'
-
-          try {
-            await deleteCoupon(couponId)
-
-            await loadCoupons()
-
-          } catch (error) {
-            console.error(
-              'Failed to delete coupon:',
-            error
-          )
-
-          window.alert(
-            error.message ||
-            'Unable to delete coupon.'
-          )
-
-          button.disabled = false
-          button.textContent = 'Delete'
-        }
-
-        return
+      if (!coupon) {
+        return;
       }
 
-      if (action === 'edit') {
-        openEditCouponModal(coupon)
-        return
-      }
-
-      if (action !== 'toggle') {
-        console.log(
-          'Coupon action not implemented yet:',
-          action,
-          coupon
-        )
-        return
-      }
+      if (action === "delete") {
         const confirmed = window.confirm(
-          coupon.is_active
-            ? `Deactivate coupon "${coupon.code}"?`
-            : `Activate coupon "${coupon.code}"?`
-        )
+          `Delete coupon "${coupon.code}"? This action cannot be undone.`,
+        );
 
         if (!confirmed) {
-          return
+          return;
         }
 
-        button.disabled = true
-        button.textContent = 'Updating...'
+        button.disabled = true;
+        button.textContent = "Deleting...";
 
         try {
-          await toggleCouponStatus(couponId)
+          await deleteCoupon(couponId);
 
-          await loadCoupons()
-
+          await loadCoupons();
         } catch (error) {
+          console.error("Failed to delete coupon:", error);
 
-          console.error(
-            'Failed to toggle coupon status:',
-            error
-          )
+          window.alert(error.message || "Unable to delete coupon.");
 
-          window.alert(
-            error.message ||
-            'Unable to update coupon status.'
-          )
-
-          button.disabled = false
-          button.textContent =
-            coupon.is_active
-              ? 'Deactivate'
-              : 'Activate'
+          button.disabled = false;
+          button.textContent = "Delete";
         }
-      })
-    })
+
+        return;
+      }
+
+      if (action === "edit") {
+        openEditCouponModal(coupon);
+        return;
+      }
+
+      if (action !== "toggle") {
+        console.log("Coupon action not implemented yet:", action, coupon);
+        return;
+      }
+      const confirmed = window.confirm(
+        coupon.is_active
+          ? `Deactivate coupon "${coupon.code}"?`
+          : `Activate coupon "${coupon.code}"?`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Updating...";
+
+      try {
+        await toggleCouponStatus(couponId);
+
+        await loadCoupons();
+      } catch (error) {
+        console.error("Failed to toggle coupon status:", error);
+
+        window.alert(error.message || "Unable to update coupon status.");
+
+        button.disabled = false;
+        button.textContent = coupon.is_active ? "Deactivate" : "Activate";
+      }
+    });
+  });
 }
 
-let couponModalMode = 'edit'
+let couponModalMode = "edit";
 
 function setupCouponModalEvents() {
-  const modal = document.querySelector('#coupon-modal')
-  const form = document.querySelector('#coupon-form')
-  const closeButton = document.querySelector('#close-coupon-modal')
-  const cancelButton = document.querySelector('#cancel-coupon-modal')
-  const backdrop = document.querySelector('[data-close-coupon-modal]')
-  const createButton =
-    document.querySelector('#create-coupon-button')
+  const modal = document.querySelector("#coupon-modal");
+  const form = document.querySelector("#coupon-form");
+  const closeButton = document.querySelector("#close-coupon-modal");
+  const cancelButton = document.querySelector("#cancel-coupon-modal");
+  const backdrop = document.querySelector("[data-close-coupon-modal]");
+  const createButton = document.querySelector("#create-coupon-button");
 
   if (!modal || !form) {
-    return
+    return;
   }
 
-  closeButton?.addEventListener('click', closeCouponModal)
-  cancelButton?.addEventListener('click', closeCouponModal)
-  backdrop?.addEventListener('click', closeCouponModal)
+  closeButton?.addEventListener("click", closeCouponModal);
+  cancelButton?.addEventListener("click", closeCouponModal);
+  backdrop?.addEventListener("click", closeCouponModal);
 
-  createButton?.addEventListener('click', openCreateCouponModal)
+  createButton?.addEventListener("click", openCreateCouponModal);
 
-  form.addEventListener('submit', handleCouponFormSubmit)
+  form.addEventListener("submit", handleCouponFormSubmit);
 }
 
 function openCreateCouponModal() {
-  const modal = document.querySelector('#coupon-modal')
+  const modal = document.querySelector("#coupon-modal");
 
   if (!modal) {
-    return
+    return;
   }
 
-  couponModalMode = 'create'
+  couponModalMode = "create";
 
-  document.querySelector('#coupon-modal-title').textContent =
-    'Create Coupon'
+  document.querySelector("#coupon-modal-title").textContent = "Create Coupon";
 
-  document.querySelector('#coupon-id').value = ''
+  document.querySelector("#coupon-id").value = "";
 
-  document.querySelector('#coupon-code').value = ''
+  document.querySelector("#coupon-code").value = "";
 
-  document.querySelector('#coupon-applies-to').value =
-    'all'
+  document.querySelector("#coupon-applies-to").value = "all";
 
-  document.querySelector('#coupon-discount-type').value =
-    'percentage'
+  document.querySelector("#coupon-discount-type").value = "percentage";
 
-  document.querySelector('#coupon-discount-value').value = ''
+  document.querySelector("#coupon-discount-value").value = "";
 
-  document.querySelector('#coupon-maximum-discount').value = ''
+  document.querySelector("#coupon-maximum-discount").value = "";
 
-  document.querySelector('#coupon-minimum-order').value =
-    '0'
+  document.querySelector("#coupon-minimum-order").value = "0";
 
-  document.querySelector('#coupon-start-date').value = ''
+  document.querySelector("#coupon-start-date").value = "";
 
-  document.querySelector('#coupon-expiry-date').value = ''
+  document.querySelector("#coupon-expiry-date").value = "";
 
-  document.querySelector('#coupon-usage-limit').value = ''
+  document.querySelector("#coupon-usage-limit").value = "";
 
-  document.querySelector('#coupon-per-user-limit').value =
-    '1'
+  document.querySelector("#coupon-per-user-limit").value = "1";
 
-  document.querySelector('#coupon-active').checked = true
+  document.querySelector("#coupon-active").checked = true;
 
-  const errorElement =
-    document.querySelector('#coupon-form-error')
+  const errorElement = document.querySelector("#coupon-form-error");
 
-  errorElement.hidden = true
-  errorElement.textContent = ''
+  errorElement.hidden = true;
+  errorElement.textContent = "";
 
-  const saveButton =
-    document.querySelector('#save-coupon-button')
+  const saveButton = document.querySelector("#save-coupon-button");
 
-  saveButton.textContent = 'Create Coupon'
+  saveButton.textContent = "Create Coupon";
 
-  modal.hidden = false
+  modal.hidden = false;
 
-  document.querySelector('#coupon-code')?.focus()
+  document.querySelector("#coupon-code")?.focus();
 }
 
 function openEditCouponModal(coupon) {
-  couponModalMode = 'edit'
-  const modal = document.querySelector('#coupon-modal')
+  couponModalMode = "edit";
+  const modal = document.querySelector("#coupon-modal");
 
   if (!modal) {
-    return
+    return;
   }
 
-  document.querySelector('#coupon-modal-title').textContent =
-    `Edit ${coupon.code}`
+  document.querySelector("#coupon-modal-title").textContent =
+    `Edit ${coupon.code}`;
 
-  document.querySelector('#coupon-id').value =
-    coupon.id
+  document.querySelector("#coupon-id").value = coupon.id;
 
-  document.querySelector('#coupon-code').value =
-    coupon.code || ''
+  document.querySelector("#coupon-code").value = coupon.code || "";
 
-  document.querySelector('#coupon-applies-to').value =
-    coupon.applies_to || 'all'
+  document.querySelector("#coupon-applies-to").value =
+    coupon.applies_to || "all";
 
-  document.querySelector('#coupon-discount-type').value =
-    coupon.discount_type || 'percentage'
+  document.querySelector("#coupon-discount-type").value =
+    coupon.discount_type || "percentage";
 
-  document.querySelector('#coupon-discount-value').value =
-    coupon.discount_value || ''
+  document.querySelector("#coupon-discount-value").value =
+    coupon.discount_value || "";
 
-  document.querySelector('#coupon-maximum-discount').value =
-    coupon.maximum_discount ?? ''
+  document.querySelector("#coupon-maximum-discount").value =
+    coupon.maximum_discount ?? "";
 
-  document.querySelector('#coupon-minimum-order').value =
-    coupon.minimum_order_amount ?? 0
+  document.querySelector("#coupon-minimum-order").value =
+    coupon.minimum_order_amount ?? 0;
 
-  document.querySelector('#coupon-start-date').value =
-    toDateTimeLocal(coupon.start_date)
+  document.querySelector("#coupon-start-date").value = toDateTimeLocal(
+    coupon.start_date,
+  );
 
-  document.querySelector('#coupon-expiry-date').value =
-    toDateTimeLocal(coupon.expiry_date)
+  document.querySelector("#coupon-expiry-date").value = toDateTimeLocal(
+    coupon.expiry_date,
+  );
 
-  document.querySelector('#coupon-usage-limit').value =
-    coupon.usage_limit ?? ''
+  document.querySelector("#coupon-usage-limit").value =
+    coupon.usage_limit ?? "";
 
-  document.querySelector('#coupon-per-user-limit').value =
-    coupon.per_user_limit ?? 1
+  document.querySelector("#coupon-per-user-limit").value =
+    coupon.per_user_limit ?? 1;
 
-  document.querySelector('#coupon-active').checked =
-    Boolean(coupon.is_active)
+  document.querySelector("#coupon-active").checked = Boolean(coupon.is_active);
 
-  const errorElement =
-    document.querySelector('#coupon-form-error')
+  const errorElement = document.querySelector("#coupon-form-error");
 
-  errorElement.hidden = true
-  errorElement.textContent = ''
+  errorElement.hidden = true;
+  errorElement.textContent = "";
 
-  document.querySelector('#save-coupon-button').textContent =
-  'Save Changes'
+  document.querySelector("#save-coupon-button").textContent = "Save Changes";
 
-  modal.hidden = false
+  modal.hidden = false;
 }
 
-
 function closeCouponModal() {
-  const modal = document.querySelector('#coupon-modal')
+  const modal = document.querySelector("#coupon-modal");
 
   if (modal) {
-    modal.hidden = true
+    modal.hidden = true;
   }
 }
 
 function toDateTimeLocal(value) {
   if (!value) {
-    return ''
+    return "";
   }
 
-  const date = new Date(value)
+  const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return ''
+    return "";
   }
 
-  const pad = number =>
-    String(number).padStart(2, '0')
+  const pad = (number) => String(number).padStart(2, "0");
 
-  return [
-    date.getFullYear(),
-    pad(date.getMonth() + 1),
-    pad(date.getDate()),
-  ].join('-') +
-    'T' +
-    [
-      pad(date.getHours()),
-      pad(date.getMinutes()),
-    ].join(':')
+  return (
+    [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate())].join(
+      "-",
+    ) +
+    "T" +
+    [pad(date.getHours()), pad(date.getMinutes())].join(":")
+  );
 }
 
 async function handleCouponFormSubmit(event) {
-  event.preventDefault()
+  event.preventDefault();
 
-  const errorElement =
-    document.querySelector('#coupon-form-error')
+  const errorElement = document.querySelector("#coupon-form-error");
 
-  const saveButton =
-    document.querySelector('#save-coupon-button')
+  const saveButton = document.querySelector("#save-coupon-button");
 
-  errorElement.hidden = true
-  errorElement.textContent = ''
+  errorElement.hidden = true;
+  errorElement.textContent = "";
 
-  const couponId =
-    Number(document.querySelector('#coupon-id').value)
+  const couponId = Number(document.querySelector("#coupon-id").value);
 
-  const code =
-    document.querySelector('#coupon-code').value.trim()
+  const code = document.querySelector("#coupon-code").value.trim();
 
-  const discountType =
-    document.querySelector('#coupon-discount-type').value
+  const discountType = document.querySelector("#coupon-discount-type").value;
 
-  const discountValue =
-    Number(document.querySelector('#coupon-discount-value').value)
+  const discountValue = Number(
+    document.querySelector("#coupon-discount-value").value,
+  );
 
-  const maximumDiscountValue =
-    document.querySelector('#coupon-maximum-discount').value
+  const maximumDiscountValue = document.querySelector(
+    "#coupon-maximum-discount",
+  ).value;
 
-  const minimumOrderAmount =
-    Number(document.querySelector('#coupon-minimum-order').value)
+  const minimumOrderAmount = Number(
+    document.querySelector("#coupon-minimum-order").value,
+  );
 
-  const usageLimitValue =
-    document.querySelector('#coupon-usage-limit').value
+  const usageLimitValue = document.querySelector("#coupon-usage-limit").value;
 
-  const perUserLimit =
-    Number(document.querySelector('#coupon-per-user-limit').value)
+  const perUserLimit = Number(
+    document.querySelector("#coupon-per-user-limit").value,
+  );
 
-  const startDate =
-    document.querySelector('#coupon-start-date').value
+  const startDate = document.querySelector("#coupon-start-date").value;
 
-  const expiryDate =
-    document.querySelector('#coupon-expiry-date').value
+  const expiryDate = document.querySelector("#coupon-expiry-date").value;
 
-  const appliesTo =
-    document.querySelector('#coupon-applies-to').value
+  const appliesTo = document.querySelector("#coupon-applies-to").value;
 
-  const isActive =
-    document.querySelector('#coupon-active').checked
+  const isActive = document.querySelector("#coupon-active").checked;
 
   if (!code) {
-    errorElement.textContent =
-      'Coupon code is required.'
-    errorElement.hidden = false
-    return
+    errorElement.textContent = "Coupon code is required.";
+    errorElement.hidden = false;
+    return;
   }
 
   if (!startDate || !expiryDate) {
-    errorElement.textContent =
-      'Start and expiry dates are required.'
-    errorElement.hidden = false
-    return
+    errorElement.textContent = "Start and expiry dates are required.";
+    errorElement.hidden = false;
+    return;
   }
 
   if (new Date(expiryDate) <= new Date(startDate)) {
-    errorElement.textContent =
-      'Expiry date must be after the start date.'
-    errorElement.hidden = false
-    return
+    errorElement.textContent = "Expiry date must be after the start date.";
+    errorElement.hidden = false;
+    return;
   }
 
   const payload = {
@@ -1003,54 +2375,38 @@ async function handleCouponFormSubmit(event) {
     discount_type: discountType,
     discount_value: discountValue,
     maximum_discount:
-      maximumDiscountValue === ''
-        ? null
-        : Number(maximumDiscountValue),
+      maximumDiscountValue === "" ? null : Number(maximumDiscountValue),
     minimum_order_amount: minimumOrderAmount,
     applies_to: appliesTo,
     start_date: new Date(startDate).toISOString(),
     expiry_date: new Date(expiryDate).toISOString(),
-    usage_limit:
-      usageLimitValue === ''
-        ? null
-        : Number(usageLimitValue),
+    usage_limit: usageLimitValue === "" ? null : Number(usageLimitValue),
     per_user_limit: perUserLimit,
     is_active: isActive,
-  }
+  };
 
-  saveButton.disabled = true
-  saveButton.textContent = 'Saving...'
+  saveButton.disabled = true;
+  saveButton.textContent = "Saving...";
 
   try {
-    if (couponModalMode === 'create') {
-      await createCoupon(payload)
+    if (couponModalMode === "create") {
+      await createCoupon(payload);
     } else {
-      await updateCoupon(couponId, payload)
+      await updateCoupon(couponId, payload);
     }
 
-    closeCouponModal()
+    closeCouponModal();
 
-    await loadCoupons()
-
+    await loadCoupons();
   } catch (error) {
+    console.error("Failed to update coupon:", error);
 
-    console.error(
-      'Failed to update coupon:',
-      error
-    )
+    errorElement.textContent = error.message || "Unable to update coupon.";
 
-    errorElement.textContent =
-      error.message ||
-      'Unable to update coupon.'
-
-    errorElement.hidden = false
-
+    errorElement.hidden = false;
   } finally {
-
-    saveButton.disabled = false
+    saveButton.disabled = false;
     saveButton.textContent =
-      couponModalMode === 'create'
-        ? 'Create Coupon'
-        : 'Save Changes'
+      couponModalMode === "create" ? "Create Coupon" : "Save Changes";
   }
 }

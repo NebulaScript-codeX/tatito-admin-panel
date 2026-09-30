@@ -184,6 +184,28 @@ class StaffLifecycleTests(Base):
 
         self.assertEqual(self.api.post(f"/api/admin/staff/{uid}/activate/").status_code, 200)
 
+    def test_edit_permission_can_activate_and_reset_password_without_create(self):
+        target = User.objects.create_user("target", "target@example.com", STRONG)
+        AdminProfile.objects.create(user=target, role=self.doctor_role)
+        support = Role.objects.get(name="Support Agent")
+        support.permissions.update_or_create(
+            module="staff",
+            defaults={"can_view": True, "can_create": False, "can_edit": True},
+        )
+        make_admin("editor", "Support Agent")
+        self.api.credentials()
+        self.login("editor")
+
+        self.assertEqual(self.api.post(f"/api/admin/staff/{target.id}/deactivate/").status_code, 200)
+        self.assertEqual(
+            self.api.post(
+                f"/api/admin/staff/{target.id}/reset-password/",
+                {"new_password": "Nw8!qWe4rTy-9"},
+                format="json",
+            ).status_code,
+            200,
+        )
+
     def test_validation(self):
         res = self.api.post("/api/admin/staff/", {"username": "a", "email": "bad", "password": "123",
                             "role_id": 9999}, format="json")
@@ -195,6 +217,52 @@ class StaffLifecycleTests(Base):
         self.assertEqual(self.api.post(f"/api/admin/staff/{root.id}/deactivate/").status_code, 403)
         res = self.api.patch(f"/api/admin/staff/{root.id}/", {"role_id": self.doctor_role.id}, format="json")
         self.assertEqual(res.status_code, 403)
+
+
+class RoleLifecycleTests(Base):
+    def setUp(self):
+        super().setUp()
+        make_admin("root", "Super Admin")
+        self.login("root")
+
+    def test_custom_role_rename_delete_and_assigned_staff_guard(self):
+        role = Role.objects.create(name="Temporary Role")
+        renamed = self.api.patch(
+            f"/api/admin/roles/{role.id}/",
+            {"name": "Renamed Role", "description": "Updated description"},
+            format="json",
+        )
+        self.assertEqual(renamed.status_code, 200)
+        self.assertEqual(renamed.data["role"]["name"], "Renamed Role")
+
+        assigned = User.objects.create_user("assigned", "assigned@example.com", STRONG)
+        AdminProfile.objects.create(user=assigned, role=role)
+        blocked = self.api.delete(f"/api/admin/roles/{role.id}/")
+        self.assertEqual(blocked.status_code, 409)
+        self.assertEqual(blocked.data["assigned_staff"], 1)
+
+        role.admin_profiles.all().delete()
+        self.assertEqual(self.api.delete(f"/api/admin/roles/{role.id}/").status_code, 204)
+
+    def test_custom_role_creation_starts_with_no_permissions(self):
+        response = self.api.post(
+            "/api/admin/roles/",
+            {"name": "Read Only Reviewer", "description": "Review access"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        role = response.data["role"]
+        self.assertFalse(role["is_system_role"])
+        self.assertEqual(role["staff_count"], 0)
+        self.assertFalse(any(action for row in role["permissions"].values() for action in row.values()))
+
+    def test_system_role_cannot_be_renamed_or_deleted(self):
+        super_admin = Role.objects.get(name="Super Admin")
+        self.assertEqual(
+            self.api.patch(f"/api/admin/roles/{super_admin.id}/", {"name": "Root"}, format="json").status_code,
+            403,
+        )
+        self.assertEqual(self.api.delete(f"/api/admin/roles/{super_admin.id}/").status_code, 403)
 
     def test_role_permission_update_is_enforced_and_audited(self):
         support = Role.objects.get(name="Support Agent")
