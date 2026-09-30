@@ -778,3 +778,392 @@
     gap: 12px;
   }
 }
+
+/* =========================================================
+   MODULE 11 — COUPONS
+   ========================================================= */
+
+.thp-admin-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid #e4ece9;
+}
+
+.thp-admin-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.thp-admin-table th {
+  padding: 16px 18px;
+  background: #f7faf9;
+  border-bottom: 1px solid #e4ece9;
+  color: #49645e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.thp-admin-table td {
+  padding: 18px;
+  border-bottom: 1px solid #edf2f0;
+  color: #183b35;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.thp-admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.thp-admin-table tbody tr:hover {
+  background: #fbfdfc;
+}
+
+.thp-admin-table td small {
+  display: block;
+  margin-top: 5px;
+  color: #78908a;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.thp-admin-coupon-code {
+  font-weight: 800;
+  color: #075f50;
+  letter-spacing: 0.02em;
+}
+
+.thp-admin-table td strong {
+  font-weight: 700;
+}
+
+.thp-admin-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.thp-admin-status-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.thp-admin-status-badge.is-active {
+  background: #e5f7ef;
+  color: #08734f;
+}
+
+.thp-admin-status-badge.is-active::before {
+  background: #15966a;
+}
+
+.thp-admin-status-badge.is-inactive {
+  background: #f1f3f3;
+  color: #687975;
+}
+
+.thp-admin-status-badge.is-inactive::before {
+  background: #8b9995;
+}
+
+.thp-admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  min-width: 230px;
+}
+
+.thp-admin-row-button {
+  border: 1px solid #d7e4df;
+  background: #ffffff;
+  color: #145d51;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.thp-admin-row-button:hover {
+  background: #eef8f5;
+  border-color: #b9d8cf;
+  transform: translateY(-1px);
+}
+
+.thp-admin-row-button.is-danger {
+  color: #b04444;
+  border-color: #ead0d0;
+}
+
+.thp-admin-row-button.is-danger:hover {
+  background: #fff4f4;
+  border-color: #dfb8b8;
+}
+
+@media (max-width: 900px) {
+  .thp-admin-table {
+    min-width: 900px;
+  }
+
+  .thp-admin-table th,
+  .thp-admin-table td {
+    padding: 14px;
+  }
+}
+
+/* =========================================================
+   MODULE 11 — COUPON MODAL
+   ========================================================= */
+
+.thp-admin-modal[hidden] {
+  display: none !important;
+}
+
+.thp-admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.thp-admin-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 45, 38, 0.58);
+  backdrop-filter: blur(4px);
+}
+
+.thp-admin-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(820px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid #dce9e5;
+  border-radius: 18px;
+  box-shadow: 0 24px 70px rgba(2, 55, 46, 0.22);
+}
+
+.thp-admin-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 28px;
+  border-bottom: 1px solid #e4eeeb;
+}
+
+.thp-admin-modal-header .thp-admin-eyebrow {
+  margin: 0 0 6px;
+}
+
+.thp-admin-modal-header h2 {
+  margin: 0;
+  color: #073f36;
+  font-size: 25px;
+  line-height: 1.2;
+}
+
+.thp-admin-modal-close {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border: 1px solid #d8e5e1;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #49645e;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.thp-admin-modal-close:hover {
+  background: #f0f7f4;
+  color: #075f50;
+  border-color: #bcd8d0;
+}
+
+#coupon-form {
+  padding: 26px 28px 28px;
+}
+
+.thp-admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.thp-admin-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.thp-admin-form-group label {
+  color: #234d45;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.thp-admin-form-group input,
+.thp-admin-form-group select {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cfdfda;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #173f37;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.thp-admin-form-group input:focus,
+.thp-admin-form-group select:focus {
+  border-color: #0b735c;
+  box-shadow: 0 0 0 3px rgba(11, 115, 92, 0.10);
+}
+
+.thp-admin-form-group input::placeholder {
+  color: #91a49f;
+}
+
+.thp-admin-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 22px;
+  color: #234d45;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.thp-admin-checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: #0b735c;
+  cursor: pointer;
+}
+
+.thp-admin-form-error {
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  border: 1px solid #efcaca;
+  border-radius: 9px;
+  background: #fff5f5;
+  color: #a33e3e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.thp-admin-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid #e7efed;
+}
+
+.thp-admin-secondary-button,
+.thp-admin-primary-button {
+  min-height: 42px;
+  padding: 10px 17px;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.thp-admin-secondary-button {
+  border: 1px solid #d2e0dc;
+  background: #ffffff;
+  color: #28564e;
+}
+
+.thp-admin-secondary-button:hover {
+  background: #f4f8f7;
+}
+
+.thp-admin-primary-button {
+  border: 1px solid #075f50;
+  background: #075f50;
+  color: #ffffff;
+}
+
+.thp-admin-primary-button:hover {
+  background: #064f43;
+}
+
+.thp-admin-primary-button:disabled,
+.thp-admin-secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive modal */
+
+@media (max-width: 700px) {
+  .thp-admin-modal {
+    padding: 12px;
+  }
+
+  .thp-admin-modal-card {
+    max-height: calc(100vh - 24px);
+    border-radius: 14px;
+  }
+
+  .thp-admin-modal-header {
+    padding: 20px;
+  }
+
+  #coupon-form {
+    padding: 20px;
+  }
+
+  .thp-admin-form-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .thp-admin-modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .thp-admin-secondary-button,
+  .thp-admin-primary-button {
+    width: 100%;
+  }
+}

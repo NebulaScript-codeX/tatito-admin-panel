@@ -1,5 +1,5 @@
 import './style.css'
-import { renderAdminLogin, renderAdminDashboard } from './admin/adminPages.js'
+import { renderAdminLogin, renderAdminDashboard, renderAdminCouponsOffersMarketing } from './admin/adminPages.js'
 import { navigate, registerPages, bootRouter, getCurrentContext, renderPage } from './router.js'
 import { ensureLive, findDoctor, feeText } from './doctorCache.js'
 import { renderHome } from './home.js'
@@ -39,6 +39,7 @@ registerPages({
   // Admin routes
   'admin/login': renderAdminLogin,
   'admin/dashboard': renderAdminDashboard,
+  'admin/coupons-offers-marketing': renderAdminCouponsOffersMarketing,
 })
 
 window.addEventListener('thp-auth-required', () => openAuthModal('login', getCurrentContext()))
@@ -73,5 +74,5 @@ window.addEventListener('thp-language-change', () => {
   renderPage()
 })
 
-renderPage()
+bootRouter()
 initChatbot()

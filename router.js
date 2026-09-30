@@ -26,7 +26,7 @@ const rolePages = {
   'doctor-dashboard': 'doctor',
 }
 
-const adminPages = ['admin/login', 'admin/dashboard']
+const adminPages = ['admin/login', 'admin/dashboard',  'admin/coupons-offers-marketing',]
 
 function guardAdminPage(page) {
   if (!adminPages.includes(page)) return page
@@ -36,8 +36,11 @@ function guardAdminPage(page) {
     return 'admin/dashboard'
   }
 
-  // Dashboard requires an authenticated admin.
-  if (page === 'admin/dashboard' && !isAdminAuthenticated()) {
+  // All admin pages require an authenticated admin.
+  if (
+    page !== 'admin/login' &&
+    !isAdminAuthenticated()
+  ) {
     return 'admin/login'
   }
 

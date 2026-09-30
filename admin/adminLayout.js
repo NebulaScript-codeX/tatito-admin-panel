@@ -223,13 +223,18 @@ function setupAdminLayoutEvents(app) {
     button.addEventListener('click', () => {
       const page = button.dataset.adminPage
 
-      if (page === 'dashboard') {
-        window.location.hash = '#/admin/dashboard'
-        return
-      }
+    if (page === 'dashboard') {
+      window.location.hash = '#/admin/dashboard'
+      return
+    }
 
-      // Other modules will be wired as they are implemented.
-      console.log(`Admin module selected: ${page}`)
+    if (page === 'coupons_offers_marketing') {
+      window.location.hash = '#/admin/coupons-offers-marketing'
+      return
+    }
+
+    // Other modules will be wired as they are implemented.
+    console.log(`Admin module selected: ${page}`)
     })
   })
 

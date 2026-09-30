@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "accounts",
     "dashboard",
     "audit",
+    "marketing",
 ]
 
 MIDDLEWARE = [
