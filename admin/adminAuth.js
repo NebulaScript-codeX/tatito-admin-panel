@@ -17,6 +17,10 @@ export function getAdminSession() {
   }
 }
 
+function saveAdminSession(session) {
+  localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session))
+}
+
 export function isAdminAuthenticated() {
   const session = getAdminSession()
 
@@ -27,6 +31,22 @@ export function getAdminToken() {
   const session = getAdminSession()
 
   return session?.access || null
+}
+
+/* ---------------------------------------------------------
+   PERMISSIONS
+   The server is the authority (every API enforces RBAC).
+   These helpers only decide what the UI shows.
+--------------------------------------------------------- */
+
+export function getAdminPermissions() {
+  return getAdminSession()?.admin?.permissions || null
+}
+
+export function hasPermission(module, action = 'view') {
+  const permissions = getAdminPermissions()
+
+  return Boolean(permissions?.[module]?.[action])
 }
 
 export async function adminLogin(username, password) {
@@ -47,16 +67,36 @@ export async function adminLogin(username, password) {
     throw new Error(data.message || 'Admin login failed.')
   }
 
-  localStorage.setItem(
-    ADMIN_SESSION_KEY,
-    JSON.stringify(data)
-  )
+  saveAdminSession(data)
 
   return data
 }
 
 export function logoutAdmin() {
   localStorage.removeItem(ADMIN_SESSION_KEY)
+}
+
+// Tells the server to blacklist the refresh token and write the audit entry,
+// then clears the local session. Never blocks logout if the server is down.
+export async function logoutAdminRemote() {
+  const session = getAdminSession()
+
+  try {
+    if (session?.access) {
+      await fetch(`${API_BASE_URL}/admin/logout/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access}`,
+        },
+        body: JSON.stringify({ refresh: session.refresh }),
+      })
+    }
+  } catch (error) {
+    console.error('Admin logout request failed:', error)
+  } finally {
+    logoutAdmin()
+  }
 }
 
 export async function getAdminProfile() {
@@ -73,7 +113,7 @@ export async function getAdminProfile() {
   })
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 403) {
       logoutAdmin()
     }
 
@@ -81,4 +121,17 @@ export async function getAdminProfile() {
   }
 
   return response.json()
+}
+
+// Re-reads role + permissions from the server so UI visibility follows
+// role changes made after login.
+export async function refreshAdminSession() {
+  const profile = await getAdminProfile()
+  const session = getAdminSession()
+
+  if (profile?.admin && session) {
+    saveAdminSession({ ...session, admin: profile.admin })
+  }
+
+  return profile
 }
