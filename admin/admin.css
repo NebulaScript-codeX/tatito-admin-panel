@@ -950,6 +950,133 @@
   color: #899b96;
 }
 
+.thp-admin-promotions-page {
+  display: grid;
+  gap: 18px;
+}
+
+.thp-admin-promotions-intro,
+.thp-admin-promotions-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.thp-admin-promotions-intro h2 {
+  margin: 0 0 5px;
+  color: #123f35;
+  font-size: 22px;
+}
+
+.thp-admin-promotions-intro p,
+.thp-admin-promotions-toolbar p {
+  margin: 0;
+  color: #72867f;
+  font-size: 12px;
+}
+
+.thp-admin-promotions-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thp-admin-promotions-status-filter select {
+  min-width: 128px;
+  height: 38px;
+  padding: 0 30px 0 11px;
+  border: 1px solid #dce6e2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #31564e;
+  font: inherit;
+  font-size: 11px;
+}
+
+.thp-admin-promotions-feedback:not([hidden]) {
+  margin: 14px 18px 0;
+  padding: 10px 12px;
+  border: 1px solid #f1cccc;
+  border-radius: 8px;
+  background: #fff5f4;
+  color: #a53f39;
+  font-size: 12px;
+}
+
+.thp-admin-promotions-table {
+  min-width: 980px;
+}
+
+.thp-admin-promotion-identity {
+  min-width: 200px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thp-admin-promotion-thumbnail {
+  width: 44px;
+  height: 36px;
+  flex: 0 0 44px;
+  object-fit: cover;
+  border: 1px solid #e1eae7;
+  border-radius: 6px;
+  background: #f0f6f3;
+}
+
+.thp-admin-promotion-thumbnail.is-empty {
+  display: grid;
+  place-items: center;
+  color: #4b8e73;
+}
+
+.thp-admin-promotion-thumbnail.is-empty svg {
+  width: 17px;
+  height: 17px;
+}
+
+.thp-admin-promotion-identity > span:last-child {
+  min-width: 0;
+}
+
+.thp-admin-promotion-identity strong,
+.thp-admin-promotions-table td small {
+  display: block;
+}
+
+.thp-admin-promotion-identity small,
+.thp-admin-promotions-table td small {
+  max-width: 240px;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #82948e;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thp-admin-promotions-table .thp-admin-users-row-actions {
+  min-width: 132px;
+}
+
+@media (max-width: 800px) {
+  .thp-admin-promotions-intro,
+  .thp-admin-promotions-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .thp-admin-promotions-filters {
+    width: 100%;
+  }
+
+  .thp-admin-promotions-filters .thp-admin-users-searchbox {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 /* Attention */
 
 .thp-admin-attention-list {

@@ -6,6 +6,41 @@ from django.db import models
 from django.utils import timezone
 
 
+class Promotion(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    image_url = models.URLField(max_length=500, blank=True)
+    cta_text = models.CharField(max_length=80, blank=True)
+    cta_link = models.CharField(max_length=500, blank=True)
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_promotions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def clean(self):
+        if self.start_date and self.end_date and self.end_date <= self.start_date:
+            raise ValidationError({"end_date": "End date must be after start date."})
+
+    def save(self, *args, **kwargs):
+        self.title = self.title.strip()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.title
+
+
 class Coupon(models.Model):
 
     DISCOUNT_TYPE_CHOICES = [

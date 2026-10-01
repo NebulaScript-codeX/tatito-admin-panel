@@ -11,6 +11,7 @@ const BUILT_MODULES = new Set([
   "dashboard",
   "users",
   "staff",
+  "promotions",
   "coupons_offers_marketing",
 ]);
 
@@ -23,6 +24,7 @@ export function openModule(key) {
     dashboard: "dashboard",
     users: "users",
     staff: "staff",
+    promotions: "promotions",
     providers: "providers",
     doctors: "doctors",
     health_records: "health-records",
@@ -88,6 +90,7 @@ const sidebarGroups = [
     items: [
       { key: "content", label: "Content", icon: "content" },
       { key: "internships", label: "Internships", icon: "internships" },
+      { key: "promotions", label: "Manage Promotions", icon: "promotions" },
     ],
   },
   {
@@ -138,6 +141,8 @@ const sidebarIconPaths = {
     '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10M7 11h10m-10 4h6"/>',
   internships:
     '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-13 5h18m-11 0v2h4v-2"/>',
+  promotions:
+    '<path d="m3 11 18-5v12l-18-5v-2Z"/><path d="M11.6 14.8 13 21l-4-1-1.7-5.4M5 10v4"/>',
   support:
     '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 4a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/>',
   ai: '<path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2L12 3Z"/><path d="m19 14 1 2.5 2.5 1-2.5 1L19 21l-1-2.5-2.5-1 2.5-1L19 14Z"/>',
@@ -176,6 +181,7 @@ const pageTitles = {
   coupons_offers_marketing: "Coupons, Offers & Marketing",
   content: "Content",
   internships: "Internships",
+  promotions: "Manage Promotions",
   support: "Support & Communication",
   ai_assistant: "AI Assistant",
   reports: "Reports & Analytics",

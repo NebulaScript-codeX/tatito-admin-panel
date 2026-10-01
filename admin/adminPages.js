@@ -36,6 +36,10 @@ import {
   updateAdminStaff,
   updateAdminUser,
   createCoupon,
+  createPromotion,
+  deletePromotion,
+  getPromotions,
+  updatePromotion,
 } from "./adminApi.js";
 
 // The dashboard lives in adminDashboard.js; re-exported so main.js keeps
@@ -2092,6 +2096,8 @@ function userIcon(name) {
     minus: '<path d="M5 12h14"/>',
     doctor:
       '<path d="M6 3v6a4 4 0 0 0 8 0V3M6 5h2m6 0h2M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/>',
+    promotions:
+      '<path d="m3 11 18-5v12l-18-5v-2Z"/><path d="M11.6 14.8 13 21l-4-1-1.7-5.4M5 10v4"/>',
     star: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',
     chevronDown: '<path d="m6 9 6 6 6-6"/>',
   };
@@ -2117,6 +2123,363 @@ function apiErrorMessage(error) {
     .filter(Boolean)
     .join(" ");
   return fields || error?.message || "The request could not be completed.";
+}
+
+export async function renderAdminPromotions(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+  if (!window.location.hash.startsWith("#/admin/promotions")) return;
+  if (!hasPermission("promotions", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  const state = {
+    promotions: [],
+    loading: true,
+    error: "",
+    search: "",
+    status: "",
+    modal: null,
+  };
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-promotions-page">
+      <div class="thp-admin-promotions-intro">
+        <div>
+          <h2>Manage Promotions</h2>
+          <p>Create and manage campaign banners, calls to action, and promotion schedules.</p>
+        </div>
+        ${hasPermission("promotions", "create") ? `<button type="button" class="thp-admin-primary-button" data-promotion-add>Create Promotion</button>` : ""}
+      </div>
+      <section class="thp-admin-panel">
+        <header class="thp-admin-panel-heading thp-admin-promotions-toolbar">
+          <div>
+            <h3>Promotions</h3>
+            <p id="promotions-count">Loading promotions...</p>
+          </div>
+          <div class="thp-admin-promotions-filters">
+            <label class="thp-admin-users-searchbox">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input id="promotions-search" type="search" placeholder="Search promotions..." aria-label="Search promotions" />
+            </label>
+            <label class="thp-admin-promotions-status-filter">
+              <span class="thp-admin-sr-only">Filter promotions by status</span>
+              <select id="promotions-status-filter" aria-label="Filter promotions by status">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+        </header>
+        <div id="promotions-feedback" class="thp-admin-promotions-feedback" role="alert" hidden></div>
+        <div id="promotions-list" class="thp-admin-promotions-list"></div>
+      </section>
+      <div id="promotions-modal-root"></div>
+    </section>
+  `;
+
+  renderAdminLayout(app, "promotions", content, {
+    subtitle: "Promotion banners and campaign scheduling",
+  });
+
+  app._adminPromotionsEvents?.abort();
+  const eventController = new AbortController();
+  app._adminPromotionsEvents = eventController;
+
+  const renderRows = () => {
+    const region = app.querySelector("#promotions-list");
+    const count = app.querySelector("#promotions-count");
+    const feedback = app.querySelector("#promotions-feedback");
+    if (!region || !count || !feedback) return;
+
+    feedback.hidden = !state.error;
+    feedback.textContent = state.error;
+    if (state.loading) {
+      count.textContent = "Loading promotions...";
+      region.innerHTML =
+        '<div class="thp-admin-loading-state">Loading promotions...</div>';
+      return;
+    }
+
+    const query = state.search.trim().toLowerCase();
+    const rows = state.promotions.filter((promotion) => {
+      const matchesSearch =
+        !query ||
+        [promotion.title, promotion.description, promotion.cta_text].some(
+          (value) =>
+            String(value || "")
+              .toLowerCase()
+              .includes(query),
+        );
+      const matchesStatus =
+        !state.status ||
+        (state.status === "active"
+          ? promotion.is_active
+          : !promotion.is_active);
+      return matchesSearch && matchesStatus;
+    });
+
+    count.textContent = `${rows.length} ${rows.length === 1 ? "promotion" : "promotions"}`;
+    if (!rows.length) {
+      region.innerHTML = `
+        <div class="thp-admin-empty-state">
+          <div class="thp-admin-empty-icon">${userIcon("promotions")}</div>
+          <strong>${state.promotions.length ? "No matching promotions" : "No promotions yet"}</strong>
+          <span>${state.promotions.length ? "Change your search or status filter." : "Create a promotion to get started."}</span>
+        </div>
+      `;
+      return;
+    }
+
+    region.innerHTML = `
+      <div class="thp-admin-table-wrapper">
+        <table class="thp-admin-table thp-admin-promotions-table">
+          <thead><tr><th>Promotion</th><th>Call to action</th><th>Schedule</th><th>Status</th><th>Updated</th><th>Actions</th></tr></thead>
+          <tbody>${rows
+            .map(
+              (promotion) => `
+            <tr>
+              <td>
+                <div class="thp-admin-promotion-identity">
+                  ${promotion.image_url ? `<img src="${escapeHtml(promotion.image_url)}" alt="" class="thp-admin-promotion-thumbnail" loading="lazy" />` : `<span class="thp-admin-promotion-thumbnail is-empty">${renderSidebarIcon("promotions")}</span>`}
+                  <span><strong>${escapeHtml(promotion.title)}</strong><small>${escapeHtml(promotion.description || "No description")}</small></span>
+                </div>
+              </td>
+              <td>${escapeHtml(promotion.cta_text || "—")}<small>${escapeHtml(promotion.cta_link || "")}</small></td>
+              <td><span>${formatAdminTimestamp(promotion.start_date)}</span><small>to ${formatAdminTimestamp(promotion.end_date)}</small></td>
+              <td>${renderStatus(Boolean(promotion.is_active))}</td>
+              <td>${escapeHtml(formatAdminTimestamp(promotion.updated_at || promotion.created_at))}</td>
+              <td><div class="thp-admin-users-row-actions">
+                <button type="button" class="thp-admin-users-icon-button" data-promotion-action="view" data-promotion-id="${promotion.id}" aria-label="View ${escapeHtml(promotion.title)}" title="View">${userIcon("eye")}</button>
+                ${hasPermission("promotions", "edit") ? `<button type="button" class="thp-admin-users-icon-button is-edit" data-promotion-action="edit" data-promotion-id="${promotion.id}" aria-label="Edit ${escapeHtml(promotion.title)}" title="Edit">${userIcon("edit")}</button><button type="button" class="thp-admin-users-icon-button" data-promotion-action="toggle" data-promotion-id="${promotion.id}" aria-label="${promotion.is_active ? "Deactivate" : "Activate"} ${escapeHtml(promotion.title)}" title="${promotion.is_active ? "Deactivate" : "Activate"}">${userIcon(promotion.is_active ? "pause" : "refresh")}</button>` : ""}
+                ${hasPermission("promotions", "delete") ? `<button type="button" class="thp-admin-users-icon-button is-delete" data-promotion-action="delete" data-promotion-id="${promotion.id}" aria-label="Delete ${escapeHtml(promotion.title)}" title="Delete">${userIcon("trash")}</button>` : ""}
+              </div></td>
+            </tr>
+          `,
+            )
+            .join("")}</tbody>
+        </table>
+      </div>
+    `;
+  };
+
+  const renderModal = () => {
+    const root = app.querySelector("#promotions-modal-root");
+    if (!root) return;
+    const modal = state.modal;
+    if (!modal) {
+      root.innerHTML = "";
+      return;
+    }
+
+    if (modal.mode === "delete") {
+      root.innerHTML = `
+        <div class="thp-admin-modal" data-promotion-modal>
+          <div class="thp-admin-modal-backdrop" data-promotion-close></div>
+          <section class="thp-admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="promotion-delete-title">
+            <header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">PROMOTION MANAGEMENT</p><h2 id="promotion-delete-title">Delete promotion?</h2></div><button type="button" class="thp-admin-modal-close" data-promotion-close aria-label="Close">×</button></header>
+            <div class="thp-admin-staff-modal-body"><p>Delete <strong>${escapeHtml(modal.promotion.title)}</strong>? This cannot be undone.</p><footer class="thp-admin-modal-footer"><button type="button" class="thp-admin-secondary-button" data-promotion-close>Cancel</button><button type="button" class="thp-admin-primary-button is-danger" data-promotion-delete-confirm>Delete Promotion</button></footer></div>
+          </section>
+        </div>
+      `;
+      return;
+    }
+
+    const promotion = modal.promotion || {};
+    const viewOnly = modal.mode === "view";
+    const title = viewOnly
+      ? "Promotion Details"
+      : modal.mode === "edit"
+        ? "Edit Promotion"
+        : "Create Promotion";
+    const disabled = viewOnly ? "disabled" : "";
+    root.innerHTML = `
+      <div class="thp-admin-modal" data-promotion-modal>
+        <div class="thp-admin-modal-backdrop" data-promotion-close></div>
+        <section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="promotion-form-title">
+          <header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">GROWTH / PROMOTIONS</p><h2 id="promotion-form-title">${title}</h2></div><button type="button" class="thp-admin-modal-close" data-promotion-close aria-label="Close">×</button></header>
+          <form class="thp-admin-staff-form" data-promotion-form>
+            <div class="thp-admin-form-grid">
+              <div class="thp-admin-form-group"><label for="promotion-title">Title <b>*</b></label><input id="promotion-title" name="title" type="text" maxlength="200" value="${escapeHtml(promotion.title || "")}" ${disabled} ${viewOnly ? "" : "required"} /></div>
+              <div class="thp-admin-form-group"><label for="promotion-image">Banner image URL</label><input id="promotion-image" name="image_url" type="url" value="${escapeHtml(promotion.image_url || "")}" ${disabled} /></div>
+              <div class="thp-admin-form-group full-width"><label for="promotion-description">Description</label><textarea id="promotion-description" name="description" rows="3" ${viewOnly ? "readonly" : ""}>${escapeHtml(promotion.description || "")}</textarea></div>
+              <div class="thp-admin-form-group"><label for="promotion-cta-text">CTA text</label><input id="promotion-cta-text" name="cta_text" type="text" maxlength="80" value="${escapeHtml(promotion.cta_text || "")}" ${disabled} /></div>
+              <div class="thp-admin-form-group"><label for="promotion-cta-link">CTA link</label><input id="promotion-cta-link" name="cta_link" type="text" maxlength="500" value="${escapeHtml(promotion.cta_link || "")}" ${disabled} /></div>
+              <div class="thp-admin-form-group"><label for="promotion-start">Start date <b>*</b></label><input id="promotion-start" name="start_date" type="datetime-local" value="${escapeHtml(promotionDateTimeLocal(promotion.start_date))}" ${disabled} ${viewOnly ? "" : "required"} /></div>
+              <div class="thp-admin-form-group"><label for="promotion-end">End date <b>*</b></label><input id="promotion-end" name="end_date" type="datetime-local" value="${escapeHtml(promotionDateTimeLocal(promotion.end_date))}" ${disabled} ${viewOnly ? "" : "required"} /></div>
+              <label class="thp-admin-checkbox"><input name="is_active" type="checkbox" ${promotion.is_active !== false ? "checked" : ""} ${disabled} /><span>Promotion is active</span></label>
+            </div>
+            <footer class="thp-admin-modal-footer">${viewOnly ? `<button type="button" class="thp-admin-primary-button" data-promotion-close>Close</button>` : `<button type="button" class="thp-admin-secondary-button" data-promotion-close>Cancel</button><button type="submit" class="thp-admin-primary-button">${modal.mode === "edit" ? "Save Changes" : "Create Promotion"}</button>`}</footer>
+          </form>
+        </section>
+      </div>
+    `;
+  };
+
+  const loadPromotions = async () => {
+    state.loading = true;
+    state.error = "";
+    renderRows();
+    try {
+      state.promotions = await getPromotions();
+      return true;
+    } catch (error) {
+      state.error = apiErrorMessage(error) || "Unable to load promotions.";
+      return false;
+    } finally {
+      state.loading = false;
+      renderRows();
+    }
+  };
+
+  const closeModal = () => {
+    state.modal = null;
+    renderModal();
+  };
+
+  const mutateAndRefresh = async (mutation, successMessage) => {
+    try {
+      const result = await mutation();
+      if (result?.success === false)
+        throw new Error(result.message || "Promotion update failed.");
+      state.modal = null;
+      renderModal();
+      const refreshed = await loadPromotions();
+      window.thpShowToast?.(
+        refreshed
+          ? successMessage
+          : `${successMessage} The list could not be refreshed; reload to verify.`,
+      );
+      return true;
+    } catch (error) {
+      window.thpShowToast?.(
+        apiErrorMessage(error) || "Promotion update failed.",
+      );
+      return false;
+    }
+  };
+
+  app.addEventListener(
+    "click",
+    async (event) => {
+      if (event.target.closest("[data-promotion-close]")) {
+        closeModal();
+        return;
+      }
+      if (event.target.closest("[data-promotion-add]")) {
+        state.modal = { mode: "create", promotion: { is_active: true } };
+        renderModal();
+        return;
+      }
+      if (event.target.closest("[data-promotion-delete-confirm]")) {
+        const promotion = state.modal?.promotion;
+        if (!promotion) return;
+        await mutateAndRefresh(
+          () => deletePromotion(promotion.id),
+          "Promotion deleted.",
+        );
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-promotion-action]");
+      if (!actionButton) return;
+      const promotion = state.promotions.find(
+        (item) => Number(item.id) === Number(actionButton.dataset.promotionId),
+      );
+      if (!promotion) return;
+      const action = actionButton.dataset.promotionAction;
+      if (action === "view" || action === "edit" || action === "delete") {
+        state.modal = { mode: action, promotion };
+        renderModal();
+      } else if (action === "toggle") {
+        actionButton.disabled = true;
+        const updated = await mutateAndRefresh(
+          () =>
+            updatePromotion(promotion.id, { is_active: !promotion.is_active }),
+          promotion.is_active
+            ? "Promotion deactivated."
+            : "Promotion activated.",
+        );
+        if (!updated) actionButton.disabled = false;
+      }
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "input",
+    (event) => {
+      if (event.target.id !== "promotions-search") return;
+      state.search = event.target.value;
+      renderRows();
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "change",
+    (event) => {
+      if (event.target.id !== "promotions-status-filter") return;
+      state.status = event.target.value;
+      renderRows();
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "submit",
+    async (event) => {
+      const form = event.target.closest("[data-promotion-form]");
+      if (!form || !state.modal || state.modal.mode === "view") return;
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(form));
+      const submit = form.querySelector('[type="submit"]');
+      if (submit) submit.disabled = true;
+      const payload = {
+        title: String(values.title || "").trim(),
+        description: String(values.description || "").trim(),
+        image_url: String(values.image_url || "").trim(),
+        cta_text: String(values.cta_text || "").trim(),
+        cta_link: String(values.cta_link || "").trim(),
+        start_date: new Date(values.start_date).toISOString(),
+        end_date: new Date(values.end_date).toISOString(),
+        is_active: form.elements.is_active.checked,
+      };
+      const creating = state.modal.mode === "create";
+      const saved = await mutateAndRefresh(
+        () =>
+          creating
+            ? createPromotion(payload)
+            : updatePromotion(state.modal.promotion.id, payload),
+        creating ? "Promotion created." : "Promotion updated.",
+      );
+      if (!saved && submit) submit.disabled = false;
+    },
+    { signal: eventController.signal },
+  );
+
+  renderRows();
+  renderModal();
+  await loadPromotions();
+}
+
+function promotionDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 }
 
 export async function renderAdminCouponsOffersMarketing(app) {

@@ -210,6 +210,35 @@ export function getAdminModules() {
   return adminApi("/modules/");
 }
 
+export async function getPromotions(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+  const queryString = query.toString();
+  const result = await adminApi(
+    `/marketing/promotions/${queryString ? `?${queryString}` : ""}`,
+  );
+  return Array.isArray(result) ? result : result?.results || [];
+}
+
+export function createPromotion(data) {
+  return adminApi("/marketing/promotions/", { method: "POST", body: data });
+}
+
+export function updatePromotion(id, data) {
+  return adminApi(`/marketing/promotions/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deletePromotion(id) {
+  return adminApi(`/marketing/promotions/${id}/`, { method: "DELETE" });
+}
+
 export function getCoupons(params = {}) {
   const query = new URLSearchParams();
 

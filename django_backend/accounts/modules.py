@@ -23,6 +23,7 @@ MODULES = [
     ("coupons_offers_marketing", "Coupons, Offers & Marketing"),
     ("content", "Content"),
     ("internships", "Internships"),
+    ("promotions", "Manage Promotions"),
     ("support", "Support & Communication"),
     ("ai_assistant", "AI Assistant"),
     ("reports", "Reports & Analytics"),

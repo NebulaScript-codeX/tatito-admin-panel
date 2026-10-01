@@ -5,6 +5,7 @@ import {
   renderAdminStaff,
   renderAdminAccessDenied,
   renderAdminUsers,
+  renderAdminPromotions,
   renderAdminCouponsOffersMarketing,
   renderAdminModulePlaceholder,
 } from "./admin/adminPages.js";
@@ -100,6 +101,7 @@ registerPages({
   "admin/staff": renderAdminStaff,
   "admin/access-denied": renderAdminAccessDenied,
   "admin/users": renderAdminUsers,
+  "admin/promotions": renderAdminPromotions,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   ...adminPlaceholderRoutes,
 });
