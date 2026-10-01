@@ -140,6 +140,198 @@ class RBACTests(Base):
         self.assertEqual(res.status_code, 403)
 
 
+
+class PeopleUserLifecycleTests(Base):
+    def setUp(self):
+        super().setUp()
+        make_admin("root", "Super Admin")
+        self.login("root")
+
+    def test_patient_create_and_edit_survive_list_refresh(self):
+        created = self.api.post("/api/admin/users/", {
+            "name": "Patient Lifecycle",
+            "email": "patient-lifecycle@example.com",
+            "mobile": "+1 555 0100",
+            "role": "patient",
+            "dateOfBirth": "1990-01-01",
+            "bloodGroup": "O+",
+            "gender": "Female",
+            "city": "Springfield",
+        }, format="json")
+        self.assertEqual(created.status_code, 201)
+        user_id = created.data["user"]["id"]
+        updated = self.api.patch(f"/api/admin/users/{user_id}/", {
+            "city": "Shelbyville",
+        }, format="json")
+        self.assertEqual(updated.status_code, 200)
+
+        refreshed = self.api.get("/api/admin/users/")
+        saved = next(row for row in refreshed.data["results"] if row["id"] == user_id)
+        stored = self.mongo.users.find_one({"email": "patient-lifecycle@example.com"})
+        self.assertEqual(saved["city"], "Shelbyville")
+        self.assertEqual(saved["date_of_birth"], "1990-01-01")
+        self.assertEqual(saved["blood_group"], "O+")
+        self.assertEqual(saved["gender"], "Female")
+        self.assertEqual(stored["city"], "Shelbyville")
+
+    def test_doctor_create_and_edit_persist_linked_profile(self):
+        created = self.api.post("/api/admin/users/", {
+            "name": "Dr. Lifecycle",
+            "email": "doctor-lifecycle@example.com",
+            "mobile": "+1 555 0101",
+            "role": "doctor",
+            "specialty": "General Medicine",
+            "city": "Springfield",
+            "location": "Springfield Memorial Hospital",
+            "bio": "Experienced physician.",
+            "fee": 65,
+        }, format="json")
+        self.assertEqual(created.status_code, 201)
+        user_id = created.data["user"]["id"]
+        doctor_id = created.data["user"]["doctor_id"]
+        self.assertTrue(doctor_id)
+
+        updated = self.api.patch(f"/api/admin/users/{user_id}/", {
+            "specialty": "Internal Medicine",
+            "city": "Shelbyville",
+            "location": "Shelbyville Clinic",
+            "bio": "Updated physician bio.",
+            "fee": 80,
+        }, format="json")
+        self.assertEqual(updated.status_code, 200)
+        profile = self.mongo.doctors.find_one({"_id": doctor_id})
+        refreshed = self.api.get("/api/admin/users/")
+        saved = next(row for row in refreshed.data["results"] if row["id"] == user_id)
+        self.assertEqual(profile["specialty"], "Internal Medicine")
+        self.assertEqual(profile["city"], "Shelbyville")
+        self.assertEqual(profile["location"], "Shelbyville Clinic")
+        self.assertEqual(profile["detail"], "Updated physician bio.")
+        self.assertEqual(profile["fee"], 80)
+        self.assertEqual(saved["specialty"], "Internal Medicine")
+
+    def test_unlinked_doctor_edit_uses_doctor_id_and_survives_refresh(self):
+        self.mongo.doctors.insert_one({
+            "_id": "d-static",
+            "name": "Dr. Static Profile",
+            "specialty": "Cardiology",
+            "city": "Springfield",
+            "location": "Memorial Hospital",
+            "detail": "Original bio",
+            "fee": 60,
+        })
+        updated = self.api.patch("/api/admin/doctors/d-static/", {
+            "specialty": "Internal Medicine",
+            "city": "Shelbyville",
+            "location": "Shelbyville Clinic",
+            "bio": "Updated bio",
+            "fee": 85,
+        }, format="json")
+        self.assertEqual(updated.status_code, 200)
+        refreshed = self.api.get("/api/admin/doctors/")
+        saved = next(row for row in refreshed.data["results"] if row["id"] == "d-static")
+        stored = self.mongo.doctors.find_one({"_id": "d-static"})
+        self.assertEqual(saved["specialty"], "Internal Medicine")
+        self.assertEqual(saved["city"], "Shelbyville")
+        self.assertEqual(saved["bio"], "Updated bio")
+        self.assertEqual(stored["fee"], 85)
+
+    def test_partner_create_and_edit_survive_list_refresh(self):
+        created = self.api.post("/api/admin/users/", {
+            "name": "Lifecycle Pharmacy",
+            "email": "partner-lifecycle@example.com",
+            "mobile": "+1 555 0102",
+            "role": "partner",
+            "partnerRole": "Pharmacist",
+            "city": "Springfield",
+            "availability": "available",
+        }, format="json")
+        self.assertEqual(created.status_code, 201)
+        user_id = created.data["user"]["id"]
+        updated = self.api.patch(f"/api/admin/users/{user_id}/", {
+            "partnerRole": "Lab Technician",
+            "city": "Shelbyville",
+            "availability": "unavailable",
+        }, format="json")
+        self.assertEqual(updated.status_code, 200)
+
+        refreshed = self.api.get("/api/admin/users/")
+        saved = next(row for row in refreshed.data["results"] if row["id"] == user_id)
+        stored = self.mongo.users.find_one({"email": "partner-lifecycle@example.com"})
+        self.assertEqual(saved["partner_role"], "Lab Technician")
+        self.assertEqual(saved["city"], "Shelbyville")
+        self.assertEqual(saved["availability"], "unavailable")
+        self.assertEqual(stored["city"], "Shelbyville")
+
+    def test_doctor_delete_removes_profile_reviews_and_dashboard_count(self):
+        doctor_id = "doctor-delete-test"
+        self.mongo.doctors.insert_one({
+            "_id": doctor_id,
+            "name": "Doctor To Delete",
+            "specialty": "Cardiology",
+            "verified": True,
+            "verificationStatus": "verified",
+        })
+        self.mongo.reviews.insert_one({
+            "doctorId": doctor_id,
+            "patientName": "Test Patient",
+            "rating": 5,
+            "comment": "Test review",
+        })
+        before = self.api.get("/api/dashboard/overview/?period=7")
+        self.assertEqual(before.data["platform_overview"]["total_doctors"], 1)
+
+        deleted = self.api.delete(f"/api/admin/doctors/{doctor_id}/")
+
+        self.assertEqual(deleted.status_code, 204)
+        self.assertIsNone(self.mongo.doctors.find_one({"_id": doctor_id}))
+        self.assertEqual(self.mongo.reviews.count_documents({"doctorId": doctor_id}), 0)
+        refreshed = self.api.get("/api/admin/doctors/")
+        self.assertFalse(any(row["id"] == doctor_id for row in refreshed.data["results"]))
+        after = self.api.get("/api/dashboard/overview/?period=7")
+        self.assertEqual(after.data["platform_overview"]["total_doctors"], 0)
+
+    def test_doctor_status_transitions_persist_on_profile_and_linked_account(self):
+        doctor_id = "doctor-status-test"
+        account_id = self.mongo.users.insert_one({
+            "name": "Doctor Status Test",
+            "email": "doctor-status@example.com",
+            "role": "doctor",
+            "doctorId": doctor_id,
+            "status": "pending",
+            "verificationStatus": "pending",
+            "isActive": True,
+            "isBlocked": False,
+        }).inserted_id
+        self.mongo.doctors.insert_one({
+            "_id": doctor_id,
+            "name": "Doctor Status Test",
+            "specialty": "Cardiology",
+            "verified": False,
+            "verificationStatus": "pending",
+            "available": True,
+            "owner": account_id,
+        })
+
+        approved = self.api.post(f"/api/admin/doctors/{doctor_id}/status/approve/")
+        self.assertEqual(approved.status_code, 200)
+        self.assertEqual(approved.data["doctor"]["credentialStatus"], "verified")
+        self.assertTrue(self.mongo.doctors.find_one({"_id": doctor_id})["verified"])
+        self.assertEqual(self.mongo.users.find_one({"_id": account_id})["verificationStatus"], "verified")
+
+        missing_reason = self.api.post(f"/api/admin/doctors/{doctor_id}/status/reject/", {}, format="json")
+        self.assertEqual(missing_reason.status_code, 400)
+        rejected = self.api.post(f"/api/admin/doctors/{doctor_id}/status/reject/", {"reason": "Incomplete registration"}, format="json")
+        self.assertEqual(rejected.status_code, 200)
+        self.assertEqual(self.mongo.doctors.find_one({"_id": doctor_id})["rejectionReason"], "Incomplete registration")
+
+        suspended = self.api.post(f"/api/admin/doctors/{doctor_id}/status/suspend/", {"reason": "Credential review"}, format="json")
+        self.assertEqual(suspended.status_code, 200)
+        self.assertEqual(self.mongo.doctors.find_one({"_id": doctor_id})["verificationStatus"], "suspended")
+        reinstated = self.api.post(f"/api/admin/doctors/{doctor_id}/status/reinstate/")
+        self.assertEqual(reinstated.status_code, 200)
+        self.assertEqual(self.mongo.doctors.find_one({"_id": doctor_id})["verificationStatus"], "verified")
+        self.assertEqual(self.mongo.users.find_one({"_id": account_id})["status"], "verified")
+
 class StaffLifecycleTests(Base):
     def setUp(self):
         super().setUp()
@@ -163,6 +355,10 @@ class StaffLifecycleTests(Base):
         self.assertEqual(res.data["staff"]["role"]["name"], "Pharmacist")
         self.assertTrue(AuditLog.objects.filter(action="edit").exists())
         self.assertTrue(AuditLog.objects.filter(action="role_change").exists())
+        refreshed_staff = self.api.get("/api/admin/staff/")
+        saved_staff = next(item for item in refreshed_staff.data["results"] if item["id"] == uid)
+        self.assertEqual(saved_staff["email"], "new@example.com")
+        self.assertEqual(saved_staff["role"]["name"], "Pharmacist")
 
         res = self.api.post(f"/api/admin/staff/{uid}/reset-password/", {"new_password": "Nw8!qWe4rTy-9"}, format="json")
         self.assertEqual(res.status_code, 200)
@@ -234,6 +430,8 @@ class RoleLifecycleTests(Base):
         )
         self.assertEqual(renamed.status_code, 200)
         self.assertEqual(renamed.data["role"]["name"], "Renamed Role")
+        refreshed_roles = self.api.get("/api/admin/roles/")
+        self.assertTrue(any(item["name"] == "Renamed Role" for item in refreshed_roles.data["results"]))
 
         assigned = User.objects.create_user("assigned", "assigned@example.com", STRONG)
         AdminProfile.objects.create(user=assigned, role=role)
@@ -255,6 +453,8 @@ class RoleLifecycleTests(Base):
         self.assertFalse(role["is_system_role"])
         self.assertEqual(role["staff_count"], 0)
         self.assertFalse(any(action for row in role["permissions"].values() for action in row.values()))
+        refreshed = self.api.get("/api/admin/roles/")
+        self.assertTrue(any(item["id"] == role["id"] for item in refreshed.data["results"]))
 
     def test_system_role_cannot_be_renamed_or_deleted(self):
         super_admin = Role.objects.get(name="Super Admin")
@@ -270,6 +470,8 @@ class RoleLifecycleTests(Base):
         res = self.api.put(f"/api/admin/roles/{support.id}/permissions/", {"permissions": matrix}, format="json")
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.data["role"]["permissions"]["internships"]["view"])
+        refreshed = self.api.get(f"/api/admin/roles/{support.id}/permissions/")
+        self.assertTrue(refreshed.data["role"]["permissions"]["internships"]["view"])
         log = AuditLog.objects.get(action="permission_change")
         self.assertEqual(log.metadata["modules_changed"], ["internships"])
         bad = self.api.put(f"/api/admin/roles/{support.id}/permissions/",

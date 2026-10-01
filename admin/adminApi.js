@@ -76,6 +76,77 @@ export async function getAdminUsers() {
   return users;
 }
 
+export async function getAdminDoctors() {
+  const response = await adminApi("/doctors/");
+  return response.results || [];
+}
+
+export function updateAdminDoctor(id, data) {
+  return adminApi(`/doctors/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAdminDoctor(id) {
+  return adminApi(`/doctors/${encodeURIComponent(id)}/`, { method: "DELETE" });
+}
+
+export function setAdminDoctorStatus(id, action, reason = "") {
+  return adminApi(`/doctors/${encodeURIComponent(id)}/status/${action}/`, {
+    method: "POST",
+    body: reason ? { reason } : {},
+  });
+}
+
+export function createAdminUser(data) {
+  return adminApi("/users/", { method: "POST", body: data });
+}
+
+export function updateAdminUser(id, data) {
+  return adminApi(`/users/${id}/`, { method: "PATCH", body: data });
+}
+
+export function deleteAdminUser(id) {
+  return adminApi(`/users/${id}/`, { method: "DELETE" });
+}
+
+export function setAdminUserStatus(id, action, reason = "") {
+  return adminApi(`/users/${id}/status/${action}/`, {
+    method: "POST",
+    body: reason ? { reason } : {},
+  });
+}
+
+export function creditAdminWallet(id, amount, reason) {
+  return adminApi(`/users/${id}/wallet/credit/`, {
+    method: "POST",
+    body: { amount, reason },
+  });
+}
+
+export function debitAdminWallet(id, amount, reason) {
+  return adminApi(`/users/${id}/wallet/debit/`, {
+    method: "POST",
+    body: { amount, reason },
+  });
+}
+
+export function saveAdminRelationship(id, kind, data) {
+  return adminApi(`/users/${id}/${kind}/`, { method: "POST", body: data });
+}
+
+export function updateAdminRelationship(id, kind, itemId, data) {
+  return adminApi(`/users/${id}/${kind}/${itemId}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAdminRelationship(id, kind, itemId) {
+  return adminApi(`/users/${id}/${kind}/${itemId}/`, { method: "DELETE" });
+}
+
 function queryString(params = {}) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {

@@ -6,6 +6,7 @@ import {
   renderAdminAccessDenied,
   renderAdminUsers,
   renderAdminCouponsOffersMarketing,
+  renderAdminModulePlaceholder,
 } from "./admin/adminPages.js";
 import {
   navigate,
@@ -44,6 +45,29 @@ import { openAuthModal } from "./authPages.js";
 import { renderDoctorProfile } from "./doctorProfile.js";
 import { renderDoctorConsole } from "./doctorConsole.js";
 import { initChatbot } from "./chatbot.js";
+
+const adminPlaceholderRoutes = Object.fromEntries(
+  [
+    "providers",
+    "doctors",
+    "health_records",
+    "pharmacy",
+    "lab_tests",
+    "orders_payments",
+    "health_plans",
+    "content",
+    "internships",
+    "support",
+    "ai_assistant",
+    "reports",
+    "uploaded_files",
+    "settings",
+    "audit_logs",
+  ].map((moduleKey) => [
+    `admin/${moduleKey.replace(/_/g, "-")}`,
+    (app) => renderAdminModulePlaceholder(app, moduleKey),
+  ]),
+);
 [];
 registerPages({
   home: renderHome,
@@ -77,6 +101,7 @@ registerPages({
   "admin/access-denied": renderAdminAccessDenied,
   "admin/users": renderAdminUsers,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
+  ...adminPlaceholderRoutes,
 });
 
 window.addEventListener("thp-auth-required", () =>

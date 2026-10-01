@@ -11,20 +11,30 @@ import { doctors, getUsers } from "../data.js";
 import {
   createAdminRole,
   createAdminStaff,
+  createAdminUser,
+  creditAdminWallet,
+  debitAdminWallet,
+  deleteAdminDoctor,
+  deleteAdminRelationship,
   deleteAdminRole,
+  deleteAdminUser,
+  getAdminDoctors,
   getAdminModules,
   getAdminRoles,
   getAdminStaff,
   getAdminUsers,
   getCoupons,
   resetAdminStaffPassword,
-  setAdminStaffActive,
+  saveAdminRelationship,
+  setAdminUserStatus,
+  setAdminDoctorStatus,
   toggleCouponStatus,
   deleteCoupon,
-  updateCoupon,
   updateAdminRole,
   updateAdminRolePermissions,
+  updateAdminDoctor,
   updateAdminStaff,
+  updateAdminUser,
   createCoupon,
 } from "./adminApi.js";
 
@@ -44,9 +54,7 @@ export function renderAdminLogin(app) {
 
         <div class="admin-login-brand">
 
-          <div class="admin-login-logo">
-            T+
-          </div>
+          <img class="admin-login-logo" src="/tatito-logo.png" alt="Tatito Health+ logo" />
 
           <div>
             <h1>Tatito Health+</h1>
@@ -174,6 +182,14 @@ export function renderAdminAccessDenied(app) {
     app,
     "access-denied",
     `<section class="thp-admin-empty-state"><div class="thp-admin-empty-icon">!</div><strong>Access restricted</strong><span>Your role does not have permission to view this module.</span></section>`,
+  );
+}
+
+export function renderAdminModulePlaceholder(app, moduleKey) {
+  renderAdminLayout(
+    app,
+    moduleKey,
+    `<section class="thp-admin-empty-state" role="status"><strong>Coming soon</strong><span>This admin module does not have a page yet.</span></section>`,
   );
 }
 
@@ -824,10 +840,12 @@ export async function renderAdminUsers(app) {
     sortKey: "name",
     sortDirection: 1,
     apiUsers: [],
+    apiDoctors: null,
     loading: true,
     error: "",
     feedback: "",
     visibleRows: [],
+    modal: null,
   };
 
   renderAdminLayout(
@@ -844,6 +862,143 @@ export async function renderAdminUsers(app) {
   app._adminUsersEvents = eventController;
   const renderToken = Symbol("admin-users-render");
   app._adminUsersRenderToken = renderToken;
+
+  const submitUserModal = async (form) => {
+    if (!state.modal) return;
+    if (state.modal.type === "user-form" && state.modal.mode === "view") {
+      state.modal = null;
+      render();
+      return;
+    }
+    const values = Object.fromEntries(new FormData(form).entries());
+    const modal = state.modal;
+    const row = modal.row || {};
+    const button = form.querySelector('[type="submit"]');
+    let doctorActionSuccessMessage = "";
+    if (button) button.disabled = true;
+    try {
+      if (modal.type === "user-form") {
+        const role = String(values.role || "patient").toLowerCase();
+        const payload = {
+          name: String(values.name || "").trim(),
+          email: String(values.email || "").trim(),
+          mobile: String(values.mobile || "").trim(),
+          role,
+          status: String(values.status || "active"),
+        };
+        if (modal.tab === "patients") {
+          payload.city = String(values.city || "").trim();
+          payload.gender = String(values.gender || "");
+          payload.dateOfBirth = String(values.dateOfBirth || "");
+          payload.bloodGroup = String(values.bloodGroup || "");
+        }
+        if (modal.tab === "doctors") {
+          payload.specialty = String(values.specialty || "").trim();
+          payload.city = String(values.city || "").trim();
+          payload.location = String(values.location || "").trim();
+          payload.bio = String(values.bio || "").trim();
+          payload.fee = values.fee === "" ? 0 : Number(values.fee);
+        }
+        if (modal.tab === "partners") {
+          payload.partnerRole = String(values.partnerRole || "").trim();
+          payload.city = String(values.city || "").trim();
+          payload.availability = String(values.availability || "available");
+        }
+        if (values.password) payload.password = String(values.password);
+        if (modal.mode === "create") {
+          await createAdminUser(payload);
+          showAdminToast("Account created successfully.");
+        } else if (modal.tab === "doctors" && !row.accountId) {
+          await updateAdminDoctor(
+            String(row.doctorId || row.id || row._id || ""),
+            {
+              name: payload.name,
+              specialty: payload.specialty,
+              city: payload.city,
+              location: payload.location,
+              bio: payload.bio,
+              fee: payload.fee,
+            },
+          );
+          showAdminToast("Doctor profile updated successfully.");
+        } else {
+          await updateAdminUser(
+            String(row.accountId || row.id || row._id || ""),
+            payload,
+          );
+          showAdminToast("Account updated successfully.");
+        }
+      }
+
+      if (modal.type === "wallet") {
+        const userId = String(values.userId || row.id || row._id || "");
+        const amount = Number(values.amount);
+        const reason = String(values.reason || "").trim();
+        if (modal.action === "wallet-credit") {
+          await creditAdminWallet(userId, amount, reason);
+          showAdminToast("Wallet credit applied.");
+        } else {
+          await debitAdminWallet(userId, amount, reason);
+          showAdminToast("Wallet debit applied.");
+        }
+      }
+
+      if (modal.type === "confirm") {
+        const userId = String(values.userId || row.id || row._id || "");
+        const reason = String(values.reason || "").trim();
+        const action = modal.action;
+
+        if (action === "delete") {
+          if (modal.tab === "doctors") {
+            const doctorId = String(row.doctorId || row.id || row._id || "");
+            const response = await deleteAdminDoctor(doctorId);
+            if (response?.success === false)
+              throw new Error(response.message || "Doctor deletion failed.");
+            doctorActionSuccessMessage = "Doctor deleted successfully.";
+          } else {
+            await deleteAdminUser(userId);
+            showAdminToast("User deleted successfully.");
+          }
+        } else if (action === "toggle-availability") {
+          await updateAdminUser(userId, {
+            availability:
+              row.availability === "available" ? "unavailable" : "available",
+          });
+          showAdminToast("Partner availability updated.");
+        } else if (modal.tab === "doctors") {
+          const doctorId = String(row.doctorId || row.id || row._id || "");
+          const response = await setAdminDoctorStatus(doctorId, action, reason);
+          if (response?.success === false)
+            throw new Error(response.message || "Doctor status update failed.");
+          doctorActionSuccessMessage = `${titleCase(action)} completed successfully.`;
+        } else {
+          await setAdminUserStatus(userId, action, reason);
+          showAdminToast(`${titleCase(action)} completed successfully.`);
+        }
+      }
+
+      state.modal = null;
+      state.feedback = "";
+      renderFeedback(app, "");
+      const listRefreshed = await loadUsers();
+      render();
+      if (doctorActionSuccessMessage) {
+        showAdminToast(
+          listRefreshed
+            ? doctorActionSuccessMessage
+            : `${doctorActionSuccessMessage} The backend list refresh failed; retry to confirm the displayed state.`,
+        );
+      }
+    } catch (error) {
+      const message =
+        apiErrorMessage(error) || "The request could not be completed.";
+      state.feedback = message;
+      renderFeedback(app, message);
+      showAdminToast(message);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
 
   const render = () => {
     if (app._adminUsersRenderToken !== renderToken) return;
@@ -866,6 +1021,7 @@ export async function renderAdminUsers(app) {
         state.sortKey = "name";
         state.sortDirection = 1;
         state.feedback = "";
+        state.modal = null;
         render();
         return;
       }
@@ -892,24 +1048,90 @@ export async function renderAdminUsers(app) {
       const closeButton = event.target.closest("[data-user-close]");
       if (closeButton) {
         app.querySelector("#admin-user-details")?.close();
+        state.modal = null;
+        render();
+        return;
+      }
+
+      const closeModal = event.target.closest("[data-user-modal-close]");
+      if (closeModal) {
+        state.modal = null;
+        render();
         return;
       }
 
       const actionButton = event.target.closest("[data-user-action]");
       if (!actionButton) return;
       const action = actionButton.dataset.userAction;
+      const row = state.visibleRows.find(
+        (item) => userRowKey(item) === actionButton.dataset.userKey,
+      );
+
       if (action === "view") {
-        const row = state.visibleRows.find(
-          (item) => userRowKey(item) === actionButton.dataset.userKey,
-        );
-        if (row) openUserDetails(app, row);
+        if (row) {
+          state.modal = {
+            type: "user-form",
+            mode: "view",
+            tab: state.activeTab,
+            row,
+          };
+          render();
+        }
         return;
       }
 
-      state.feedback =
-        action === "add"
-          ? "Account creation is not available: the existing admin users endpoint is read-only."
-          : "This action is not available because the existing admin users endpoint is read-only.";
+      if (action === "add") {
+        state.modal = {
+          type: "user-form",
+          mode: "create",
+          tab: state.activeTab,
+        };
+        render();
+        return;
+      }
+
+      if (action === "edit" && row) {
+        state.modal = {
+          type: "user-form",
+          mode: "edit",
+          tab: state.activeTab,
+          row,
+        };
+        render();
+        return;
+      }
+
+      if (
+        (action === "delete" ||
+          [
+            "block",
+            "unblock",
+            "deactivate",
+            "reactivate",
+            "approve",
+            "reject",
+            "suspend",
+            "reinstate",
+            "wallet-credit",
+            "wallet-debit",
+            "toggle-availability",
+          ].includes(action)) &&
+        row
+      ) {
+        state.modal = {
+          type:
+            action === "wallet-credit" || action === "wallet-debit"
+              ? "wallet"
+              : "confirm",
+          action,
+          row,
+          tab: state.activeTab,
+        };
+        render();
+        return;
+      }
+
+      state.feedback = "This action is not available for the selected record.";
       renderFeedback(app, state.feedback);
     },
     { signal: eventController.signal },
@@ -935,17 +1157,34 @@ export async function renderAdminUsers(app) {
     { signal: eventController.signal },
   );
 
+  app.addEventListener(
+    "submit",
+    (event) => {
+      const form = event.target.closest("[data-user-modal-form]");
+      if (!form || !state.modal) return;
+      event.preventDefault();
+      submitUserModal(form);
+    },
+    { signal: eventController.signal },
+  );
+
   render();
   loadUsers();
 
   async function loadUsers() {
     state.loading = true;
     state.error = "";
+    let refreshed = false;
     render();
     try {
-      const apiUsers = await getAdminUsers();
+      const [apiUsers, apiDoctors] = await Promise.all([
+        getAdminUsers(),
+        getAdminDoctors(),
+      ]);
       if (app._adminUsersRenderToken !== renderToken) return;
       state.apiUsers = apiUsers;
+      state.apiDoctors = apiDoctors;
+      refreshed = true;
     } catch (error) {
       if (app._adminUsersRenderToken !== renderToken) return;
       state.error = error.message || "Unable to load the live user list.";
@@ -954,6 +1193,7 @@ export async function renderAdminUsers(app) {
       state.loading = false;
       render();
     }
+    return refreshed;
   }
 }
 
@@ -989,6 +1229,283 @@ const PARTNER_ROLE_FILTERS = [
   "Phlebotomist",
   "Delivery",
 ];
+
+function renderUserModal(state) {
+  if (!state.modal) return "";
+
+  const { modal } = state;
+  const row = modal.row || {};
+  const tab = modal.tab || state.activeTab;
+  const tabName = USER_TAB_CONTENT[tab]?.label || "Account";
+  if (modal.type === "user-form") {
+    const isView = modal.mode === "view";
+    const isDoctor = tab === "doctors";
+    const isPartner = tab === "partners";
+    const isEdit = modal.mode === "edit";
+    const profileOnlyDoctor = isDoctor && isEdit && !row.accountId;
+    const title = isView
+      ? `${tabName.replace(/s$/, "")} Details`
+      : isEdit
+        ? `Edit ${tabName}`
+        : `Add ${tabName}`;
+    const defaultRole = isDoctor ? "doctor" : isPartner ? "partner" : "patient";
+    const initialRole = String(row.role || defaultRole).toLowerCase();
+    const selectedStatus = String(
+      row.status ||
+        (isDoctor ? row.verification_status || "pending" : "active"),
+    ).toLowerCase();
+    const selectedGender = String(row.gender || "").toLowerCase();
+    const selectedBloodGroup = String(
+      row.blood_group || row.bloodGroup || "",
+    ).toUpperCase();
+    const selectedAvailability = String(row.availability || "available");
+    const readOnlyAttrs = isView ? "readonly disabled" : "";
+    const selectAttrs = isView ? "disabled" : "";
+    const submitLabel = isView
+      ? "Close"
+      : isEdit
+        ? "Save Changes"
+        : "Create Account";
+    const submitButton = isView
+      ? `<button type="button" class="thp-admin-primary-button" data-user-modal-close>Close</button>`
+      : `<button type="submit" class="thp-admin-primary-button">${submitLabel}</button>`;
+
+    return `
+      <div class="thp-admin-modal" data-user-modal>
+        <div class="thp-admin-modal-backdrop" data-user-modal-close></div>
+        <section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="user-form-title">
+          <header class="thp-admin-modal-header">
+            <div>
+              <p class="thp-admin-eyebrow">${tab.toUpperCase()}</p>
+              <h2 id="user-form-title">${escapeHtml(title)}</h2>
+            </div>
+            <button class="thp-admin-modal-close" type="button" data-user-modal-close aria-label="Close">×</button>
+          </header>
+          <form class="thp-admin-staff-form" data-user-modal-form>
+            <input type="hidden" name="tab" value="${escapeHtml(tab)}" />
+            <input type="hidden" name="mode" value="${escapeHtml(modal.mode)}" />
+            <div class="thp-admin-form-grid">
+              <div class="thp-admin-form-group">
+                <label for="user-name">Name <b>*</b></label>
+                <input id="user-name" name="name" type="text" value="${escapeHtml(row.name || "")}" ${readOnlyAttrs} ${!isView ? "required" : ""} />
+              </div>
+              ${
+                !profileOnlyDoctor
+                  ? `
+                <div class="thp-admin-form-group">
+                  <label for="user-email">Email <b>*</b></label>
+                  <input id="user-email" name="email" type="email" value="${escapeHtml(row.email || "")}" ${readOnlyAttrs} ${!isView ? "required" : ""} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-mobile">Phone</label>
+                  <input id="user-mobile" name="mobile" type="tel" value="${escapeHtml(row.mobile || row.phone || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-role">Role</label>
+                  <select id="user-role" name="role" ${selectAttrs}>
+                    <option value="patient" ${initialRole === "patient" ? "selected" : ""}>Patient</option>
+                    <option value="doctor" ${initialRole === "doctor" ? "selected" : ""}>Doctor</option>
+                    <option value="partner" ${initialRole === "partner" ? "selected" : ""}>Partner</option>
+                  </select>
+                </div>
+              `
+                  : ""
+              }
+              ${
+                isDoctor
+                  ? `
+                <div class="thp-admin-form-group">
+                  <label for="user-specialty">Specialty</label>
+                  <input id="user-specialty" name="specialty" type="text" value="${escapeHtml(row.specialty || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-doctor-fee">Consult fee</label>
+                  <input id="user-doctor-fee" name="fee" type="number" min="0" max="1000000" step="1" value="${escapeHtml(row.fee ?? "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-doctor-city">City</label>
+                  <input id="user-doctor-city" name="city" type="text" value="${escapeHtml(row.city || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-doctor-location">Hospital affiliation</label>
+                  <input id="user-doctor-location" name="location" type="text" value="${escapeHtml(row.location || row.hospital || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-doctor-bio">Bio</label>
+                  <textarea id="user-doctor-bio" name="bio" rows="4" ${isView ? "readonly" : ""}>${escapeHtml(row.bio || row.detail || "")}</textarea>
+                </div>
+              `
+                  : ""
+              }
+              ${
+                isPartner
+                  ? `
+                <div class="thp-admin-form-group">
+                  <label for="user-partner-role">Partner role</label>
+                  <input id="user-partner-role" name="partnerRole" type="text" value="${escapeHtml(row.partner_role || row.partnerRole || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-partner-city">City</label>
+                  <input id="user-partner-city" name="city" type="text" value="${escapeHtml(row.city || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-partner-availability">Availability</label>
+                  <select id="user-partner-availability" name="availability" ${selectAttrs}>
+                    <option value="available" ${selectedAvailability === "available" ? "selected" : ""}>Available</option>
+                    <option value="unavailable" ${selectedAvailability === "unavailable" ? "selected" : ""}>Unavailable</option>
+                  </select>
+                </div>
+              `
+                  : ""
+              }
+              ${
+                tab === "patients"
+                  ? `
+                <div class="thp-admin-form-group">
+                  <label for="user-date-of-birth">Date of birth</label>
+                  <input id="user-date-of-birth" name="dateOfBirth" type="date" value="${escapeHtml(row.date_of_birth || row.dateOfBirth || row.dob || "")}" ${readOnlyAttrs} />
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-blood-group">Blood group</label>
+                  <select id="user-blood-group" name="bloodGroup" ${selectAttrs}>
+                    <option value="">Select blood group</option>
+                    ${["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((group) => `<option value="${group}" ${selectedBloodGroup === group ? "selected" : ""}>${group}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-gender">Gender</label>
+                  <select id="user-gender" name="gender" ${selectAttrs}>
+                    <option value="">Select gender</option>
+                    ${["Female", "Male", "Other"].map((gender) => `<option value="${gender}" ${selectedGender === gender.toLowerCase() ? "selected" : ""}>${gender}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="thp-admin-form-group">
+                  <label for="user-patient-city">City</label>
+                  <input id="user-patient-city" name="city" type="text" value="${escapeHtml(row.city || "")}" ${readOnlyAttrs} />
+                </div>
+              `
+                  : ""
+              }
+              ${
+                !profileOnlyDoctor
+                  ? `<div class="thp-admin-form-group">
+                <label for="user-status">Status</label>
+                <select id="user-status" name="status" ${selectAttrs}>
+                  <option value="active" ${selectedStatus === "active" ? "selected" : ""}>Active</option>
+                  <option value="blocked" ${selectedStatus === "blocked" ? "selected" : ""}>Blocked</option>
+                  <option value="deactivated" ${selectedStatus === "deactivated" ? "selected" : ""}>Deactivated</option>
+                  <option value="pending" ${selectedStatus === "pending" ? "selected" : ""}>Pending</option>
+                  <option value="verified" ${selectedStatus === "verified" ? "selected" : ""}>Verified</option>
+                  <option value="rejected" ${selectedStatus === "rejected" ? "selected" : ""}>Rejected</option>
+                  <option value="suspended" ${selectedStatus === "suspended" ? "selected" : ""}>Suspended</option>
+                </select>
+              </div>`
+                  : ""
+              }
+              ${
+                !isEdit
+                  ? `
+                <div class="thp-admin-form-group">
+                  <label for="user-password">Password</label>
+                  <input id="user-password" name="password" type="password" placeholder="${isView ? "" : "Leave blank to default"}" ${isView ? "readonly disabled" : ""} />
+                </div>
+              `
+                  : ""
+              }
+            </div>
+            <footer class="thp-admin-modal-footer">
+              ${isView ? "" : `<button type="button" class="thp-admin-secondary-button" data-user-modal-close>Cancel</button>`}
+              ${submitButton}
+            </footer>
+          </form>
+        </section>
+      </div>
+    `;
+  }
+
+  if (modal.type === "wallet") {
+    const directionLabel =
+      modal.action === "wallet-credit" ? "credit" : "debit";
+    return `
+      <div class="thp-admin-modal" data-user-modal>
+        <div class="thp-admin-modal-backdrop" data-user-modal-close></div>
+        <section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="wallet-title">
+          <header class="thp-admin-modal-header">
+            <div>
+              <p class="thp-admin-eyebrow">USER MANAGEMENT</p>
+              <h2 id="wallet-title">Wallet ${directionLabel}</h2>
+            </div>
+            <button class="thp-admin-modal-close" type="button" data-user-modal-close aria-label="Close">×</button>
+          </header>
+          <form class="thp-admin-staff-form" data-user-modal-form>
+            <input type="hidden" name="action" value="${escapeHtml(modal.action)}" />
+            <input type="hidden" name="userId" value="${escapeHtml(String(row.id || row._id || ""))}" />
+            <div class="thp-admin-form-grid">
+              <div class="thp-admin-form-group">
+                <label for="wallet-amount">Amount <b>*</b></label>
+                <input id="wallet-amount" name="amount" type="number" min="1" step="0.01" required />
+              </div>
+              <div class="thp-admin-form-group">
+                <label for="wallet-reason">Reason <b>*</b></label>
+                <textarea id="wallet-reason" name="reason" rows="4" placeholder="Describe why this wallet entry is being ${directionLabel}." required></textarea>
+              </div>
+            </div>
+            <footer class="thp-admin-modal-footer">
+              <button type="button" class="thp-admin-secondary-button" data-user-modal-close>Cancel</button>
+              <button type="submit" class="thp-admin-primary-button">Confirm ${directionLabel}</button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    `;
+  }
+
+  const actionLabels = {
+    delete: "Delete account",
+    block: "Block account",
+    unblock: "Unblock account",
+    deactivate: "Deactivate account",
+    reactivate: "Reactivate account",
+    approve: "Approve doctor",
+    reject: "Reject doctor",
+    suspend: "Suspend doctor",
+    reinstate: "Reinstate doctor",
+    "toggle-availability": "Toggle partner availability",
+  };
+  const label = actionLabels[modal.action] || "Confirm action";
+  const needsReason = [
+    "block",
+    "deactivate",
+    "reject",
+    "suspend",
+    "delete",
+  ].includes(modal.action);
+
+  return `
+    <div class="thp-admin-modal" data-user-modal>
+      <div class="thp-admin-modal-backdrop" data-user-modal-close></div>
+      <section class="thp-admin-modal-card thp-admin-staff-modal-card" role="dialog" aria-modal="true" aria-labelledby="user-confirm-title">
+        <header class="thp-admin-modal-header">
+          <div>
+            <p class="thp-admin-eyebrow">CONFIRM ACTION</p>
+            <h2 id="user-confirm-title">${label}</h2>
+          </div>
+          <button class="thp-admin-modal-close" type="button" data-user-modal-close aria-label="Close">×</button>
+        </header>
+        <form class="thp-admin-staff-form" data-user-modal-form>
+          <input type="hidden" name="action" value="${escapeHtml(modal.action)}" />
+          <input type="hidden" name="userId" value="${escapeHtml(String(row.id || row._id || ""))}" />
+          <p class="thp-admin-form-note">This action will update the live account record for <strong>${escapeHtml(row.name || "this user")}</strong>.</p>
+          ${needsReason ? `<div class="thp-admin-form-group"><label for="confirm-reason">Reason <b>*</b></label><textarea id="confirm-reason" name="reason" rows="4" required></textarea></div>` : ""}
+          <footer class="thp-admin-modal-footer">
+            <button type="button" class="thp-admin-secondary-button" data-user-modal-close>Cancel</button>
+            <button type="submit" class="thp-admin-primary-button">Confirm</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  `;
+}
 
 function renderUsersWorkspace(state, staticAccounts) {
   const counts = getUserTabRows(state, staticAccounts);
@@ -1066,6 +1583,7 @@ function renderUsersWorkspace(state, staticAccounts) {
       <div class="thp-admin-user-dialog-head"><h2>User details</h2><button type="button" data-user-close aria-label="Close details">${userIcon("close")}</button></div>
       <div id="admin-user-details-body"></div>
     </dialog>
+    ${renderUserModal(state)}
   `;
 }
 
@@ -1077,21 +1595,32 @@ function getUserTabRows(state, staticAccounts) {
   const doctorAccounts = accounts.filter(
     (user) => user.role.toLowerCase() === "doctor",
   );
+  const doctorProfiles = state.apiDoctors ?? doctors;
   const matchedDoctorAccounts = new Set();
-  const doctorRows = doctors.map((doctor) => {
-    const account = doctorAccounts.find(
-      (user) =>
-        (user.doctorId && user.doctorId === doctor.id) ||
-        (user.name && user.name.toLowerCase() === doctor.name.toLowerCase()),
+  const doctorRows = doctorProfiles.map((doctor) => {
+    const account = doctorAccounts.find((user) =>
+      user.doctorId
+        ? user.doctorId === doctor.id
+        : user.name && user.name.toLowerCase() === doctor.name.toLowerCase(),
     );
     if (account) matchedDoctorAccounts.add(userRowKey(account));
     return {
       ...doctor,
+      id: account?.id || doctor.id,
+      accountId: account?.id || "",
+      doctorId: doctor.doctorId || doctor.id,
+      name: account?.name || doctor.name,
       email: account?.email || "",
       mobile: account?.mobile || "",
-      doctorId: doctor.id,
+      specialty: doctor.specialty || account?.specialty || "",
+      city: doctor.city || account?.city || "",
+      location: doctor.location || account?.location || doctor.hospital || "",
+      hospital: doctor.hospital || doctor.location || account?.location || "",
+      bio: doctor.bio || doctor.detail || account?.bio || "",
+      fee: doctor.fee ?? account?.fee,
       credentialStatus:
-        account?.credential_status ||
+        doctor.credentialStatus ||
+        doctor.verification_status ||
         account?.verification_status ||
         account?.status ||
         doctor.credentialStatus ||
@@ -1100,8 +1629,10 @@ function getUserTabRows(state, staticAccounts) {
   });
   doctorAccounts.forEach((account) => {
     if (matchedDoctorAccounts.has(userRowKey(account))) return;
+    if (account.doctorId) return;
     doctorRows.push({
       ...account,
+      accountId: account.id,
       specialty: account.specialty || "",
       city: account.city || "",
       location: account.location || account.hospital || "",
@@ -1117,7 +1648,10 @@ function getUserTabRows(state, staticAccounts) {
     });
   });
 
-  return { patients, doctors: doctorRows, partners: [] };
+  const partners = accounts.filter(
+    (user) => user.role.toLowerCase() === "partner",
+  );
+  return { patients, doctors: doctorRows, partners };
 }
 
 function mergeUserAccounts(staticAccounts, apiUsers) {
@@ -1295,29 +1829,56 @@ function renderUsersTable(rows, tab, state) {
 
 function renderUserActions(tab, row) {
   const key = escapeHtml(userRowKey(row));
-  const buttons =
+  const actionList =
     tab === "patients"
       ? [
           ["view", "View patient", "eye"],
           ["edit", "Edit patient", "edit"],
+          ["wallet-credit", "Add wallet credit", "plus"],
+          ["wallet-debit", "Debit wallet", "minus"],
+          [
+            row.status === "blocked" ? "unblock" : "block",
+            row.status === "blocked" ? "Unblock patient" : "Block patient",
+            "lock",
+          ],
+          [
+            row.status === "deactivated" ? "reactivate" : "deactivate",
+            row.status === "deactivated"
+              ? "Reactivate patient"
+              : "Deactivate patient",
+            "pause",
+          ],
           ["delete", "Delete patient", "trash"],
         ]
       : tab === "doctors"
         ? [
-            ["suspend", "Suspend doctor", "pause"],
             ["view", "View doctor", "eye"],
             ["edit", "Edit doctor", "edit"],
+            ["approve", "Approve doctor", "plus"],
+            ["reject", "Reject doctor", "close"],
+            ["suspend", "Suspend doctor", "pause"],
+            ["reinstate", "Reinstate doctor", "refresh"],
             ["delete", "Delete doctor", "trash"],
           ]
         : [
+            ["view", "View partner", "eye"],
             ["edit", "Edit partner", "edit"],
+            [
+              "toggle-availability",
+              row.availability === "available"
+                ? "Mark unavailable"
+                : "Mark available",
+              row.availability === "available" ? "pause" : "refresh",
+            ],
             ["delete", "Delete partner", "trash"],
           ];
-  const available = buttons.filter(
-    ([action]) =>
-      action === "view" ||
-      hasPermission("users", action === "delete" ? "delete" : "edit"),
-  );
+
+  const available = actionList.filter(([action]) => {
+    if (action === "view") return true;
+    if (action === "delete") return hasPermission("users", "delete");
+    return hasPermission("users", "edit");
+  });
+
   return `<div class="thp-admin-users-row-actions">${available.map(([action, label, icon]) => `<button type="button" class="thp-admin-users-icon-button is-${action}" data-user-action="${action}" data-user-key="${key}" aria-label="${label}" title="${label}">${userIcon(icon)}</button>`).join("")}</div>`;
 }
 
@@ -1397,7 +1958,7 @@ function formatRupees(value) {
 
 function partnerRole(row) {
   const role = String(
-    row.role || row.partner_role || row.type || "",
+    row.partner_role || row.partnerRole || row.type || row.role || "",
   ).toLowerCase();
   if (role.includes("pharmac")) return "Pharmacist";
   if (role.includes("lab")) return "Lab Technician";
@@ -1408,7 +1969,7 @@ function partnerRole(row) {
     role.includes("swiftmed")
   )
     return "Delivery";
-  return row.role || row.partner_role || row.type || "";
+  return row.partner_role || row.partnerRole || row.type || row.role || "";
 }
 
 function initialsFor(name) {
@@ -1528,6 +2089,7 @@ function userIcon(name) {
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
     key: '<circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 8.7-8.7 2 2-2 2 1.5 1.5-2 2-1.5-1.5-4 4"/>',
     lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    minus: '<path d="M5 12h14"/>',
     doctor:
       '<path d="M6 3v6a4 4 0 0 0 8 0V3M6 5h2m6 0h2M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/>',
     star: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',

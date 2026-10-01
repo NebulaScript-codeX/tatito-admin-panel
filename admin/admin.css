@@ -201,26 +201,30 @@
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 100;
+  transition:
+    width 0.22s ease,
+    min-width 0.22s ease,
+    transform 0.25s ease;
 }
 
 .thp-admin-brand {
   height: 82px;
-  padding: 0 22px;
+  position: relative;
+  padding: 0 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .thp-admin-brand-mark {
   width: 42px;
   height: 42px;
-  border-radius: 11px;
-  background: #0b735c;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 18px;
+  flex: 0 0 42px;
+  object-fit: contain;
+  border: 1px solid rgba(7, 63, 52, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .thp-admin-brand-copy {
@@ -237,6 +241,40 @@
   font-size: 9px;
   letter-spacing: 1.7px;
   opacity: 0.65;
+}
+
+.thp-admin-sidebar-toggle {
+  width: 28px;
+  height: 32px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(152, 232, 204, 0.9);
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+
+.thp-admin-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.thp-admin-sidebar-toggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.22s ease;
 }
 
 .thp-admin-navigation {
@@ -274,6 +312,16 @@
   transition: 0.2s ease;
 }
 
+.thp-admin-nav-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    opacity 0.16s ease,
+    width 0.22s ease;
+}
+
 .thp-admin-nav-item:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
@@ -286,21 +334,79 @@
 }
 
 .thp-admin-nav-icon {
-  width: 19px;
-  text-align: center;
-  font-size: 15px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  display: grid;
+  place-items: center;
 }
 
 .thp-admin-nav-icon svg {
   display: block;
-  width: 17px;
-  height: 17px;
-  margin: 0 auto;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-sidebar {
+  width: 72px;
+  min-width: 72px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-brand {
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-brand-mark {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-sidebar-toggle {
+  width: 24px;
+  flex-basis: 24px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-sidebar-toggle svg {
+  transform: rotate(180deg);
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-brand-copy,
+.thp-admin-shell.is-collapsed .thp-admin-nav-label,
+.thp-admin-shell.is-collapsed .thp-admin-nav-text,
+.thp-admin-shell.is-collapsed .thp-admin-secure-badge > span:last-child {
+  display: none;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-navigation {
+  padding: 16px 8px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-nav-group {
+  margin-bottom: 10px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: 11px 0;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-sidebar-footer {
+  display: flex;
+  justify-content: center;
+  padding: 15px 8px;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-secure-badge {
+  justify-content: center;
 }
 
 .thp-admin-sidebar-footer {
@@ -329,41 +435,74 @@
   flex: 1;
   min-width: 0;
   margin-left: 270px;
+  transition: margin-left 0.22s ease;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-main {
+  margin-left: 72px;
 }
 
 .thp-admin-topbar {
   height: 72px;
-  background: #ffffff;
-  border-bottom: 1px solid #e3ebe8;
+  background: #f8faf9;
+  border-bottom: 1px solid #dfe9e5;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 30px;
+  gap: 16px;
+  padding: 0 24px;
   position: sticky;
   top: 0;
   z-index: 50;
+  animation: thp-admin-header-enter 0.32s ease-out both;
 }
 
 .thp-admin-search {
-  width: min(520px, 50vw);
-  height: 42px;
+  width: min(420px, 42vw);
+  height: 38px;
+  box-sizing: border-box;
   border: 1px solid #dce6e2;
-  border-radius: 9px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 13px;
-  color: #7a9089;
-  background: #fafcfb;
+  gap: 9px;
+  padding: 0 12px;
+  color: #78948a;
+  background: #ffffff;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.thp-admin-search:hover {
+  border-color: #c1d7ce;
+  box-shadow: 0 2px 7px rgba(10, 69, 55, 0.05);
+}
+
+.thp-admin-search:focus-within {
+  border-color: #4a9b7c;
+  box-shadow: 0 0 0 3px rgba(69, 199, 155, 0.14);
+}
+
+.thp-admin-search > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .thp-admin-search input {
   flex: 1;
+  min-width: 0;
   border: 0;
   outline: 0;
   background: transparent;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   color: #123b34;
 }
 
@@ -371,7 +510,7 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
 }
 
 .thp-admin-icon-button {
@@ -387,45 +526,201 @@
 }
 
 .thp-admin-notification-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   background: #e85d5d;
+  border: 2px solid #f8faf9;
   border-radius: 50%;
   position: absolute;
-  right: 8px;
-  top: 7px;
+  right: 5px;
+  top: 4px;
+}
+
+.thp-admin-notification {
+  width: 34px;
+  height: 36px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  color: #536a62;
+  border-radius: 9px;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.thp-admin-notification:hover {
+  color: #0b735c;
+  background: #edf6f1;
+  transform: translateY(-1px);
+}
+
+.thp-admin-notification svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .thp-admin-profile {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 
 .thp-admin-avatar {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
   border-radius: 50%;
   background: #dceee8;
   color: #075b48;
   display: grid;
   place-items: center;
   font-weight: 700;
+  font-size: 11px;
+  box-shadow: inset 0 0 0 1px rgba(7, 91, 72, 0.08);
+}
+
+.thp-admin-profile-trigger {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 9px 3px 4px;
+  border: 1px solid #dce6e2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #183d33;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.thp-admin-profile-trigger:hover,
+.thp-admin-profile.is-open .thp-admin-profile-trigger {
+  border-color: #b6d2c5;
+  box-shadow: 0 3px 10px rgba(10, 69, 55, 0.08);
+}
+
+.thp-admin-profile-trigger:hover {
+  transform: translateY(-1px);
 }
 
 .thp-admin-profile-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  min-width: 0;
 }
 
 .thp-admin-profile-info strong {
-  font-size: 12px;
+  max-width: 160px;
+  overflow: hidden;
+  color: #253d35;
+  font-size: 11px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
 }
 
 .thp-admin-profile-info span {
-  font-size: 10px;
-  color: #82948e;
+  color: #0b735c;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.thp-admin-profile-chevron {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  fill: none;
+  stroke: #81958d;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+}
+
+.thp-admin-profile.is-open .thp-admin-profile-chevron {
+  transform: rotate(180deg);
+}
+
+.thp-admin-profile-dropdown {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 168px;
+  padding: 5px;
+  border: 1px solid #e0e9e5;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(18, 59, 52, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-5px) scale(0.98);
+  transform-origin: top right;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.thp-admin-profile.is-open .thp-admin-profile-dropdown {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.thp-admin-logout-button {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #344f46;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.thp-admin-logout-button:hover {
+  background: #fdf0ef;
+  color: #b42318;
+}
+
+.thp-admin-logout-button svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.thp-admin-logout-button:focus-visible,
+.thp-admin-profile-trigger:focus-visible {
+  outline: 2px solid #45c79b;
+  outline-offset: 2px;
 }
 
 .thp-admin-profile-menu {
@@ -436,8 +731,56 @@
   color: #60766f;
 }
 
+@keyframes thp-admin-header-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .thp-admin-menu-button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
   display: none;
+  place-items: center;
+  border: 1px solid #e0e8e5;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #35635a;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.thp-admin-menu-button:hover {
+  background: #f2f8f5;
+  border-color: #c8dbd2;
+}
+
+.thp-admin-menu-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.22s ease;
+}
+
+.thp-admin-shell.is-collapsed .thp-admin-menu-button svg {
+  transform: rotate(180deg);
+}
+
+.thp-admin-menu-button:focus-visible {
+  outline: 2px solid #0b735c;
+  outline-offset: 2px;
 }
 
 /* Content */
@@ -721,15 +1064,99 @@
     margin-left: 235px;
   }
 
+  .thp-admin-brand {
+    padding-right: 10px;
+    padding-left: 12px;
+    gap: 7px;
+  }
+
   .thp-admin-stat-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 800px) {
+  .thp-admin-shell.is-collapsed .thp-admin-menu-button svg {
+    transform: none;
+  }
+
   .thp-admin-sidebar {
     transform: translateX(-100%);
-    transition: transform 0.25s ease;
+  }
+
+  .thp-admin-sidebar-toggle {
+    display: none;
+  }
+
+  .thp-admin-menu-button {
+    display: grid;
+  }
+
+  .thp-admin-brand {
+    padding: 0 22px;
+    gap: 12px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-sidebar {
+    width: 270px;
+    min-width: 270px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-brand {
+    justify-content: flex-start;
+    padding: 0 22px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-brand-mark {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-brand-copy,
+  .thp-admin-shell.is-collapsed .thp-admin-nav-label,
+  .thp-admin-shell.is-collapsed .thp-admin-nav-text,
+  .thp-admin-shell.is-collapsed .thp-admin-secure-badge > span:last-child {
+    display: initial;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-brand-copy {
+    display: flex;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-nav-label {
+    display: block;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-nav-text {
+    display: inline;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-secure-badge > span:last-child {
+    display: inline;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-navigation {
+    padding: 18px 12px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-nav-group {
+    margin-bottom: 18px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-nav-item {
+    justify-content: flex-start;
+    gap: 11px;
+    padding: 10px 12px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-sidebar-footer {
+    justify-content: initial;
+    padding: 15px 18px;
+  }
+
+  .thp-admin-shell.is-collapsed .thp-admin-secure-badge {
+    justify-content: flex-start;
   }
 
   .thp-admin-sidebar.is-open {
@@ -740,12 +1167,8 @@
     margin-left: 0;
   }
 
-  .thp-admin-menu-button {
-    display: block;
-    border: 0;
-    background: transparent;
-    font-size: 21px;
-    cursor: pointer;
+  .thp-admin-shell.is-collapsed .thp-admin-main {
+    margin-left: 0;
   }
 
   .thp-admin-search {
