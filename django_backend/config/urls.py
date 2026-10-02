@@ -23,6 +23,10 @@ urlpatterns = [
         "api/admin/marketing/",
         include("marketing.urls"),
     ),
+    path(
+        "api/admin/",
+        include("providers.urls"),
+    ),
 
     # Dashboard APIs
     path(

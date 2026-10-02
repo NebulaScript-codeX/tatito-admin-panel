@@ -11,6 +11,7 @@ const BUILT_MODULES = new Set([
   "dashboard",
   "users",
   "staff",
+  "providers",
   "promotions",
   "coupons_offers_marketing",
 ]);

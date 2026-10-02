@@ -37,8 +37,17 @@ import {
   updateAdminUser,
   createCoupon,
   createPromotion,
+  createHealthcareProvider,
+  deleteHealthcareProvider,
+  deleteHealthcareProviderDocument,
+  downloadHealthcareProviderDocument,
+  getHealthcareProviders,
   deletePromotion,
   getPromotions,
+  reviewHealthcareProviderDocument,
+  runHealthcareProviderAction,
+  updateHealthcareProvider,
+  uploadHealthcareProviderDocument,
   updatePromotion,
 } from "./adminApi.js";
 
@@ -161,6 +170,7 @@ export function renderAdminLogin(app) {
         ["dashboard", "dashboard"],
         ["users", "users"],
         ["staff", "staff"],
+        ["providers", "providers"],
         ["coupons_offers_marketing", "coupons-offers-marketing"],
       ].find(([module]) => session.admin?.permissions?.[module]?.view);
       window.location.hash = accessibleRoute
@@ -571,8 +581,57 @@ export async function renderAdminStaff(app) {
   }
 }
 
+const STAFF_ROLE_ORDER = [
+  "Super Admin",
+  "Doctor",
+  "Pharmacist",
+  "Lab Technician",
+  "Support Agent",
+  "Content Manager",
+  "Internship HR",
+];
+
+function staffRoleName(person) {
+  return typeof person.role === "string"
+    ? person.role
+    : person.role?.name || "";
+}
+
+function isStaffActuallyActive(person) {
+  if (person.is_active !== true) return false;
+  const status = person.status ?? person.account_status;
+  return status == null || String(status).trim().toLowerCase() === "active";
+}
+
+function staffStatusValue(person) {
+  return person.status ?? person.account_status ?? person.is_active;
+}
+
+function groupStaffByRole(staff) {
+  const groups = new Map();
+  staff.forEach((person) => {
+    const roleName = staffRoleName(person) || "Unassigned";
+    if (!groups.has(roleName)) groups.set(roleName, []);
+    groups.get(roleName).push(person);
+  });
+
+  const roleNames = [...groups.keys()];
+  roleNames.sort((left, right) => {
+    const leftIndex = STAFF_ROLE_ORDER.indexOf(left);
+    const rightIndex = STAFF_ROLE_ORDER.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+    return left.localeCompare(right, undefined, { sensitivity: "base" });
+  });
+
+  return roleNames.map((roleName) => [roleName, groups.get(roleName)]);
+}
+
 function renderStaffWorkspace(state) {
-  const activeCount = state.staff.filter((person) => person.is_active).length;
+  const activeCount = state.staff.filter(isStaffActuallyActive).length;
   return `
     <nav class="thp-admin-staff-tabs" aria-label="Staff and roles">
       <span class="thp-admin-staff-tab-indicator" aria-hidden="true" style="--tab-index:${state.view === "staff" ? 0 : 1}"></span>
@@ -610,28 +669,34 @@ function renderStaffTable(state) {
   const pageCount = Math.max(1, Math.ceil(filtered.length / state.pageSize));
   state.page = Math.min(state.page, pageCount);
   if (!filtered.length)
-    return `<div class="thp-admin-empty-state"><div class="thp-admin-empty-icon">♙</div><strong>${state.staff.length ? "No matching staff" : "No staff accounts"}</strong><span>${state.staff.length ? "Try another search or role." : "Invite staff to begin administration."}</span></div><footer class="thp-admin-staff-pagination"><span>Showing 0 to 0 of 0 records</span></footer>`;
+    return `<div class="thp-admin-empty-state"><div class="thp-admin-empty-icon">♙</div><strong>${state.staff.some(isStaffActuallyActive) ? "No matching active staff" : "No active staff accounts"}</strong><span>${state.staff.some(isStaffActuallyActive) ? "Try another search or role." : "Active accounts will appear here."}</span></div><footer class="thp-admin-staff-pagination"><span>Showing 0 to 0 of 0 records</span></footer>`;
   const start = (state.page - 1) * state.pageSize;
   const staff = filtered.slice(start, start + state.pageSize);
+  const groupedStaff = groupStaffByRole(staff);
   const sortHeader = (label, key) =>
     `<th aria-sort="${state.sortKey === key ? (state.sortDirection === 1 ? "ascending" : "descending") : "none"}"><button class="thp-admin-users-sort ${state.sortKey === key ? "is-sorted" : ""}" type="button" data-staff-sort="${key}"><span>${label}</span>${userIcon(state.sortKey === key && state.sortDirection < 0 ? "sortDown" : "sortUp")}</button></th>`;
-  return `<div class="thp-admin-table-wrapper thp-admin-staff-table-wrapper"><table class="thp-admin-table thp-admin-staff-table"><thead><tr>${sortHeader("STAFF MEMBER", "name")}<th>EMAIL ADDRESS</th>${sortHeader("ASSIGNED ROLE", "role")}<th>LAST LOGIN</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>${staff
+  const groupedRows = groupedStaff
     .map(
-      (person) => `
-    <tr>
-      <td><strong>${escapeHtml(person.name || person.username || "—")}</strong></td>
-      <td>${escapeHtml(person.email || "—")}</td>
-      <td><span class="thp-admin-user-role">${escapeHtml(person.role?.name || "—")}</span></td>
-      <td>${escapeHtml(formatAdminTimestamp(person.last_login))}</td>
-      <td>${renderStatus(Boolean(person.is_active))}</td>
-      <td><div class="thp-admin-users-row-actions">
-        ${canManageStaffAccount(person) ? `<button class="thp-admin-users-icon-button" type="button" data-staff-action="password" data-staff-id="${person.id}" aria-label="Reset password for ${escapeHtml(person.username)}" title="Reset password">${userIcon("key")}</button><button class="thp-admin-users-icon-button is-edit" type="button" data-staff-action="edit" data-staff-id="${person.id}" aria-label="Edit ${escapeHtml(person.username)}" title="Edit">${userIcon("edit")}</button><button class="thp-admin-users-icon-button is-suspend" type="button" data-staff-action="toggle" data-staff-active="${person.is_active}" data-staff-id="${person.id}" aria-label="${person.is_active ? "Deactivate" : "Activate"} ${escapeHtml(person.username)}" title="${person.is_active ? "Deactivate" : "Activate"}" ${Number(person.id) === Number(getAdminSession()?.admin?.id) && person.is_active ? "disabled" : ""}>${userIcon(person.is_active ? "pause" : "refresh")}</button>` : ""}
-      </div></td>
-    </tr>`,
+      ([roleName, members]) => `
+        <tr class="thp-admin-staff-role-group"><th colspan="6" scope="rowgroup">${escapeHtml(roleName)}</th></tr>
+        ${members
+          .map(
+            (person) => `
+              <tr>
+                <td><strong>${escapeHtml(person.name || person.username || "—")}</strong></td>
+                <td>${escapeHtml(person.email || "—")}</td>
+                <td><span class="thp-admin-user-role">${escapeHtml(staffRoleName(person) || "—")}</span></td>
+                <td>${escapeHtml(formatAdminTimestamp(person.last_login))}</td>
+                <td>${renderStatus(staffStatusValue(person))}</td>
+                <td><div class="thp-admin-users-row-actions">
+                  ${canManageStaffAccount(person) ? `<button class="thp-admin-users-icon-button" type="button" data-staff-action="password" data-staff-id="${person.id}" aria-label="Reset password for ${escapeHtml(person.username)}" title="Reset password">${userIcon("key")}</button><button class="thp-admin-users-icon-button is-edit" type="button" data-staff-action="edit" data-staff-id="${person.id}" aria-label="Edit ${escapeHtml(person.username)}" title="Edit">${userIcon("edit")}</button><button class="thp-admin-users-icon-button is-suspend" type="button" data-staff-action="toggle" data-staff-active="true" data-staff-id="${person.id}" aria-label="Deactivate ${escapeHtml(person.username)}" title="Deactivate" ${Number(person.id) === Number(getAdminSession()?.admin?.id) ? "disabled" : ""}>${userIcon("pause")}</button>` : ""}
+                </div></td>
+              </tr>`,
+          )
+          .join("")}`,
     )
-    .join(
-      "",
-    )}</tbody></table></div><footer class="thp-admin-staff-pagination"><span>Showing ${start + 1} to ${Math.min(start + staff.length, filtered.length)} of ${filtered.length} records</span><div><button type="button" data-staff-page="${Math.max(1, state.page - 1)}" aria-label="Previous page" ${state.page <= 1 ? "disabled" : ""}>${userIcon("chevronLeft")}</button><span>Page ${state.page} of ${pageCount}</span><button type="button" data-staff-page="${Math.min(pageCount, state.page + 1)}" aria-label="Next page" ${state.page >= pageCount ? "disabled" : ""}>${userIcon("chevronRight")}</button></div></footer>`;
+    .join("");
+  return `<div class="thp-admin-table-wrapper thp-admin-staff-table-wrapper"><table class="thp-admin-table thp-admin-staff-table"><thead><tr>${sortHeader("STAFF MEMBER", "name")}<th>EMAIL ADDRESS</th>${sortHeader("ASSIGNED ROLE", "role")}<th>LAST LOGIN</th><th>STATUS</th><th>ACTIONS</th></tr></thead><tbody>${groupedRows}</tbody></table></div><footer class="thp-admin-staff-pagination"><span>Showing ${start + 1} to ${Math.min(start + staff.length, filtered.length)} of ${filtered.length} records</span><div><button type="button" data-staff-page="${Math.max(1, state.page - 1)}" aria-label="Previous page" ${state.page <= 1 ? "disabled" : ""}>${userIcon("chevronLeft")}</button><span>Page ${state.page} of ${pageCount}</span><button type="button" data-staff-page="${Math.min(pageCount, state.page + 1)}" aria-label="Next page" ${state.page >= pageCount ? "disabled" : ""}>${userIcon("chevronRight")}</button></div></footer>`;
 }
 
 function getFilteredStaff(state) {
@@ -639,21 +704,21 @@ function getFilteredStaff(state) {
   return state.staff
     .filter(
       (person) =>
-        !search ||
-        [person.name, person.email].some((value) =>
-          String(value || "")
-            .toLowerCase()
-            .includes(search),
-        ),
+        isStaffActuallyActive(person) &&
+        (!search ||
+          [person.name, person.email].some((value) =>
+            String(value || "")
+              .toLowerCase()
+              .includes(search))),
     )
     .filter(
-      (person) => !state.roleFilter || person.role?.name === state.roleFilter,
+      (person) => !state.roleFilter || staffRoleName(person) === state.roleFilter,
     )
     .sort((left, right) => {
       const first =
-        state.sortKey === "role" ? left.role?.name || "" : left.name || "";
+        state.sortKey === "role" ? staffRoleName(left) : left.name || "";
       const second =
-        state.sortKey === "role" ? right.role?.name || "" : right.name || "";
+        state.sortKey === "role" ? staffRoleName(right) : right.name || "";
       return (
         String(first).localeCompare(String(second), undefined, {
           sensitivity: "base",
@@ -681,9 +746,13 @@ function exportStaffCsv(state) {
   const rows = getFilteredStaff(state).map((person) => [
     person.name || person.username,
     person.email,
-    person.role?.name,
+    staffRoleName(person),
     person.last_login,
-    person.is_active ? "Active" : "Inactive",
+    staffStatusValue(person) === true
+      ? "Active"
+      : staffStatusValue(person) === false
+        ? "Inactive"
+        : staffStatusValue(person),
   ]);
   const csv = [columns, ...rows]
     .map((row) => row.map(csvCell).join(","))
@@ -2096,6 +2165,8 @@ function userIcon(name) {
     minus: '<path d="M5 12h14"/>',
     doctor:
       '<path d="M6 3v6a4 4 0 0 0 8 0V3M6 5h2m6 0h2M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/>',
+    hospital:
+      '<path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2M11 21v-3h2v3"/>',
     promotions:
       '<path d="m3 11 18-5v12l-18-5v-2Z"/><path d="M11.6 14.8 13 21l-4-1-1.7-5.4M5 10v4"/>',
     star: '<path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',
@@ -2118,11 +2189,789 @@ function showAdminToast(message) {
 }
 
 function apiErrorMessage(error) {
-  const fields = Object.values(error?.data?.errors || {})
+  const fields = Object.values(error?.data?.errors || error?.data || {})
     .flat()
-    .filter(Boolean)
+    .filter((value) => typeof value === "string")
     .join(" ");
   return fields || error?.message || "The request could not be completed.";
+}
+
+const PROVIDER_TYPES = [
+  ["hospital", "Hospital"],
+  ["clinic", "Clinic"],
+  ["diagnostic_centre", "Diagnostic Centre"],
+  ["pharmacy", "Pharmacy"],
+];
+
+const PROVIDER_TYPE_FIELDS = {
+  hospital: [
+    ["bed_capacity", "Bed capacity", "number"],
+    ["emergency_services", "Emergency services", "text"],
+  ],
+  clinic: [["staff_information", "Staff information", "textarea"]],
+  diagnostic_centre: [["tests_offered", "Tests offered", "textarea"]],
+  pharmacy: [
+    ["pharmacy_license", "Pharmacy licence", "text"],
+    ["operating_hours", "Operating hours", "text"],
+  ],
+};
+
+function normalizeHealthcareProvider(provider) {
+  return {
+    ...provider,
+    id: String(provider.id),
+    providerType: provider.provider_type,
+    registrationNumber: provider.registration_number || "",
+    registrationDate: provider.registration_date || "",
+    typeDetails: provider.type_details || {},
+    rejectionReason: provider.rejection_reason || "",
+    createdAt: provider.created_at,
+    updatedAt: provider.updated_at,
+    documents: provider.documents || [],
+  };
+}
+
+function providerTypeLabel(value) {
+  return PROVIDER_TYPES.find(([key]) => key === value)?.[1] || value;
+}
+
+function providerDocumentStatus(provider) {
+  const documents = provider.documents || [];
+  if (!documents.length) return "none";
+  if (documents.some((document) => document.status === "rejected")) return "rejected";
+  if (documents.every((document) => document.status === "verified")) return "verified";
+  return "pending";
+}
+
+function providerValidationError(payload) {
+  if (!payload.name) return "Provider name is required.";
+  if (!PROVIDER_TYPES.some(([type]) => type === payload.provider_type)) {
+    return "Choose a supported provider type.";
+  }
+  if (payload.phone && !/^\+?[0-9\s\-()]{7,20}$/.test(payload.phone)) {
+    return "Enter a valid phone number.";
+  }
+  if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    return "Enter a valid email address.";
+  }
+  return "";
+}
+
+function renderProviderActions(provider) {
+  const providerId = escapeHtml(provider.id == null ? "" : String(provider.id));
+  const providerName = escapeHtml(provider.name || "provider");
+  return `
+    <div class="thp-admin-users-row-actions thp-admin-provider-row-actions">
+      <button type="button" class="thp-admin-users-icon-button" data-provider-action="view" data-provider-id="${providerId}" aria-label="View ${providerName}" title="View">${userIcon("eye")}</button>
+      ${hasPermission("providers", "edit") ? `<button type="button" class="thp-admin-users-icon-button is-edit" data-provider-action="edit" data-provider-id="${providerId}" aria-label="Edit ${providerName}" title="Edit">${userIcon("edit")}</button>` : ""}
+      ${hasPermission("providers", "edit") && provider.status === "pending" ? `<button type="button" class="thp-admin-users-icon-button" data-provider-action="approve" data-provider-id="${providerId}" aria-label="Approve ${providerName}" title="Approve">${userIcon("star")}</button><button type="button" class="thp-admin-users-icon-button is-suspend" data-provider-action="reject" data-provider-id="${providerId}" aria-label="Reject ${providerName}" title="Reject">${userIcon("close")}</button>` : ""}
+      ${hasPermission("providers", "edit") && ["active", "inactive"].includes(provider.status) ? `<button type="button" class="thp-admin-users-icon-button ${provider.status === "active" ? "is-suspend" : ""}" data-provider-action="${provider.status === "active" ? "deactivate" : "activate"}" data-provider-id="${providerId}" aria-label="${provider.status === "active" ? "Deactivate" : "Activate"} ${providerName}" title="${provider.status === "active" ? "Deactivate" : "Activate"}">${userIcon(provider.status === "active" ? "pause" : "refresh")}</button>` : ""}
+      ${hasPermission("providers", "delete") ? `<button type="button" class="thp-admin-users-icon-button is-delete" data-provider-action="delete" data-provider-id="${providerId}" aria-label="Delete ${providerName}" title="Delete">${userIcon("trash")}</button>` : ""}
+    </div>
+  `;
+}
+
+function renderProviderStatus(value) {
+  if (value === "" || value == null) return "—";
+  const status = String(value).toLowerCase();
+  const tone = ["active", "verified", "approved"].includes(status)
+    ? "is-success"
+    : status === "pending"
+      ? "is-warning"
+      : status === "rejected"
+        ? "is-danger"
+        : "is-neutral";
+  return `<span class="thp-admin-provider-status ${tone}"><i></i>${escapeHtml(titleCase(status))}</span>`;
+}
+
+function renderProvidersWorkspace(state) {
+  const filteredProviders = state.providers.filter((provider) => {
+    const search = state.search.trim().toLowerCase();
+    const matchesSearch =
+      !search ||
+      [provider.name, provider.phone, provider.email, provider.registration_number].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(search),
+      );
+    const matchesType = !state.providerType || provider.provider_type === state.providerType;
+    const matchesStatus = !state.status || provider.status === state.status;
+    const matchesVerification =
+      !state.verificationStatus ||
+      providerDocumentStatus(provider) === state.verificationStatus;
+    return matchesSearch && matchesType && matchesStatus && matchesVerification;
+  });
+
+  const filtersActive = Boolean(
+    state.search.trim() ||
+      state.providerType ||
+      state.status ||
+      state.verificationStatus,
+  );
+  const providerRows = filteredProviders
+    .map((provider) => {
+      const providerName = escapeHtml(provider.name || "—");
+      const providerType = escapeHtml(providerTypeLabel(provider.provider_type) || "—");
+      const contact = escapeHtml(provider.phone || "—");
+      const email = escapeHtml(provider.email || "—");
+      return `
+        <tr>
+          <td><strong>${providerName}</strong></td>
+          <td>${providerType}</td>
+          <td><span>${contact}</span><small>${email}</small></td>
+          <td>${renderProviderStatus(provider.status)}</td>
+          <td>${renderProviderStatus(providerDocumentStatus(provider))}</td>
+          <td>${renderProviderActions(provider)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+  const providerCards = filteredProviders
+    .map((provider) => {
+      const providerName = escapeHtml(provider.name || "—");
+      const providerType = escapeHtml(providerTypeLabel(provider.provider_type) || "—");
+      const contact = escapeHtml(provider.phone || "—");
+      const email = escapeHtml(provider.email || "—");
+      return `
+        <article class="thp-admin-provider-card">
+          <header>
+            <div>
+              <h3>${providerName}</h3>
+              <p>${providerType}</p>
+            </div>
+            ${renderProviderActions(provider)}
+          </header>
+          <div class="thp-admin-provider-card-details">
+            <div><span>Contact</span><strong>${contact}</strong><small>${email}</small></div>
+            <div><span>Status</span>${renderProviderStatus(provider.status)}</div>
+            <div><span>Documents</span>${renderProviderStatus(providerDocumentStatus(provider))}</div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="thp-admin-module-page thp-admin-providers-page">
+      <section class="thp-admin-panel">
+        <header class="thp-admin-panel-heading thp-admin-provider-directory-heading">
+          <div>
+            <h3>Provider Directory</h3>
+            <p>${filteredProviders.length} provider${filteredProviders.length === 1 ? "" : "s"}</p>
+          </div>
+        </header>
+        <div class="thp-admin-providers-toolbar">
+          <div class="thp-admin-providers-filters">
+            <label class="thp-admin-users-searchbox">
+              ${userIcon("search")}
+              <input id="admin-providers-search" type="search" value="${escapeHtml(state.search)}" placeholder="Search provider name, contact or registration" aria-label="Search providers" />
+            </label>
+            <label class="thp-admin-providers-filterbox">
+              <span class="thp-admin-sr-only">Filter by provider type</span>
+              <select id="admin-provider-type-filter" aria-label="Filter by provider type">
+                <option value="">All provider types</option>
+                ${PROVIDER_TYPES.map(([value, label]) => `<option value="${value}" ${state.providerType === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+              ${userIcon("chevronDown")}
+            </label>
+            <label class="thp-admin-providers-filterbox">
+              <span class="thp-admin-sr-only">Filter by provider status</span>
+              <select id="admin-provider-status-filter" aria-label="Filter by provider status">
+                <option value="">All statuses</option>
+                ${["pending", "active", "rejected", "inactive"].map((status) => `<option value="${status}" ${state.status === status ? "selected" : ""}>${titleCase(status)}</option>`).join("")}
+              </select>
+              ${userIcon("chevronDown")}
+            </label>
+            <label class="thp-admin-providers-filterbox">
+              <span class="thp-admin-sr-only">Filter by document status</span>
+              <select id="admin-provider-verification-filter" aria-label="Filter by document status">
+                <option value="">All document statuses</option>
+                <option value="pending" ${state.verificationStatus === "pending" ? "selected" : ""}>Pending</option>
+                <option value="verified" ${state.verificationStatus === "verified" ? "selected" : ""}>Verified</option>
+                <option value="rejected" ${state.verificationStatus === "rejected" ? "selected" : ""}>Rejected</option>
+                <option value="none" ${state.verificationStatus === "none" ? "selected" : ""}>No documents</option>
+              </select>
+              ${userIcon("chevronDown")}
+            </label>
+            <button type="button" class="thp-admin-provider-clear-filters" data-provider-action="clear-filters" ${filtersActive ? "" : "disabled"}>Clear filters</button>
+          </div>
+        </div>
+        <div class="thp-admin-provider-results">
+          ${state.loading ? `
+            <div class="thp-admin-provider-skeleton" role="status" aria-label="Loading healthcare providers">
+              ${Array.from({ length: 5 }, () => '<div class="thp-admin-provider-skeleton-row"><i></i><i></i><i></i><i></i><i></i><i></i></div>').join("")}
+            </div>
+          ` : state.error ? `
+            <div class="thp-admin-provider-error" role="alert">
+              <span>${escapeHtml(state.error)}</span>
+              <button type="button" class="thp-admin-secondary-button" data-provider-action="retry">Retry</button>
+            </div>
+          ` : filteredProviders.length ? `
+          <div class="thp-admin-table-wrapper thp-admin-provider-table-wrapper">
+            <table class="thp-admin-table thp-admin-provider-table">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Type</th>
+                  <th>Contact</th>
+                  <th>Status</th>
+                  <th>Document status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>${providerRows}</tbody>
+            </table>
+          </div>
+          <div class="thp-admin-provider-cards">${providerCards}</div>
+        ` : `
+          <div class="thp-admin-empty-state thp-admin-provider-empty">
+            <div class="thp-admin-empty-icon">${userIcon("hospital")}</div>
+            <strong>${filtersActive ? "No providers match your filters" : "No healthcare providers found"}</strong>
+            <span>${filtersActive ? "Try adjusting your search or filter criteria." : "External hospitals, clinics, diagnostic centres and pharmacies will appear here when registered."}</span>
+            ${filtersActive ? '<button type="button" class="thp-admin-provider-empty-clear" data-provider-action="clear-filters">Clear filters</button>' : ""}
+          </div>
+        `}
+        </div>
+      </section>
+
+      <div id="admin-provider-modal-root"></div>
+    </section>
+  `;
+}
+
+function renderProviderModal(state) {
+  const modal = state.modal;
+  const root = document.querySelector("#admin-provider-modal-root");
+  if (!root) return;
+
+  if (!modal) {
+    root.innerHTML = "";
+    return;
+  }
+
+  if (modal.type === "confirmation") {
+    const provider = modal.provider || {};
+    const isReject = modal.action === "reject";
+    const isDocumentReject = modal.action === "reject-document";
+    const title = isReject
+      ? "Reject provider registration?"
+      : isDocumentReject
+        ? "Reject document?"
+        : modal.action === "delete"
+          ? "Delete provider?"
+          : modal.action === "deactivate"
+            ? "Deactivate provider?"
+            : "Activate provider?";
+    root.innerHTML = `
+      <div class="thp-admin-modal" data-provider-modal>
+        <div class="thp-admin-modal-backdrop" data-provider-modal-close></div>
+        <section class="thp-admin-modal-card thp-admin-provider-modal-card" role="dialog" aria-modal="true" aria-labelledby="provider-confirm-title">
+          <header class="thp-admin-modal-header">
+            <div>
+              <p class="thp-admin-eyebrow">PROVIDER REVIEW</p>
+              <h2 id="provider-confirm-title">${title}</h2>
+            </div>
+            <button type="button" class="thp-admin-modal-close" data-provider-modal-close aria-label="Close">×</button>
+          </header>
+          <form class="thp-admin-staff-form" data-provider-confirm-form>
+            <input type="hidden" name="providerId" value="${escapeHtml(String(provider.id || ""))}" />
+            ${isDocumentReject ? `<input type="hidden" name="documentId" value="${escapeHtml(String(modal.document?.id || ""))}" />` : ""}
+            <p class="thp-admin-form-note">${isReject ? `Reject registration for <strong>${escapeHtml(provider.name)}</strong>.` : isDocumentReject ? `Reject <strong>${escapeHtml(modal.document?.original_name || "this document")}</strong>.` : modal.action === "delete" ? `Permanently delete <strong>${escapeHtml(provider.name)}</strong> and its uploaded documents?` : `${title.replace("?", "")} for <strong>${escapeHtml(provider.name)}</strong>?`}</p>
+            ${isReject || isDocumentReject ? `<div class="thp-admin-form-group"><label for="provider-rejection-reason">Reason <b>*</b></label><textarea id="provider-rejection-reason" name="reason" rows="4" required maxlength="2000"></textarea></div>` : ""}
+            <footer class="thp-admin-modal-footer">
+              <button type="button" class="thp-admin-secondary-button" data-provider-modal-close>Cancel</button>
+              <button type="submit" class="thp-admin-primary-button ${isReject || isDocumentReject || modal.action === "delete" || modal.action === "deactivate" ? "is-danger" : ""}">${isReject || isDocumentReject ? "Submit rejection" : title.replace("?", "")}</button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    `;
+    return;
+  }
+
+  const provider = modal.provider || {};
+  const draft = modal.draft || {};
+  const isView = modal.mode === "view";
+  const isCreate = modal.mode === "create";
+  const readonly = isView ? "readonly disabled" : "";
+  const selectDisabled = isView ? "disabled" : "";
+  const providerType = draft.provider_type || provider.provider_type || "";
+  const heading = isView ? "Provider details" : isCreate ? "Add healthcare provider" : "Edit healthcare provider";
+  const submitText = isCreate ? "Create provider" : "Save changes";
+  const typeFields = PROVIDER_TYPE_FIELDS[providerType] || [];
+  const typeDetails = provider.type_details || {};
+  const documentRows = (provider.documents || []).length
+    ? provider.documents.map((document) => `
+      <article class="thp-admin-provider-document">
+        <div>
+          <strong>${escapeHtml(document.original_name)}</strong>
+          <small>${escapeHtml(titleCase(document.kind))} · ${escapeHtml(formatAdminTimestamp(document.uploaded_at))}</small>
+          ${document.rejection_reason ? `<small class="thp-admin-provider-rejection">${escapeHtml(document.rejection_reason)}</small>` : ""}
+        </div>
+        <div class="thp-admin-provider-document-actions">
+          ${renderStatus(document.status)}
+          <button type="button" class="thp-admin-secondary-button" data-provider-document-download="${escapeHtml(String(document.id))}">View</button>
+          ${hasPermission("providers", "edit") && document.status !== "verified" ? `<button type="button" class="thp-admin-secondary-button" data-provider-document-verify="${escapeHtml(String(document.id))}">Verify</button>` : ""}
+          ${hasPermission("providers", "edit") && document.status !== "rejected" ? `<button type="button" class="thp-admin-secondary-button" data-provider-document-reject="${escapeHtml(String(document.id))}">Reject</button>` : ""}
+          ${hasPermission("providers", "delete") ? `<button type="button" class="thp-admin-users-icon-button is-delete" data-provider-document-delete="${escapeHtml(String(document.id))}" aria-label="Delete document ${escapeHtml(document.original_name)}">${userIcon("trash")}</button>` : ""}
+        </div>
+      </article>
+    `).join("")
+    : `<div class="thp-admin-provider-documents-empty">No documents uploaded yet.</div>`;
+  const detailsFields = typeFields.map(([key, label]) => `
+    <div class="thp-admin-form-group ${key === "staff_information" || key === "tests_offered" ? "full-width" : ""}">
+      <label for="provider-detail-${key}">${label}</label>
+      ${key === "staff_information" || key === "tests_offered"
+        ? `<textarea id="provider-detail-${key}" name="type_detail_${key}" rows="3" ${readonly}>${escapeHtml(draft[`type_detail_${key}`] ?? typeDetails[key] ?? "")}</textarea>`
+        : `<input id="provider-detail-${key}" name="type_detail_${key}" type="${key === "bed_capacity" ? "number" : "text"}" value="${escapeHtml(draft[`type_detail_${key}`] ?? typeDetails[key] ?? "")}" ${readonly} />`}
+    </div>
+  `).join("");
+
+  root.innerHTML = `
+    <div class="thp-admin-modal" data-provider-modal>
+      <div class="thp-admin-modal-backdrop" data-provider-modal-close></div>
+      <section class="thp-admin-modal-card thp-admin-staff-modal-card thp-admin-provider-modal-card" role="dialog" aria-modal="true" aria-labelledby="provider-form-title">
+        <header class="thp-admin-modal-header">
+          <div>
+            <p class="thp-admin-eyebrow">HEALTHCARE PROVIDERS</p>
+            <h2 id="provider-form-title">${heading}</h2>
+          </div>
+          <button type="button" class="thp-admin-modal-close" data-provider-modal-close aria-label="Close">×</button>
+        </header>
+
+        ${isView ? `<div class="thp-admin-provider-status-line"><span>${escapeHtml(providerTypeLabel(providerType))}</span>${renderStatus(provider.status)}<span>Documents: ${provider.documents?.length || 0}</span></div>` : ""}
+        <form id="provider-save-form" class="thp-admin-staff-form" data-provider-form>
+          <input type="hidden" name="providerId" value="${escapeHtml(String(provider.id || ""))}" />
+          <input type="hidden" name="mode" value="${escapeHtml(modal.mode || "create")}" />
+
+          ${modal.error ? `<div class="thp-admin-form-error" role="alert">${escapeHtml(modal.error)}</div>` : ""}
+
+          <div class="thp-admin-form-grid">
+            <div class="thp-admin-form-group">
+              <label for="provider-name">Provider name <b>*</b></label>
+              <input id="provider-name" name="name" type="text" value="${escapeHtml(draft.name ?? provider.name ?? "")}" ${readonly} ${isCreate ? "required" : ""} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-type">Provider type <b>*</b></label>
+              <select id="provider-type" name="provider_type" ${selectDisabled} ${isCreate ? "required" : ""}>
+                <option value="">Select type</option>
+                ${PROVIDER_TYPES.map(([value, label]) => `<option value="${value}" ${providerType === value ? "selected" : ""}>${label}</option>`).join("")}
+              </select>
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-phone">Phone</label>
+              <input id="provider-phone" name="phone" type="tel" value="${escapeHtml(draft.phone ?? provider.phone ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-email">Email</label>
+              <input id="provider-email" name="email" type="email" value="${escapeHtml(draft.email ?? provider.email ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-registration-number">Registration number</label>
+              <input id="provider-registration-number" name="registration_number" type="text" value="${escapeHtml(draft.registration_number ?? provider.registration_number ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-registration-date">Registration date</label>
+              <input id="provider-registration-date" name="registration_date" type="date" value="${escapeHtml(draft.registration_date ?? provider.registration_date ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group full-width">
+              <label for="provider-address">Address</label>
+              <input id="provider-address" name="address" type="text" value="${escapeHtml(draft.address ?? provider.address ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-city">City</label>
+              <input id="provider-city" name="city" type="text" value="${escapeHtml(draft.city ?? provider.city ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-state">State</label>
+              <input id="provider-state" name="state" type="text" value="${escapeHtml(draft.state ?? provider.state ?? "")}" ${readonly} />
+            </div>
+            <div class="thp-admin-form-group">
+              <label for="provider-pincode">Pincode</label>
+              <input id="provider-pincode" name="pincode" type="text" value="${escapeHtml(draft.pincode ?? provider.pincode ?? "")}" ${readonly} />
+            </div>
+            ${detailsFields}
+          </div>
+        </form>
+            ${isView && provider.status === "rejected" ? `<p class="thp-admin-provider-rejection"><strong>Registration rejection reason:</strong> ${escapeHtml(provider.rejection_reason || "No reason provided")}</p>` : ""}
+          ${isView ? `<div class="thp-admin-provider-related"><h3>${providerType === "hospital" ? "Associated doctors" : providerType === "diagnostic_centre" ? "Tests offered" : providerType === "pharmacy" ? "Medicines and orders" : "Clinic staff"}</h3><p>No related data available.</p></div>` : ""}
+          ${provider.id ? `
+            <section class="thp-admin-provider-documents">
+              <div class="thp-admin-provider-section-heading"><div><h3>Registration documents</h3><p>Review uploaded certificates, licences and supporting documents.</p></div></div>
+              ${documentRows}
+              ${hasPermission("providers", "edit") ? `<form class="thp-admin-provider-upload" data-provider-document-form><label for="provider-document-kind">Document type</label><select id="provider-document-kind" name="kind"><option value="registration_certificate">Registration certificate</option><option value="licence">Licence</option><option value="other">Other</option></select><label for="provider-document-file">Choose a document</label><input id="provider-document-file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required /><button type="submit" class="thp-admin-secondary-button">Upload document</button></form>` : ""}
+            </section>` : `<p class="thp-admin-form-note">Save the provider before uploading registration documents.</p>`}
+          <footer class="thp-admin-modal-footer">
+            ${isView && hasPermission("providers", "edit") ? `<button type="button" class="thp-admin-secondary-button" data-provider-action="edit" data-provider-id="${escapeHtml(String(provider.id))}">Edit</button>` : `<button type="button" class="thp-admin-secondary-button" data-provider-modal-close>Cancel</button>`}
+            ${isView ? `<button type="button" class="thp-admin-primary-button" data-provider-modal-close>Close</button>` : `<button type="submit" form="provider-save-form" class="thp-admin-primary-button">${submitText}</button>`}
+          </footer>
+      </section>
+    </div>
+  `;
+}
+
+export async function renderAdminProviders(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  if (!window.location.hash.startsWith("#/admin/providers")) return;
+  if (!hasPermission("providers", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  const state = {
+    providers: [],
+    search: "",
+    providerType: "",
+    verificationStatus: "",
+    status: "",
+    modal: null,
+    loading: true,
+    error: "",
+  };
+
+  renderAdminLayout(
+    app,
+    "providers",
+    '<section id="admin-providers-workspace" class="thp-admin-providers-workspace"></section>',
+    {
+      subtitle: "Manage external hospitals, clinics, diagnostic centres, and pharmacies.",
+      actions: hasPermission("providers", "create")
+        ? `<button type="button" class="thp-admin-primary-button thp-admin-provider-add-button" data-provider-action="add">${userIcon("plus")}<span>Add Provider</span></button>`
+        : "",
+    },
+  );
+
+  const render = () => {
+    const workspace = app.querySelector("#admin-providers-workspace");
+    if (!workspace) return;
+    workspace.innerHTML = renderProvidersWorkspace(state);
+    renderProviderModal(state);
+  };
+
+  app._adminProvidersEvents?.abort();
+  const eventController = new AbortController();
+  app._adminProvidersEvents = eventController;
+
+  app.addEventListener(
+    "click",
+    async (event) => {
+      if (event.target.closest("[data-provider-modal-close]")) {
+        state.modal = null;
+        render();
+        return;
+      }
+
+      const actionButton = event.target.closest("[data-provider-action]");
+      const documentButton = event.target.closest("[data-provider-document-download], [data-provider-document-verify], [data-provider-document-reject], [data-provider-document-delete]");
+      if (!actionButton && documentButton) {
+        const documentId = documentButton.dataset.providerDocumentDownload
+          || documentButton.dataset.providerDocumentVerify
+          || documentButton.dataset.providerDocumentReject
+          || documentButton.dataset.providerDocumentDelete;
+        const provider = state.modal?.provider;
+        const providerDocument = provider?.documents?.find((item) => String(item.id) === String(documentId));
+        if (!provider || !providerDocument) return;
+        if (documentButton.hasAttribute("data-provider-document-download")) {
+          try {
+            const blob = await downloadHealthcareProviderDocument(providerDocument.id);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = providerDocument.original_name;
+            document.body.append(link);
+            link.click();
+            link.remove();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          } catch (error) {
+            showAdminToast(apiErrorMessage(error));
+          }
+        } else if (documentButton.hasAttribute("data-provider-document-verify")) {
+          await reviewDocument(provider, providerDocument, { status: "verified" });
+        } else {
+          state.modal = {
+            type: "confirmation",
+            action: documentButton.hasAttribute("data-provider-document-reject") ? "reject-document" : "delete-document",
+            provider,
+            document: providerDocument,
+          };
+          render();
+        }
+        return;
+      }
+      if (!actionButton) return;
+
+      const action = actionButton.dataset.providerAction;
+      const providerId = actionButton.dataset.providerId;
+      const provider = state.providers.find((item) => String(item.id) === String(providerId));
+
+      if (action === "retry") {
+        await loadProviders();
+        return;
+      }
+      if (action === "add") {
+        state.modal = { type: "provider-form", mode: "create", provider: {} };
+        render();
+        return;
+      }
+
+      if (action === "clear-filters") {
+        state.search = "";
+        state.providerType = "";
+        state.verificationStatus = "";
+        state.status = "";
+        render();
+        return;
+      }
+
+      if (!provider) return;
+
+      if (action === "view") {
+        state.modal = { type: "provider-form", mode: "view", provider };
+        render();
+        return;
+      }
+
+      if (action === "edit") {
+        state.modal = { type: "provider-form", mode: "edit", provider };
+        render();
+        return;
+      }
+
+      if (["delete", "reject", "activate", "deactivate"].includes(action)) {
+        state.modal = { type: "confirmation", action, provider };
+        render();
+        return;
+      }
+
+      if (action === "approve") {
+        await updateProviderWorkflow(provider, "approve");
+      }
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "input",
+    (event) => {
+      if (event.target.id === "admin-providers-search") {
+        const searchInput = event.target;
+        const selectionStart = searchInput.selectionStart;
+        const selectionEnd = searchInput.selectionEnd;
+        state.search = searchInput.value;
+        render();
+        const updatedSearchInput = app.querySelector("#admin-providers-search");
+        updatedSearchInput?.focus();
+        if (selectionStart !== null && selectionEnd !== null) {
+          updatedSearchInput?.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "change",
+    (event) => {
+      if (event.target.id === "admin-provider-type-filter") {
+        state.providerType = event.target.value;
+        render();
+        return;
+      }
+      if (event.target.id === "provider-type" && state.modal?.type === "provider-form") {
+        const form = event.target.closest("[data-provider-form]");
+        state.modal.draft = Object.fromEntries(new FormData(form));
+        render();
+        return;
+      }
+      if (event.target.id === "admin-provider-verification-filter") {
+        state.verificationStatus = event.target.value;
+        render();
+        return;
+      }
+      if (event.target.id === "admin-provider-status-filter") {
+        state.status = event.target.value;
+        render();
+        return;
+      }
+    },
+    { signal: eventController.signal },
+  );
+
+  app.addEventListener(
+    "submit",
+    async (event) => {
+      const form = event.target.closest("[data-provider-form]");
+      const confirmForm = event.target.closest("[data-provider-confirm-form]");
+      const documentForm = event.target.closest("[data-provider-document-form]");
+      if (!form && !confirmForm && !documentForm) return;
+      event.preventDefault();
+
+      if (form) {
+        const values = Object.fromEntries(new FormData(form));
+        state.modal.draft = values;
+        const providerType = String(values.provider_type || "").trim();
+        const typeDetails = {};
+        (PROVIDER_TYPE_FIELDS[providerType] || []).forEach(([key]) => {
+          const value = String(values[`type_detail_${key}`] || "").trim();
+          if (value) typeDetails[key] = key === "bed_capacity" ? Number(value) : value;
+        });
+        const payload = {
+          name: String(values.name || "").trim(),
+          provider_type: providerType,
+          phone: String(values.phone || "").trim(),
+          email: String(values.email || "").trim(),
+          address: String(values.address || "").trim(),
+          city: String(values.city || "").trim(),
+          state: String(values.state || "").trim(),
+          pincode: String(values.pincode || "").trim(),
+          registration_number: String(values.registration_number || "").trim(),
+          registration_date: String(values.registration_date || "") || null,
+          type_details: typeDetails,
+        };
+        const validationMessage = providerValidationError(payload);
+        if (validationMessage) {
+          state.modal.error = validationMessage;
+          render();
+          return;
+        }
+        const submit = document.querySelector('[form="provider-save-form"]');
+        submit.disabled = true;
+        try {
+          const mode = state.modal.mode;
+          const result = mode === "create"
+            ? await createHealthcareProvider(payload)
+            : await updateHealthcareProvider(state.modal.provider.id, payload);
+          const savedProvider = normalizeHealthcareProvider(result);
+          state.providers = mode === "create"
+            ? [savedProvider, ...state.providers]
+            : state.providers.map((item) => item.id === savedProvider.id ? savedProvider : item);
+          state.modal = { type: "provider-form", mode: "edit", provider: savedProvider };
+          showAdminToast(mode === "create" ? "Provider registered as pending review." : "Provider details updated.");
+          render();
+        } catch (error) {
+          state.modal.error = apiErrorMessage(error);
+          render();
+        }
+        return;
+      }
+
+      if (confirmForm) {
+        await submitProviderConfirmation(confirmForm);
+        return;
+      }
+
+      const uploadData = new FormData(documentForm);
+      const uploadProviderId = state.modal?.provider?.id;
+      const uploadButton = documentForm.querySelector('[type="submit"]');
+      uploadButton.disabled = true;
+      try {
+        await uploadHealthcareProviderDocument(uploadProviderId, uploadData);
+        await loadProviders();
+        const provider = state.providers.find((item) => item.id === String(uploadProviderId));
+        state.modal = { type: "provider-form", mode: "edit", provider };
+        showAdminToast("Provider document uploaded for review.");
+        render();
+      } catch (error) {
+        showAdminToast(apiErrorMessage(error));
+        uploadButton.disabled = false;
+      }
+    },
+    { signal: eventController.signal },
+  );
+
+  render();
+  await loadProviders();
+
+  async function loadProviders() {
+    state.loading = true;
+    state.error = "";
+    render();
+    try {
+      const providers = await getHealthcareProviders();
+      state.providers = providers.map(normalizeHealthcareProvider);
+    } catch (error) {
+      state.error = apiErrorMessage(error);
+      showAdminToast(state.error);
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function updateProviderWorkflow(provider, action, body = {}) {
+    try {
+      const result = await runHealthcareProviderAction(provider.id, action, body);
+      const updated = normalizeHealthcareProvider(result);
+      state.providers = state.providers.map((item) => item.id === updated.id ? updated : item);
+      state.modal = null;
+      showAdminToast(action === "approve" ? "Provider approved and activated." : `Provider ${action}d.`);
+      render();
+    } catch (error) {
+      showAdminToast(apiErrorMessage(error));
+    }
+  }
+
+  async function reviewDocument(provider, document, body) {
+    try {
+      await reviewHealthcareProviderDocument(provider.id, document.id, body);
+      await loadProviders();
+      const updated = state.providers.find((item) => item.id === provider.id);
+      state.modal = { type: "provider-form", mode: "edit", provider: updated };
+      showAdminToast(body.status === "verified" ? "Document verified." : "Document rejected.");
+      render();
+    } catch (error) {
+      showAdminToast(apiErrorMessage(error));
+    }
+  }
+
+  async function submitProviderConfirmation(form) {
+    const values = Object.fromEntries(new FormData(form));
+    const modal = state.modal;
+    const provider = modal.provider;
+    try {
+      if (modal.action === "delete") {
+        await deleteHealthcareProvider(provider.id);
+        state.providers = state.providers.filter((item) => item.id !== provider.id);
+        state.modal = null;
+        showAdminToast("Provider deleted.");
+      } else if (modal.action === "reject") {
+        await updateProviderWorkflow(provider, "reject", { reason: String(values.reason || "").trim() });
+        return;
+      } else if (modal.action === "reject-document") {
+        await reviewHealthcareProviderDocument(provider.id, values.documentId, {
+          status: "rejected",
+          rejection_reason: String(values.reason || "").trim(),
+        });
+        const updated = (await getHealthcareProviders()).map(normalizeHealthcareProvider);
+        state.providers = updated;
+        state.modal = { type: "provider-form", mode: "edit", provider: updated.find((item) => item.id === provider.id) };
+        showAdminToast("Document rejected.");
+      } else if (modal.action === "delete-document") {
+        await deleteHealthcareProviderDocument(provider.id, modal.document.id);
+        await loadProviders();
+        const updated = state.providers.find((item) => item.id === provider.id);
+        state.modal = { type: "provider-form", mode: "edit", provider: updated };
+        showAdminToast("Document deleted.");
+      } else {
+        await updateProviderWorkflow(provider, modal.action);
+        return;
+      }
+    } catch (error) {
+      showAdminToast(apiErrorMessage(error));
+    }
+    render();
+  }
 }
 
 export async function renderAdminPromotions(app) {

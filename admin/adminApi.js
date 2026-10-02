@@ -13,14 +13,20 @@ export async function adminApi(path, { method = "GET", body } = {}) {
     Authorization: `Bearer ${token}`,
   };
 
-  if (body !== undefined) {
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  if (body !== undefined && !isFormData) {
     headers["Content-Type"] = "application/json";
   }
 
   const response = await fetch(`${ADMIN_API_BASE_URL}${path}`, {
     method,
     headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body:
+      body === undefined
+        ? undefined
+        : isFormData
+          ? body
+          : JSON.stringify(body),
   });
 
   const text = await response.text();
@@ -28,9 +34,12 @@ export async function adminApi(path, { method = "GET", body } = {}) {
   let data = null;
 
   try {
-    data = text ? JSON.parse(text) : null;
+    const parsed = text ? JSON.parse(text) : null;
+    if (parsed && typeof parsed === "object") {
+      data = parsed;
+    }
   } catch {
-    data = text;
+    // Non-JSON responses (including Django debug pages) are not API errors.
   }
 
   if (!response.ok) {
@@ -40,15 +49,18 @@ export async function adminApi(path, { method = "GET", body } = {}) {
       throw new Error("Your admin session has expired. Please log in again.");
     }
 
-    const message =
-      data?.error ||
-      data?.detail ||
-      data?.message ||
-      `Admin API request failed (${response.status})`;
+    const isServerError = response.status >= 500;
+    const message = isServerError
+      ? "The admin service is temporarily unavailable. Please try again."
+      : [data?.error, data?.detail, data?.message].find(
+          (value) => typeof value === "string" && value.trim(),
+        ) || `Admin API request failed (${response.status})`;
 
     const error = new Error(message);
     error.status = response.status;
-    error.data = data;
+    if (!isServerError) {
+      error.data = data;
+    }
 
     throw error;
   }
@@ -208,6 +220,74 @@ export function updateAdminRolePermissions(id, permissions) {
 
 export function getAdminModules() {
   return adminApi("/modules/");
+}
+
+export async function getHealthcareProviders(params = {}) {
+  const response = await adminApi(`/providers/${queryString(params)}`);
+  return Array.isArray(response?.results) ? response.results : response;
+}
+
+export function createHealthcareProvider(data) {
+  return adminApi("/providers/", { method: "POST", body: data });
+}
+
+export function updateHealthcareProvider(id, data) {
+  return adminApi(`/providers/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteHealthcareProvider(id) {
+  return adminApi(`/providers/${encodeURIComponent(id)}/`, {
+    method: "DELETE",
+  });
+}
+
+export function runHealthcareProviderAction(id, action, body = {}) {
+  return adminApi(`/providers/${encodeURIComponent(id)}/${action}/`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function uploadHealthcareProviderDocument(providerId, data) {
+  return adminApi(
+    `/providers/${encodeURIComponent(providerId)}/documents/`,
+    { method: "POST", body: data },
+  );
+}
+
+export function reviewHealthcareProviderDocument(providerId, documentId, data) {
+  return adminApi(
+    `/providers/${encodeURIComponent(providerId)}/documents/${encodeURIComponent(documentId)}/`,
+    { method: "PATCH", body: data },
+  );
+}
+
+export function deleteHealthcareProviderDocument(providerId, documentId) {
+  return adminApi(
+    `/providers/${encodeURIComponent(providerId)}/documents/${encodeURIComponent(documentId)}/`,
+    { method: "DELETE" },
+  );
+}
+
+export async function downloadHealthcareProviderDocument(documentId) {
+  const token = getAdminToken();
+  if (!token) throw new Error("Admin session is missing. Please log in again.");
+  const response = await fetch(
+    `${ADMIN_API_BASE_URL}/providers/documents/${encodeURIComponent(documentId)}/file/`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    if (response.status === 401) {
+      logoutAdmin();
+      window.location.hash = "#/admin/login";
+      throw new Error("Your admin session has expired. Please log in again.");
+    }
+    throw new Error(`Unable to download document (${response.status}).`);
+  }
+  return response.blob();
 }
 
 export async function getPromotions(params = {}) {
