@@ -1,7 +1,61 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import ( Coupon, CouponUsage, FeaturedPromotion, PromotionalContent,)
+from .models import (
+    Coupon,
+    CouponUsage,
+    FeaturedPromotion,
+    PromotionalContent,
+    Promotion,
+)
+
+class PromotionSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Promotion
+        fields = [
+            "id",
+            "title",
+            "description",
+            "image_url",
+            "cta_text",
+            "cta_link",
+            "start_date",
+            "end_date",
+            "is_active",
+            "status",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_status(self, promotion):
+        return "active" if promotion.is_active else "inactive"
+
+    def validate(self, attrs):
+        start_date = attrs.get(
+            "start_date",
+            self.instance.start_date if self.instance else None,
+        )
+        end_date = attrs.get(
+            "end_date",
+            self.instance.end_date if self.instance else None,
+        )
+
+        if start_date and end_date and end_date <= start_date:
+            raise serializers.ValidationError({
+                "end_date": "End date must be after start date."
+            })
+
+        return attrs
 
 class CouponSerializer(serializers.ModelSerializer):
     is_expired = serializers.ReadOnlyField()

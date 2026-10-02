@@ -1,39 +1,47 @@
-import mongoose from 'mongoose'
+import mongoose from "mongoose";
 
 const doctorSchema = new mongoose.Schema(
   {
     _id: { type: String },
     name: { type: String, required: true, trim: true },
     specialty: { type: String, required: true, trim: true },
-    city: { type: String, trim: true, default: '' },
-    detail: { type: String, trim: true, default: '' },
-    location: { type: String, trim: true, default: '' },
-    rating: { type: String, default: '' },
-    reviews: { type: String, default: '' },
+    city: { type: String, trim: true, default: "" },
+    detail: { type: String, trim: true, default: "" },
+    location: { type: String, trim: true, default: "" },
+    rating: { type: String, default: "" },
+    reviews: { type: String, default: "" },
     fee: { type: Number, default: 0 },
-    initials: { type: String, default: '' },
-    color: { type: String, default: 'teal' },
-    next: { type: String, default: '' },
-    type: { type: String, default: 'Online & In-Person' },
-    photo: { type: String, default: '' },
-    offerText: { type: String, default: '' },
+    initials: { type: String, default: "" },
+    color: { type: String, default: "teal" },
+    next: { type: String, default: "" },
+    type: { type: String, default: "Online & In-Person" },
+    photo: { type: String, default: "" },
+    offerText: { type: String, default: "" },
     verified: { type: Boolean, default: true },
-    qualification: { type: String, default: '' },
-    experience: { type: String, default: '' },
-    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    verificationStatus: {
+      type: String,
+      enum: ["pending", "verified", "rejected", "suspended"],
+      default: "verified",
+    },
+    rejectionReason: { type: String, default: "" },
+    suspensionReason: { type: String, default: "" },
+    available: { type: Boolean, default: true },
+    qualification: { type: String, default: "" },
+    experience: { type: String, default: "" },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true },
-)
+);
 
-doctorSchema.virtual('id').get(function () {
-  return this._id
-})
+doctorSchema.virtual("id").get(function () {
+  return this._id;
+});
 
 // Keep `fee` in the document but control exposure at the route layer.
 function safe(toJSON) {
-  const json = toJSON()
-  json.id = json.id || json._id
-  return json
+  const json = toJSON();
+  json.id = json.id || json._id;
+  return json;
 }
 
 doctorSchema.methods.toPublic = function (includeFee = false) {
@@ -53,20 +61,25 @@ doctorSchema.methods.toPublic = function (includeFee = false) {
     photo: this.photo,
     offerText: this.offerText,
     verified: Boolean(this.verified),
+    verificationStatus:
+      this.verificationStatus || (this.verified ? "verified" : "pending"),
+    rejectionReason: this.rejectionReason || "",
+    suspensionReason: this.suspensionReason || "",
+    available: this.available !== false,
     qualification: this.qualification,
     experience: this.experience,
-  }
-  if (includeFee) doc.fee = this.fee
-  return doc
-}
+  };
+  if (includeFee) doc.fee = this.fee;
+  return doc;
+};
 
 doctorSchema.methods.toOwnerView = function () {
   return {
     ...this.toPublic(true),
     owner: this.owner ? this.owner.toString() : null,
     _id: this._id,
-  }
-}
+  };
+};
 
-const Doctor = mongoose.model('Doctor', doctorSchema)
-export default Doctor
+const Doctor = mongoose.model("Doctor", doctorSchema);
+export default Doctor;

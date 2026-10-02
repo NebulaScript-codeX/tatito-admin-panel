@@ -16,6 +16,7 @@ from .models import (
     CouponUsage,
     FeaturedPromotion,
     PromotionalContent,
+    Promotion,
 )
 
 from .serializers import (
@@ -23,7 +24,34 @@ from .serializers import (
     CouponUsageSerializer,
     FeaturedPromotionSerializer,
     PromotionalContentSerializer,
+    PromotionSerializer,
 )
+
+class PromotionViewSet(viewsets.ModelViewSet):
+    serializer_class = PromotionSerializer
+    permission_classes = [ModulePermission]
+    module = "promotions"
+
+    def get_queryset(self):
+        queryset = Promotion.objects.all()
+        search = self.request.query_params.get("search", "").strip()
+        status_filter = self.request.query_params.get("status")
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        if status_filter == "active":
+            queryset = queryset.filter(is_active=True)
+        elif status_filter == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
 class CouponViewSet(viewsets.ModelViewSet):
     serializer_class = CouponSerializer

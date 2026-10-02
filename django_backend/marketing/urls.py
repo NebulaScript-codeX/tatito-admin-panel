@@ -5,33 +5,27 @@ from .views import (
     CouponUsageViewSet,
     FeaturedPromotionViewSet,
     PromotionalContentViewSet,
+    PromotionViewSet,
 )
-
 
 router = DefaultRouter()
 
-router.register(
-    r"coupons",
-    CouponViewSet,
-    basename="admin-coupons",
-)
-
-router.register(
-    r"coupon-usages",
-    CouponUsageViewSet,
-    basename="admin-coupon-usages",
-)
-
+router.register(r"coupons", CouponViewSet, basename="coupon")
+router.register(r"coupon-usage", CouponUsageViewSet, basename="coupon-usage")
 router.register(
     r"featured-promotions",
     FeaturedPromotionViewSet,
-    basename="admin-featured-promotions",
+    basename="featured-promotion",
 )
-
 router.register(
     r"promotional-content",
     PromotionalContentViewSet,
-    basename="admin-promotional-content",
+    basename="promotional-content",
+)
+router.register(
+    r"promotions",
+    PromotionViewSet,
+    basename="promotion",
 )
 
 urlpatterns = router.urls

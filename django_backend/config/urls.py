@@ -1,7 +1,16 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from dashboard.user import PlatformUserListView
+from dashboard.user import (
+    PlatformDoctorDetailView,
+    PlatformDoctorListView,
+    PlatformDoctorStatusView,
+    PlatformRelationshipCollectionView,
+    PlatformUserDetailView,
+    PlatformUserListView,
+    PlatformUserStatusView,
+    PlatformWalletActionView,
+)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -20,6 +29,46 @@ urlpatterns = [
         "api/admin/users/",
         PlatformUserListView.as_view(),
         name="platform-users",
+    ),
+    path(
+        "api/admin/doctors/",
+        PlatformDoctorListView.as_view(),
+        name="platform-doctors",
+    ),
+    path(
+        "api/admin/doctors/<str:pk>/",
+        PlatformDoctorDetailView.as_view(),
+        name="platform-doctor-detail",
+    ),
+    path(
+        "api/admin/doctors/<str:pk>/status/<str:action>/",
+        PlatformDoctorStatusView.as_view(),
+        name="platform-doctor-status",
+    ),
+    path(
+        "api/admin/users/<str:pk>/",
+        PlatformUserDetailView.as_view(),
+        name="platform-user-detail",
+    ),
+    path(
+        "api/admin/users/<str:pk>/status/<str:action>/",
+        PlatformUserStatusView.as_view(),
+        name="platform-user-status",
+    ),
+    path(
+        "api/admin/users/<str:pk>/wallet/<str:direction>/",
+        PlatformWalletActionView.as_view(),
+        name="platform-wallet-action",
+    ),
+    path(
+        "api/admin/users/<str:pk>/<str:kind>/",
+        PlatformRelationshipCollectionView.as_view(),
+        name="platform-relationship-list",
+    ),
+    path(
+        "api/admin/users/<str:pk>/<str:kind>/<str:item_id>/",
+        PlatformRelationshipCollectionView.as_view(),
+        name="platform-relationship-item",
     ),
     path(
         "api/admin/audit-logs/",
