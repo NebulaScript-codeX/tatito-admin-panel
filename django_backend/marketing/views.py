@@ -4,20 +4,32 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from rest_framework import status, viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from accounts.permissions import IsAdminUser
+from accounts.permissions import IsAdminUser, ModulePermission
 
-from .models import Coupon, CouponUsage
-from .serializers import CouponSerializer, CouponUsageSerializer
+from .models import (
+    Coupon,
+    CouponUsage,
+    FeaturedPromotion,
+    PromotionalContent,
+)
 
+from .serializers import (
+    CouponSerializer,
+    CouponUsageSerializer,
+    FeaturedPromotionSerializer,
+    PromotionalContentSerializer,
+)
 
 class CouponViewSet(viewsets.ModelViewSet):
     serializer_class = CouponSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminUser, ModulePermission,]
+
+    module = "coupons_offers_marketing"
 
     def get_queryset(self):
         queryset = Coupon.objects.all().order_by("-created_at")
@@ -439,3 +451,293 @@ class CouponUsageViewSet(viewsets.ReadOnlyModelViewSet):
             "coupon",
             "user",
         ).order_by("-used_at")
+
+
+class FeaturedPromotionViewSet(viewsets.ModelViewSet):
+    serializer_class = FeaturedPromotionSerializer
+
+    permission_classes = [
+        IsAuthenticated,
+        IsAdminUser,
+        ModulePermission,
+    ]
+
+    module = "coupons_offers_marketing"
+
+    def get_queryset(self):
+        queryset = FeaturedPromotion.objects.all()
+
+        search = self.request.query_params.get("search")
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(badge_text__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        status_filter = self.request.query_params.get("status")
+
+        if status_filter == "active":
+            queryset = queryset.filter(is_active=True)
+
+        elif status_filter == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        return queryset.order_by("display_order", "-created_at")
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=request.user)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="toggle-status",
+    )
+    def toggle_status(self, request, pk=None):
+        promotion = self.get_object()
+
+        promotion.is_active = not promotion.is_active
+        promotion.save(update_fields=["is_active", "updated_at"])
+
+        return Response(
+            self.get_serializer(promotion).data
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="move-up",
+    )
+    def move_up(self, request, pk=None):
+        promotion = self.get_object()
+
+        previous = (
+            FeaturedPromotion.objects
+            .filter(
+                display_order__lt=promotion.display_order,
+            )
+            .order_by("-display_order")
+            .first()
+        )
+
+        if previous:
+            promotion.display_order, previous.display_order = (
+                previous.display_order,
+                promotion.display_order,
+            )
+
+            promotion.save(
+                update_fields=["display_order", "updated_at"]
+            )
+
+            previous.save(
+                update_fields=["display_order", "updated_at"]
+            )
+
+        return Response(
+            self.get_serializer(promotion).data
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="move-down",
+    )
+    def move_down(self, request, pk=None):
+        promotion = self.get_object()
+
+        next_item = (
+            FeaturedPromotion.objects
+            .filter(
+                display_order__gt=promotion.display_order,
+            )
+            .order_by("display_order")
+            .first()
+        )
+
+        if next_item:
+            promotion.display_order, next_item.display_order = (
+                next_item.display_order,
+                promotion.display_order,
+            )
+
+            promotion.save(
+                update_fields=["display_order", "updated_at"]
+            )
+
+            next_item.save(
+                update_fields=["display_order", "updated_at"]
+            )
+
+        return Response(
+            self.get_serializer(promotion).data
+        )
+
+
+class PromotionalContentViewSet(viewsets.ModelViewSet):
+    serializer_class = PromotionalContentSerializer
+
+    permission_classes = [
+        IsAuthenticated,
+        IsAdminUser,
+        ModulePermission,
+    ]
+
+    module = "coupons_offers_marketing"
+
+    def get_queryset(self):
+        queryset = PromotionalContent.objects.all()
+
+        search = self.request.query_params.get("search")
+        placement = self.request.query_params.get("placement")
+        content_type = self.request.query_params.get("content_type")
+        status_filter = self.request.query_params.get("status")
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        if placement:
+            queryset = queryset.filter(
+                placement=placement
+            )
+
+        if content_type:
+            queryset = queryset.filter(
+                content_type=content_type
+            )
+
+        if status_filter == "active":
+            queryset = queryset.filter(is_active=True)
+
+        elif status_filter == "inactive":
+            queryset = queryset.filter(is_active=False)
+
+        return queryset.order_by(
+            "display_order",
+            "-created_at",
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(created_by=request.user)
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="toggle-status",
+    )
+    def toggle_status(self, request, pk=None):
+        item = self.get_object()
+
+        item.is_active = not item.is_active
+        item.save(
+            update_fields=[
+                "is_active",
+                "updated_at",
+            ]
+        )
+
+        return Response(
+            self.get_serializer(item).data
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="move-up",
+    )
+    def move_up(self, request, pk=None):
+        item = self.get_object()
+
+        previous = (
+            PromotionalContent.objects
+            .filter(
+                placement=item.placement,
+                display_order__lt=item.display_order,
+            )
+            .order_by("-display_order")
+            .first()
+        )
+
+        if previous:
+            item.display_order, previous.display_order = (
+                previous.display_order,
+                item.display_order,
+            )
+
+            item.save(
+                update_fields=[
+                    "display_order",
+                    "updated_at",
+                ]
+            )
+
+            previous.save(
+                update_fields=[
+                    "display_order",
+                    "updated_at",
+                ]
+            )
+
+        return Response(
+            self.get_serializer(item).data
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="move-down",
+    )
+    def move_down(self, request, pk=None):
+        item = self.get_object()
+
+        next_item = (
+            PromotionalContent.objects
+            .filter(
+                placement=item.placement,
+                display_order__gt=item.display_order,
+            )
+            .order_by("display_order")
+            .first()
+        )
+
+        if next_item:
+            item.display_order, next_item.display_order = (
+                next_item.display_order,
+                item.display_order,
+            )
+
+            item.save(
+                update_fields=[
+                    "display_order",
+                    "updated_at",
+                ]
+            )
+
+            next_item.save(
+                update_fields=[
+                    "display_order",
+                    "updated_at",
+                ]
+            )
+
+        return Response(
+            self.get_serializer(item).data
+        )

@@ -206,3 +206,87 @@ class CouponUsage(models.Model):
 
     def __str__(self):
         return f"{self.coupon.code} - {self.user.username}"
+
+
+class FeaturedPromotion(models.Model):
+    badge_text = models.CharField(max_length=100)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    link = models.CharField(max_length=500, blank=True)
+    colour = models.CharField(max_length=50, default="#075f50")
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=0)
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_featured_promotions",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class PromotionalContent(models.Model):
+    PLACEMENT_CHOICES = [
+        ("home", "Home"),
+        ("pharmacy", "Pharmacy"),
+    ]
+
+    CONTENT_TYPE_CHOICES = [
+        ("banner", "Banner"),
+        ("offer_strip", "Offer Strip"),
+    ]
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    link = models.CharField(max_length=500, blank=True)
+
+    placement = models.CharField(
+        max_length=20,
+        choices=PLACEMENT_CHOICES,
+    )
+
+    content_type = models.CharField(
+        max_length=20,
+        choices=CONTENT_TYPE_CHOICES,
+    )
+
+    image_url = models.CharField(
+        max_length=500,
+        blank=True,
+    )
+
+    colour = models.CharField(
+        max_length=50,
+        default="#075f50",
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    display_order = models.PositiveIntegerField(default=0)
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_promotional_content",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "-created_at"]
+
+    def __str__(self):
+        return self.title

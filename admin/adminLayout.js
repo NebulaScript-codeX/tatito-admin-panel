@@ -3,7 +3,10 @@ import { escapeHtml } from "./adminChart.js";
 
 // Modules that have a real page behind them. Dashboard widgets use this to
 // avoid linking to pages that have not been implemented yet.
-const BUILT_MODULES = new Set(["dashboard"]);
+const BUILT_MODULES = new Set([
+  "dashboard",
+  "coupons_offers_marketing",
+]);
 
 export function isModuleAvailable(key) {
   return BUILT_MODULES.has(key);

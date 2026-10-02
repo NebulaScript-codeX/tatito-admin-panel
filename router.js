@@ -275,6 +275,7 @@ function bootHeaderSync() {
 }
 
 window.addEventListener('popstate', renderFromLocation)
+window.addEventListener('hashchange', renderFromLocation)
 
 export function bootRouter() {
   bootHeaderSync()

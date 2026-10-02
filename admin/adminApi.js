@@ -116,7 +116,7 @@ export async function createCoupon(data) {
   const token = getAdminToken()
 
   const response = await fetch(
-    `${API_BASE_URL}/admin/marketing/coupons/`,
+    `${ADMIN_API_BASE_URL}/marketing/coupons/`,
     {
       method: 'POST',
       headers: {
@@ -142,4 +142,134 @@ export async function createCoupon(data) {
   }
 
   return result
+}
+
+export function getFeaturedPromotions(params = {}) {
+  const query = new URLSearchParams(params)
+  const queryString = query.toString()
+
+  return adminApi(
+    `/marketing/featured-promotions/${queryString ? `?${queryString}` : ''}`
+  )
+}
+
+export function createFeaturedPromotion(data) {
+  return adminApi(
+    '/marketing/featured-promotions/',
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+export function updateFeaturedPromotion(id, data) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/`,
+    {
+      method: 'PATCH',
+      body: data,
+    }
+  )
+}
+
+export function deleteFeaturedPromotion(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/`,
+    {
+      method: 'DELETE',
+    }
+  )
+}
+
+export function toggleFeaturedPromotionStatus(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/toggle-status/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function moveFeaturedPromotionUp(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/move-up/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function moveFeaturedPromotionDown(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/move-down/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function getPromotionalContent(params = {}) {
+  const query = new URLSearchParams(params)
+  const queryString = query.toString()
+
+  return adminApi(
+    `/marketing/promotional-content/${queryString ? `?${queryString}` : ''}`
+  )
+}
+
+export function createPromotionalContent(data) {
+  return adminApi(
+    '/marketing/promotional-content/',
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+export function updatePromotionalContent(id, data) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/`,
+    {
+      method: 'PATCH',
+      body: data,
+    }
+  )
+}
+
+export function deletePromotionalContent(id) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/`,
+    {
+      method: 'DELETE',
+    }
+  )
+}
+
+export function togglePromotionalContentStatus(id) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/toggle-status/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function movePromotionalContentUp(id) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/move-up/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function movePromotionalContentDown(id) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/move-down/`,
+    {
+      method: 'POST',
+    }
+  )
 }
