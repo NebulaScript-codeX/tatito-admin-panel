@@ -232,13 +232,62 @@ export function renderAdminAccessDenied(app) {
 }
 
 export function renderAdminModulePlaceholder(app, moduleKey) {
+  if (moduleKey === "content") {
+    return renderAdminContent(app);
+  }
+
   renderAdminLayout(
     app,
     moduleKey,
-    `<section class="thp-admin-empty-state" role="status">
-      <strong>Coming soon</strong>
-      <span>This admin module does not have a page yet.</span>
-    </section>`,
+    `
+      <section class="thp-admin-empty-state" role="status">
+        <strong>Coming soon</strong>
+        <span>This admin module does not have a page yet.</span>
+      </section>
+    `,
+  );
+}
+
+export async function renderAdminContent(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  if (!window.location.hash.startsWith("#/admin/content")) {
+    return;
+  }
+
+  if (!hasPermission("content", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  renderAdminLayout(
+    app,
+    "content",
+    `
+      <section class="thp-admin-page">
+        <div class="thp-admin-page-header">
+          <div>
+            <h1>Content</h1>
+            <p>Manage website blogs, banners, announcements, FAQs, testimonials and other public content.</p>
+          </div>
+        </div>
+
+        <div class="thp-admin-empty-state">
+          <strong>Module 12 Content</strong>
+          <span>Content management interface is being connected to the Content API.</span>
+        </div>
+      </section>
+    `,
   );
 }
 
