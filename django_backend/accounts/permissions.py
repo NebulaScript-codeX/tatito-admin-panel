@@ -76,8 +76,28 @@ class ModulePermission(BasePermission):
         module = getattr(view, "module", None)
         if not module or module not in MODULE_KEYS:
             return False  # fail closed
-        overrides = getattr(view, "action_map", {})
-        action = overrides.get(request.method.lower()) or HTTP_ACTION.get(request.method)
+        view_action = getattr(view, "action", None)
+
+        ACTION_MAP = {
+            "list": "view",
+            "retrieve": "view",
+            "create": "create",
+            "update": "edit",
+            "partial_update": "edit",
+            "destroy": "delete",
+
+            "toggle_status": "edit",
+            "move_up": "edit",
+            "move_down": "edit",
+        }
+
+        action = ACTION_MAP.get(view_action)
+
+        if action is None:
+            action = HTTP_ACTION.get(request.method)
+
+        if action is None:
+            return False
         if action is None:
             return False
         return has_module_permission(request.user, module, action)

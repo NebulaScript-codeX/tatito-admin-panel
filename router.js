@@ -103,6 +103,7 @@ function urlToRoute() {
 }
 
 function renderFromLocation() {
+  const previousPage = currentPage;
   const { page, params } = urlToRoute();
 
   // Admin routes have their own authentication guard.
@@ -126,7 +127,11 @@ function renderFromLocation() {
     }
   }
 
-  window.scrollTo(0, 0);
+  if (
+    !(previousPage.startsWith("admin/") && currentPage.startsWith("admin/"))
+  ) {
+    window.scrollTo(0, 0);
+  }
   renderPage();
 }
 
@@ -197,6 +202,7 @@ export function getCurrentContext() {
 
 export function navigate(page, params = {}) {
   const go = () => {
+    const previousPage = currentPage;
     const target = routeToUrl(page, params);
     const currentHash = (window.location.hash || "").replace(/^#/, "");
     if (currentHash === target.replace(/^#/, "")) {
@@ -206,7 +212,11 @@ export function navigate(page, params = {}) {
     }
     currentPage = page;
     currentParams = params;
-    window.scrollTo(0, 0);
+    if (
+      !(previousPage.startsWith("admin/") && currentPage.startsWith("admin/"))
+    ) {
+      window.scrollTo(0, 0);
+    }
     renderPage();
   };
 

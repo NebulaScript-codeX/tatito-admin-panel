@@ -38,6 +38,78 @@ class Base(TestCase):
 
 
 class AuthTests(Base):
+    def test_admin_can_update_own_account_and_password_securely(self):
+        admin = make_admin("root", "Super Admin")
+        self.login("root")
+
+        updated = self.api.patch(
+            "/api/admin/me/",
+            {
+                "username": "root-updated",
+                "email": "root-updated@example.com",
+                "current_password": STRONG,
+                "new_password": "NewStrong9!Password",
+                "confirm_password": "NewStrong9!Password",
+            },
+            format="json",
+        )
+
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(updated.data["admin"]["username"], "root-updated")
+        self.assertEqual(updated.data["admin"]["email"], "root-updated@example.com")
+        admin.refresh_from_db()
+        self.assertTrue(admin.check_password("NewStrong9!Password"))
+        self.assertNotEqual(admin.password, "NewStrong9!Password")
+        account_events = AuditLog.objects.filter(
+            module="settings",
+            target_type="admin_account",
+            target_id=str(admin.id),
+        )
+        self.assertEqual(account_events.count(), 1)
+        self.assertNotIn("NewStrong9!Password", str(account_events.first().metadata))
+        reauthenticated = APIClient().post(
+            "/api/admin/login/",
+            {"username": "root-updated", "password": "NewStrong9!Password"},
+            format="json",
+        )
+        self.assertEqual(reauthenticated.status_code, 200)
+
+    def test_admin_account_update_rejects_duplicate_identity_fields(self):
+        make_admin("root", "Super Admin")
+        make_admin("existing-admin", "Support Agent")
+        self.login("root")
+
+        duplicate_username = self.api.patch(
+            "/api/admin/me/", {"username": "EXISTING-ADMIN"}, format="json"
+        )
+        duplicate_email = self.api.patch(
+            "/api/admin/me/",
+            {"email": "EXISTING-ADMIN@example.com"},
+            format="json",
+        )
+
+        self.assertEqual(duplicate_username.status_code, 400)
+        self.assertIn("already exists", duplicate_username.data["errors"]["username"])
+        self.assertEqual(duplicate_email.status_code, 400)
+        self.assertIn("already exists", duplicate_email.data["errors"]["email"])
+
+    def test_admin_password_change_requires_current_password_and_confirmation(self):
+        admin = make_admin("root", "Super Admin")
+        self.login("root")
+        payload = {
+            "current_password": "wrong-current",
+            "new_password": "NewStrong9!Password",
+            "confirm_password": "does-not-match",
+        }
+
+        response = self.api.patch("/api/admin/me/", payload, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("incorrect", response.data["errors"]["current_password"])
+        self.assertIn("do not match", response.data["errors"]["confirm_password"])
+        admin.refresh_from_db()
+        self.assertTrue(admin.check_password(STRONG))
+
     def test_login_me_and_audit(self):
         make_admin("root", "Super Admin")
         res = self.login("root")
@@ -528,16 +600,22 @@ class DashboardTests(Base):
     def test_invalid_period_falls_back_to_7(self):
         self.assertEqual(self.get("bogus")["period"], "7")
 
-    def test_unavailable_metrics_are_null_not_fabricated(self):
+    def test_unavailable_metrics_are_null_and_provider_metrics_are_live(self):
         d = self.get("7")
         for key in ("total_hospitals", "total_clinics", "total_diagnostic_centres", "total_pharmacies"):
-            self.assertIsNone(d["platform_overview"][key])
+            self.assertEqual(d["platform_overview"][key], 0)
         for key in ("today_appointments", "pending_medicine_orders", "lab_test_bookings",
                     "sample_collections", "revenue"):
             self.assertIsNone(d["live_stats"][key])
         for key, val in d["needs_attention"].items():
-            if key != "doctor_verifications":
+            if key not in {
+                "doctor_verifications",
+                "provider_approvals",
+                "document_verifications",
+            }:
                 self.assertIsNone(val, key)
+        self.assertEqual(d["needs_attention"]["provider_approvals"], 0)
+        self.assertEqual(d["needs_attention"]["document_verifications"], 0)
         for chart in ("revenue_trend", "revenue_by_module", "appointments_by_specialty", "order_trend"):
             self.assertEqual(d["charts"][chart], [])
         names = {u["metric"] for u in d["meta"]["unavailable"]}
@@ -580,8 +658,15 @@ class DashboardTests(Base):
         d = self.get("7")
         self.assertEqual(d["recent_activity"]["users"], [])
         self.assertEqual(d["recent_activity"]["admin_activity"], [])
+        self.assertIsNone(d["platform_overview"]["total_hospitals"])
+        self.assertIsNone(d["coupons_offers"])
         self.assertEqual(set(d["meta"]["restricted"]),
-                         {"recent_activity.users", "recent_activity.admin_activity"})
+                         {
+                             "recent_activity.users",
+                             "recent_activity.admin_activity",
+                             "providers",
+                             "coupons_offers_marketing",
+                         })
 
     def test_role_without_dashboard_view_blocked(self):
         make_admin("hr2", "Internship HR")

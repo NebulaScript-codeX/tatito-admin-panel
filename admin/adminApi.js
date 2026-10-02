@@ -1,12 +1,20 @@
-import { getAdminToken, logoutAdmin } from "./adminAuth.js";
+import { getAdminToken, logoutAdmin } from './adminAuth.js'
 
-const ADMIN_API_BASE_URL = "http://127.0.0.1:8000/api/admin";
+const API_BASE_URL = "http://127.0.0.1:8000/api";
+const ADMIN_API_BASE_URL = `${API_BASE_URL}/admin`;
 
-export async function adminApi(path, { method = "GET", body } = {}) {
-  const token = getAdminToken();
+export async function adminApi(
+  path,
+  {
+    method = 'GET',
+    body,
+    apiRoot = false,
+  } = {},
+) {
+  const token = getAdminToken()
 
   if (!token) {
-    throw new Error("Admin session is missing. Please log in again.");
+    throw new Error('Admin session is missing. Please log in again.')
   }
 
   const headers = {
@@ -18,7 +26,7 @@ export async function adminApi(path, { method = "GET", body } = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${ADMIN_API_BASE_URL}${path}`, {
+  const response = await fetch(`${apiRoot ? API_BASE_URL : ADMIN_API_BASE_URL}${path}`, {
     method,
     headers,
     body:
@@ -28,10 +36,9 @@ export async function adminApi(path, { method = "GET", body } = {}) {
           ? body
           : JSON.stringify(body),
   });
+  const text = await response.text()
 
-  const text = await response.text();
-
-  let data = null;
+  let data = null
 
   try {
     const parsed = text ? JSON.parse(text) : null;
@@ -44,9 +51,9 @@ export async function adminApi(path, { method = "GET", body } = {}) {
 
   if (!response.ok) {
     if (response.status === 401) {
-      logoutAdmin();
-      window.location.hash = "#/admin/login";
-      throw new Error("Your admin session has expired. Please log in again.");
+      logoutAdmin()
+      window.location.hash = '#/admin/login'
+      throw new Error('Your admin session has expired. Please log in again.')
     }
 
     const isServerError = response.status >= 500;
@@ -62,10 +69,219 @@ export async function adminApi(path, { method = "GET", body } = {}) {
       error.data = data;
     }
 
-    throw error;
+    throw error
   }
 
-  return data;
+  return data
+}
+
+export function updateAdminAccount(data) {
+  return adminApi("/me/", { method: "PATCH", body: data });
+}
+
+export function getAdminDashboardOverview() {
+  return adminApi("/dashboard/overview/?period=7", { apiRoot: true });
+}
+
+export function getCoupons(params = {}) {
+  const query = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, value)
+    }
+  })
+
+  const queryString = query.toString()
+
+  return adminApi(
+    `/marketing/coupons/${queryString ? `?${queryString}` : ''}`,
+  )
+}
+
+
+export function updateCoupon(id, data) {
+  return adminApi(`/marketing/coupons/${id}/`, {
+    method: 'PATCH',
+    body: data,
+  })
+}
+
+export function deleteCoupon(id) {
+  return adminApi(`/marketing/coupons/${id}/`, {
+    method: 'DELETE',
+  })
+}
+
+export function toggleCouponStatus(id) {
+  return adminApi(
+    `/marketing/coupons/${id}/toggle-status/`,
+    {
+      method: 'POST',
+    },
+  )
+}
+
+export function getCouponUsage(id) {
+  return adminApi(
+    `/marketing/coupons/${id}/usage/`,
+  )
+}
+
+export async function createCoupon(data) {
+  const token = getAdminToken()
+
+  const response = await fetch(
+    `${ADMIN_API_BASE_URL}/marketing/coupons/`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    }
+  )
+
+  const result = await response.json()
+
+  if (!response.ok) {
+    const message =
+      result?.detail ||
+      result?.error ||
+      Object.values(result || {})
+        .flat()
+        .join(' ') ||
+      'Unable to create coupon.'
+
+    throw new Error(message)
+  }
+
+  return result
+}
+
+export function getFeaturedPromotions(params = {}) {
+  const query = new URLSearchParams(params)
+  const queryString = query.toString()
+
+  return adminApi(
+    `/marketing/featured-promotions/${queryString ? `?${queryString}` : ''}`
+  )
+}
+
+export function createFeaturedPromotion(data) {
+  return adminApi(
+    '/marketing/featured-promotions/',
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+export function updateFeaturedPromotion(id, data) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/`,
+    {
+      method: 'PATCH',
+      body: data,
+    }
+  )
+}
+
+export function deleteFeaturedPromotion(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/`,
+    {
+      method: 'DELETE',
+    }
+  )
+}
+
+export function toggleFeaturedPromotionStatus(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/toggle-status/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function moveFeaturedPromotionUp(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/move-up/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function moveFeaturedPromotionDown(id) {
+  return adminApi(
+    `/marketing/featured-promotions/${id}/move-down/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function getPromotionalContent(params = {}) {
+  const query = new URLSearchParams(params)
+  const queryString = query.toString()
+
+  return adminApi(
+    `/marketing/promotional-content/${queryString ? `?${queryString}` : ''}`
+  )
+}
+
+export function createPromotionalContent(data) {
+  return adminApi(
+    '/marketing/promotional-content/',
+    {
+      method: 'POST',
+      body: data,
+    }
+  )
+}
+
+export function updatePromotionalContent(id, data) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/`,
+    {
+      method: 'PATCH',
+      body: data,
+    }
+  )
+}
+
+export function deletePromotionalContent(id) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/`,
+    {
+      method: 'DELETE',
+    }
+  )
+}
+
+export function togglePromotionalContentStatus(id) {
+  return adminApi(
+    `/marketing/promotional-content/${id}/toggle-status/`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
+export function movePromotionalContentUp(id) {
+  return adminApi(`/marketing/promotional-content/${id}/move-up/`, {
+    method: "POST",
+  });
+}
+
+export function movePromotionalContentDown(id) {
+  return adminApi(`/marketing/promotional-content/${id}/move-down/`, {
+    method: "POST",
+  });
 }
 
 export async function getAdminUsers() {
@@ -161,11 +377,13 @@ export function deleteAdminRelationship(id, kind, itemId) {
 
 function queryString(params = {}) {
   const query = new URLSearchParams();
+
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
       query.set(key, String(value));
     }
   });
+
   const value = query.toString();
   return value ? `?${value}` : "";
 }
@@ -225,6 +443,10 @@ export function getAdminModules() {
 export async function getHealthcareProviders(params = {}) {
   const response = await adminApi(`/providers/${queryString(params)}`);
   return Array.isArray(response?.results) ? response.results : response;
+}
+
+export function getHealthcareProvider(id) {
+  return adminApi(`/providers/${encodeURIComponent(id)}/`);
 }
 
 export function createHealthcareProvider(data) {
@@ -292,15 +514,19 @@ export async function downloadHealthcareProviderDocument(documentId) {
 
 export async function getPromotions(params = {}) {
   const query = new URLSearchParams();
+
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
       query.set(key, String(value));
     }
   });
+
   const queryString = query.toString();
+
   const result = await adminApi(
     `/marketing/promotions/${queryString ? `?${queryString}` : ""}`,
   );
+
   return Array.isArray(result) ? result : result?.results || [];
 }
 
@@ -317,70 +543,4 @@ export function updatePromotion(id, data) {
 
 export function deletePromotion(id) {
   return adminApi(`/marketing/promotions/${id}/`, { method: "DELETE" });
-}
-
-export function getCoupons(params = {}) {
-  const query = new URLSearchParams();
-
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.set(key, value);
-    }
-  });
-
-  const queryString = query.toString();
-
-  return adminApi(`/marketing/coupons/${queryString ? `?${queryString}` : ""}`);
-}
-
-export function updateCoupon(id, data) {
-  return adminApi(`/marketing/coupons/${id}/`, {
-    method: "PATCH",
-    body: data,
-  });
-}
-
-export function deleteCoupon(id) {
-  return adminApi(`/marketing/coupons/${id}/`, {
-    method: "DELETE",
-  });
-}
-
-export function toggleCouponStatus(id) {
-  return adminApi(`/marketing/coupons/${id}/toggle-status/`, {
-    method: "POST",
-  });
-}
-
-export function getCouponUsage(id) {
-  return adminApi(`/marketing/coupons/${id}/usage/`);
-}
-
-export async function createCoupon(data) {
-  const token = getAdminToken();
-
-  const response = await fetch(`${API_BASE_URL}/admin/marketing/coupons/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    const message =
-      result?.detail ||
-      result?.error ||
-      Object.values(result || {})
-        .flat()
-        .join(" ") ||
-      "Unable to create coupon.";
-
-    throw new Error(message);
-  }
-
-  return result;
 }

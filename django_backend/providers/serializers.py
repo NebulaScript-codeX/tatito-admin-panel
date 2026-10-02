@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from rest_framework import serializers
@@ -88,3 +89,19 @@ class HealthcareProviderSerializer(serializers.ModelSerializer):
         if not isinstance(value, dict):
             raise serializers.ValidationError("Type-specific details must be an object.")
         return value
+
+    def validate_phone(self, value):
+        phone = str(value or "").strip()
+        if not phone:
+            return ""
+        if len(phone) > 20 or not re.fullmatch(r"\+?[0-9\s()-]+", phone):
+            raise serializers.ValidationError("Enter a valid Indian mobile number.")
+
+        digits = re.sub(r"\D", "", phone)
+        if len(digits) == 12 and digits.startswith("91"):
+            digits = digits[2:]
+        elif len(digits) == 11 and digits.startswith("0"):
+            digits = digits[1:]
+        if not re.fullmatch(r"[6-9]\d{9}", digits):
+            raise serializers.ValidationError("Enter a valid Indian mobile number.")
+        return digits

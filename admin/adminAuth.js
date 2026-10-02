@@ -21,6 +21,12 @@ function saveAdminSession(session) {
   localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session))
 }
 
+export function updateAdminSessionProfile(admin) {
+  const session = getAdminSession()
+  if (!session || !admin) return
+  saveAdminSession({ ...session, admin })
+}
+
 export function isAdminAuthenticated() {
   const session = getAdminSession()
 

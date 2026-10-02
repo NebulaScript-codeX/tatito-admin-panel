@@ -1,8 +1,13 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Coupon, CouponUsage, Promotion
-
+from .models import (
+    Coupon,
+    CouponUsage,
+    FeaturedPromotion,
+    PromotionalContent,
+    Promotion,
+)
 
 class PromotionSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
@@ -24,7 +29,13 @@ class PromotionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "status", "created_by", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "status",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_status(self, promotion):
         return "active" if promotion.is_active else "inactive"
@@ -38,12 +49,13 @@ class PromotionSerializer(serializers.ModelSerializer):
             "end_date",
             self.instance.end_date if self.instance else None,
         )
+
         if start_date and end_date and end_date <= start_date:
             raise serializers.ValidationError({
                 "end_date": "End date must be after start date."
             })
-        return attrs
 
+        return attrs
 
 class CouponSerializer(serializers.ModelSerializer):
     is_expired = serializers.ReadOnlyField()
@@ -223,3 +235,126 @@ class CouponUsageSerializer(serializers.ModelSerializer):
             "username",
             "used_at",
         ]
+
+
+class FeaturedPromotionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeaturedPromotion
+        fields = [
+            "id",
+            "badge_text",
+            "title",
+            "description",
+            "link",
+            "colour",
+            "is_active",
+            "display_order",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+
+        if request and request.user.is_authenticated:
+            validated_data["created_by"] = request.user
+
+        return super().create(validated_data)
+
+
+class PromotionalContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PromotionalContent
+        fields = [
+            "id",
+            "title",
+            "description",
+            "link",
+            "placement",
+            "content_type",
+            "image_url",
+            "colour",
+            "is_active",
+            "display_order",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+
+        if request and request.user.is_authenticated:
+            validated_data["created_by"] = request.user
+
+        return super().create(validated_data)
+
+
+class FeaturedPromotionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeaturedPromotion
+        fields = [
+            "id",
+            "badge_text",
+            "title",
+            "description",
+            "link",
+            "colour",
+            "is_active",
+            "display_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_title(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Title is required.")
+        return value
+
+    def validate_badge_text(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Badge text is required.")
+        return value
+
+
+class PromotionalContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PromotionalContent
+        fields = [
+            "id",
+            "title",
+            "description",
+            "image_url",
+            "link",
+            "content_type",
+            "placement",
+            "is_active",
+            "display_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_title(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Title is required.")
+        return value

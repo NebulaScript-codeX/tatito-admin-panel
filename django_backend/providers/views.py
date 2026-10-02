@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import ModulePermission
 from accounts.permissions import has_module_permission
+from audit.services import log_action
 
 from .models import HealthcareProvider, ProviderDocument
 from .serializers import HealthcareProviderSerializer, ProviderDocumentSerializer
@@ -64,13 +65,55 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
             )
         return queryset.distinct()
 
+    def retrieve(self, request, *args, **kwargs):
+        provider = self.get_object()
+        response = Response(self.get_serializer(provider).data)
+        _log_provider_action(
+            request,
+            "view",
+            provider,
+            f"Viewed healthcare provider: {provider.name}",
+        )
+        return response
+
     def perform_create(self, serializer):
-        serializer.save(status=HealthcareProvider.Status.PENDING)
+        provider = serializer.save(status=HealthcareProvider.Status.PENDING)
+        _log_provider_action(
+            self.request,
+            "create",
+            provider,
+            f"Added healthcare provider: {provider.name}",
+        )
+
+    def perform_update(self, serializer):
+        provider = serializer.save()
+        _log_provider_action(
+            self.request,
+            "edit",
+            provider,
+            f"Edited healthcare provider: {provider.name}",
+        )
 
     def perform_destroy(self, instance):
+        provider_id = instance.pk
+        provider_name = instance.name
+        provider_type = instance.provider_type
+        provider_status = instance.status
         for document in instance.documents.all():
             document.file.delete(save=False)
         instance.delete()
+        log_action(
+            self.request,
+            "delete",
+            module="providers",
+            target_type="healthcare_provider",
+            target_id=provider_id,
+            description=(
+                f"Deleted healthcare provider: {provider_name} "
+                f"(status: {provider_status})"
+            ),
+            metadata={"provider_type": provider_type, "status": provider_status},
+        )
 
     @action(
         detail=True,
@@ -82,6 +125,12 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
         provider.status = HealthcareProvider.Status.ACTIVE
         provider.rejection_reason = ""
         provider.save(update_fields=["status", "rejection_reason", "updated_at"])
+        _log_provider_action(
+            request,
+            "approve",
+            provider,
+            f"Approved healthcare provider: {provider.name}",
+        )
         return Response(self.get_serializer(provider).data)
 
     @action(
@@ -100,6 +149,13 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
         provider.status = HealthcareProvider.Status.REJECTED
         provider.rejection_reason = reason
         provider.save(update_fields=["status", "rejection_reason", "updated_at"])
+        _log_provider_action(
+            request,
+            "reject",
+            provider,
+            f"Rejected healthcare provider: {provider.name}",
+            {"reason": reason},
+        )
         return Response(self.get_serializer(provider).data)
 
     @action(
@@ -112,6 +168,12 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
         provider.status = HealthcareProvider.Status.ACTIVE
         provider.rejection_reason = ""
         provider.save(update_fields=["status", "rejection_reason", "updated_at"])
+        _log_provider_action(
+            request,
+            "activate",
+            provider,
+            f"Activated healthcare provider: {provider.name}",
+        )
         return Response(self.get_serializer(provider).data)
 
     @action(
@@ -123,7 +185,29 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
         provider = self.get_object()
         provider.status = HealthcareProvider.Status.INACTIVE
         provider.save(update_fields=["status", "updated_at"])
+        _log_provider_action(
+            request,
+            "deactivate",
+            provider,
+            f"Deactivated healthcare provider: {provider.name}",
+        )
         return Response(self.get_serializer(provider).data)
+
+
+def _log_provider_action(request, action, provider, description, extra_metadata=None):
+    log_action(
+        request,
+        action,
+        module="providers",
+        target_type="healthcare_provider",
+        target_id=provider.pk,
+        description=f"{description} (status: {provider.status})",
+        metadata={
+            "provider_type": provider.provider_type,
+            "status": provider.status,
+            **(extra_metadata or {}),
+        },
+    )
 
 
 class ProviderDocumentListCreateView(APIView):
@@ -143,6 +227,23 @@ class ProviderDocumentListCreateView(APIView):
         serializer = ProviderDocumentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         document = serializer.save(provider=provider)
+        log_action(
+            request,
+            "create",
+            module="providers",
+            target_type="provider_document",
+            target_id=document.pk,
+            description=(
+                f"Uploaded {document.get_kind_display()} for healthcare provider: "
+                f"{provider.name} (status: {document.status})"
+            ),
+            metadata={
+                "provider_id": provider.pk,
+                "provider_type": provider.provider_type,
+                "document_kind": document.kind,
+                "status": document.status,
+            },
+        )
         return Response(
             ProviderDocumentSerializer(document).data,
             status=status.HTTP_201_CREATED,
@@ -180,6 +281,30 @@ class ProviderDocumentDetailView(APIView):
         document.save(
             update_fields=["status", "rejection_reason", "reviewed_at"]
         )
+        action = (
+            "verify"
+            if document_status == ProviderDocument.Status.VERIFIED
+            else "reject"
+        )
+        log_action(
+            request,
+            action,
+            module="providers",
+            target_type="provider_document",
+            target_id=document.pk,
+            description=(
+                f"{'Verified' if action == 'verify' else 'Rejected'} "
+                f"{document.get_kind_display()} for healthcare provider: "
+                f"{document.provider.name} (status: {document.status})"
+            ),
+            metadata={
+                "provider_id": document.provider_id,
+                "provider_type": document.provider.provider_type,
+                "document_kind": document.kind,
+                "status": document.status,
+                "reason": document.rejection_reason,
+            },
+        )
         return Response(ProviderDocumentSerializer(document).data)
 
     def delete(self, request, pk, document_id):
@@ -188,8 +313,28 @@ class ProviderDocumentDetailView(APIView):
             pk=document_id,
             provider_id=pk,
         )
+        provider_id = document.provider_id
+        provider_name = document.provider.name
+        document_kind = document.get_kind_display()
+        document_status = document.status
         document.file.delete(save=False)
         document.delete()
+        log_action(
+            request,
+            "delete",
+            module="providers",
+            target_type="provider_document",
+            target_id=document_id,
+            description=(
+                f"Deleted {document_kind} for healthcare provider: {provider_name} "
+                f"(status: {document_status})"
+            ),
+            metadata={
+                "provider_id": provider_id,
+                "document_kind": document_kind,
+                "status": document_status,
+            },
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -200,6 +345,23 @@ class ProviderDocumentFileView(APIView):
     def get(self, request, document_id):
         document = get_object_or_404(ProviderDocument, pk=document_id)
         file_handle = document.file.open("rb")
+        log_action(
+            request,
+            "view",
+            module="providers",
+            target_type="provider_document",
+            target_id=document.pk,
+            description=(
+                f"Viewed {document.get_kind_display()} for healthcare provider: "
+                f"{document.provider.name} (status: {document.status})"
+            ),
+            metadata={
+                "provider_id": document.provider_id,
+                "provider_type": document.provider.provider_type,
+                "document_kind": document.kind,
+                "status": document.status,
+            },
+        )
         return FileResponse(
             file_handle,
             as_attachment=True,

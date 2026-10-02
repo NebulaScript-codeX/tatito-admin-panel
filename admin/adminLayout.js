@@ -2,8 +2,14 @@ import {
   getAdminSession,
   hasPermission,
   logoutAdminRemote,
+  updateAdminSessionProfile,
 } from "./adminAuth.js";
 import { escapeHtml } from "./adminChart.js";
+import {
+  adminApi,
+  getAdminDashboardOverview,
+  updateAdminAccount,
+} from "./adminApi.js";
 
 // Modules that have a real page behind them. Dashboard widgets use this to
 // avoid linking to pages that have not been implemented yet.
@@ -44,7 +50,12 @@ export function openModule(key) {
     audit_logs: "audit-logs",
   };
   const route = routes[key];
-  if (route) window.location.hash = `#/admin/${route}`;
+  if (!route) return;
+  if (key === "users" && typeof window.thpNavigate === "function") {
+    window.thpNavigate(`admin/${route}`);
+    return;
+  }
+  window.location.hash = `#/admin/${route}`;
 }
 
 const sidebarGroups = [
@@ -302,17 +313,27 @@ export function renderAdminLayout(
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
             <input
               type="search"
-              placeholder="Search patients, doctors, orders..."
-              aria-label="Search patients, doctors, orders (coming soon)"
-              disabled
+              id="thp-admin-global-search"
+              placeholder="Search admin data and modules..."
+              aria-label="Search admin data and modules"
+              autocomplete="off"
+              aria-controls="thp-admin-search-results"
+              aria-expanded="false"
             />
+            <div class="thp-admin-search-results" id="thp-admin-search-results" role="listbox" hidden></div>
           </div>
 
           <div class="thp-admin-topbar-actions">
-            <span class="thp-admin-notification" role="img" aria-label="Notifications" title="Notifications">
-              <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
-              <span class="thp-admin-notification-dot" aria-hidden="true"></span>
-            </span>
+            <div class="thp-admin-notifications" id="thp-admin-notifications">
+              <button type="button" class="thp-admin-notification" id="thp-admin-notification-toggle" aria-label="Notifications" title="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="thp-admin-notification-panel">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+                <span class="thp-admin-notification-dot" id="thp-admin-notification-count" aria-hidden="true" hidden></span>
+              </button>
+              <section class="thp-admin-notification-panel" id="thp-admin-notification-panel" aria-label="Admin notifications" hidden>
+                <header><strong>Notifications</strong><button type="button" class="thp-admin-notification-refresh" id="thp-admin-notification-refresh">Refresh</button></header>
+                <div class="thp-admin-notification-content" id="thp-admin-notification-content"><p>Open to load the latest admin activity.</p></div>
+              </section>
+            </div>
 
             <div class="thp-admin-profile" id="thp-admin-profile">
               <button
@@ -327,10 +348,15 @@ export function renderAdminLayout(
                 <span class="thp-admin-profile-info">
                   <strong>${username}</strong>
                   <span>${role}</span>
+                  <span class="thp-admin-profile-email">${escapeHtml(admin.email || "")}</span>
                 </span>
                 <svg class="thp-admin-profile-chevron" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
               </button>
               <div class="thp-admin-profile-dropdown" id="thp-admin-profile-menu" aria-hidden="true">
+                <button type="button" class="thp-admin-logout-button" id="thp-admin-manage-account" title="Manage account">
+                  <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>
+                  <span>Manage Account</span>
+                </button>
                 <button type="button" class="thp-admin-logout-button" id="thp-admin-logout" title="Sign out">
                   <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3"/><path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg>
                   <span>Sign out</span>
@@ -364,6 +390,32 @@ export function renderAdminLayout(
       <span class="toast-check" aria-hidden="true">&#10003;</span>
       <span id="toast-text">Updated</span>
     </div>
+    <div class="thp-admin-account-modal" id="thp-admin-account-modal" hidden>
+      <div class="thp-admin-modal-backdrop" data-account-close></div>
+      <section class="thp-admin-account-card" role="dialog" aria-modal="true" aria-labelledby="thp-admin-account-title">
+        <header class="thp-admin-account-heading">
+          <div><p class="thp-admin-eyebrow">ACCOUNT SETTINGS</p><h2 id="thp-admin-account-title">Manage Account</h2></div>
+          <button type="button" class="thp-admin-modal-close" data-account-close aria-label="Close">×</button>
+        </header>
+        <form id="thp-admin-account-form">
+          <div class="thp-admin-account-fields">
+            <label class="thp-admin-form-group"><span>Username</span><input name="username" autocomplete="username" required /></label>
+            <label class="thp-admin-form-group"><span>Email</span><input name="email" type="email" autocomplete="email" required /></label>
+          </div>
+          <p class="thp-admin-account-section-title">Change password <span>(leave blank to keep current password)</span></p>
+          <div class="thp-admin-account-fields">
+            <label class="thp-admin-form-group"><span>Current password</span><input name="current_password" type="password" autocomplete="current-password" /></label>
+            <label class="thp-admin-form-group"><span>New password</span><input name="new_password" type="password" autocomplete="new-password" minlength="8" /></label>
+            <label class="thp-admin-form-group"><span>Confirm new password</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="8" /></label>
+          </div>
+          <p class="thp-admin-account-error" id="thp-admin-account-error" role="alert" hidden></p>
+          <footer class="thp-admin-account-actions">
+            <button type="button" class="thp-admin-secondary-button" data-account-close>Cancel</button>
+            <button type="submit" class="thp-admin-primary-button" id="thp-admin-account-save">Save Changes</button>
+          </footer>
+        </form>
+      </section>
+    </div>
   `;
 
   setupAdminLayoutEvents(app);
@@ -385,6 +437,7 @@ function setupAdminLayoutEvents(app) {
   });
 
   const logoutButton = app.querySelector("#thp-admin-logout");
+  const manageAccountButton = app.querySelector("#thp-admin-manage-account");
   const profile = app.querySelector("#thp-admin-profile");
   const profileTrigger = app.querySelector("#thp-admin-profile-trigger");
   const profileMenu = app.querySelector("#thp-admin-profile-menu");
@@ -421,6 +474,245 @@ function setupAdminLayoutEvents(app) {
     setProfileMenuOpen(false);
     await logoutAdminRemote();
     window.location.hash = "#/admin/login";
+  });
+
+  const accountModal = app.querySelector("#thp-admin-account-modal");
+  const accountForm = app.querySelector("#thp-admin-account-form");
+  const accountError = app.querySelector("#thp-admin-account-error");
+  const accountSave = app.querySelector("#thp-admin-account-save");
+  const showToast = (message, isError = false) => {
+    const toast = app.querySelector("#toast");
+    const text = app.querySelector("#toast-text");
+    if (!toast || !text) return;
+    text.textContent = message;
+    toast.classList.toggle("is-error", isError);
+    toast.classList.add("is-visible");
+    window.clearTimeout(app._adminToastTimer);
+    app._adminToastTimer = window.setTimeout(
+      () => toast.classList.remove("is-visible", "is-error"),
+      3200,
+    );
+  };
+  const closeAccountModal = () => {
+    accountModal.hidden = true;
+    accountError.hidden = true;
+    accountForm.reset();
+  };
+
+  manageAccountButton?.addEventListener("click", () => {
+    const currentAdmin = getAdminSession()?.admin || {};
+    accountForm.elements.username.value = currentAdmin.username || "";
+    accountForm.elements.email.value = currentAdmin.email || "";
+    accountError.hidden = true;
+    accountModal.hidden = false;
+    setProfileMenuOpen(false);
+    accountForm.elements.username.focus();
+  });
+  accountModal?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-account-close]")) closeAccountModal();
+  });
+  accountModal?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !accountSave.disabled) closeAccountModal();
+  });
+  accountForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(accountForm);
+    const currentPassword = String(formData.get("current_password") || "");
+    const newPassword = String(formData.get("new_password") || "");
+    const confirmPassword = String(formData.get("confirm_password") || "");
+    const passwordFieldsUsed = Boolean(currentPassword || newPassword || confirmPassword);
+    const payload = {
+      username: String(formData.get("username") || "").trim(),
+      email: String(formData.get("email") || "").trim(),
+    };
+
+    accountError.hidden = true;
+    if (passwordFieldsUsed && (!currentPassword || !newPassword || !confirmPassword)) {
+      accountError.textContent = "Enter the current password, new password, and confirmation to change your password.";
+      accountError.hidden = false;
+      return;
+    }
+    if (passwordFieldsUsed && newPassword !== confirmPassword) {
+      accountError.textContent = "The new password and confirmation do not match.";
+      accountError.hidden = false;
+      return;
+    }
+    if (passwordFieldsUsed) {
+      payload.current_password = currentPassword;
+      payload.new_password = newPassword;
+      payload.confirm_password = confirmPassword;
+    }
+
+    accountSave.disabled = true;
+    try {
+      const response = await updateAdminAccount(payload);
+      updateAdminSessionProfile(response.admin);
+      const username = app.querySelector(".thp-admin-profile-info strong");
+      const email = app.querySelector(".thp-admin-profile-email");
+      const avatar = app.querySelector(".thp-admin-avatar");
+      if (username) username.textContent = response.admin.username;
+      if (email) email.textContent = response.admin.email;
+      if (avatar) avatar.textContent = response.admin.username.charAt(0).toUpperCase();
+      closeAccountModal();
+      showToast(response.message || "Account updated successfully.");
+    } catch (error) {
+      const errors = error.data?.errors;
+      const details = errors
+        ? Object.values(errors).flat().join(" ")
+        : error.message;
+      accountError.textContent = details || "Unable to update the account.";
+      accountError.hidden = false;
+      showToast(details || error.message || "Unable to update the account.", true);
+    } finally {
+      accountSave.disabled = false;
+    }
+  });
+
+  const searchInput = app.querySelector("#thp-admin-global-search");
+  const searchResults = app.querySelector("#thp-admin-search-results");
+  let searchRequestId = 0;
+  let searchTimer;
+  const closeSearch = () => {
+    searchResults.hidden = true;
+    searchInput.setAttribute("aria-expanded", "false");
+  };
+  const renderSearchResults = (query, results, failed) => {
+    const moduleResults = sidebarGroups
+      .flatMap((group) => group.items)
+      .filter((item) => hasPermission(item.key, "view") && item.label.toLowerCase().includes(query.toLowerCase()))
+      .map((item) => ({ module: item.key, label: item.label, detail: "Admin module" }));
+    const combined = [...moduleResults, ...results];
+    searchResults.innerHTML = combined.length
+      ? `${combined.map((item) => `<button type="button" role="option" class="thp-admin-search-result" data-search-module="${escapeHtml(item.module)}"><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></span><span aria-hidden="true">›</span></button>`).join("")}${failed ? '<p class="thp-admin-search-note">Some search results could not be loaded.</p>' : ""}`
+      : `<p class="thp-admin-search-note">${failed ? "Search is temporarily unavailable." : "No matching admin data or modules found."}</p>`;
+    searchResults.hidden = false;
+    searchInput.setAttribute("aria-expanded", "true");
+  };
+  const searchAdminData = async (rawQuery) => {
+    const query = rawQuery.trim();
+    const requestId = ++searchRequestId;
+    if (query.length < 2) {
+      closeSearch();
+      return;
+    }
+    searchResults.innerHTML = '<p class="thp-admin-search-note">Searching admin data…</p>';
+    searchResults.hidden = false;
+    searchInput.setAttribute("aria-expanded", "true");
+
+    const encoded = encodeURIComponent(query);
+    const sources = [
+      hasPermission("users", "view") && { module: "users", endpoint: `/users/?search=${encoded}&page_size=5`, label: (row) => row.name || row.email, detail: (row) => `${row.role || "User"} · ${row.email || ""}` },
+      hasPermission("staff", "view") && { module: "staff", endpoint: `/staff/?search=${encoded}`, label: (row) => row.name || row.username, detail: (row) => `Staff · ${row.email || ""}` },
+      hasPermission("providers", "view") && { module: "providers", endpoint: `/providers/?search=${encoded}`, label: (row) => row.name, detail: (row) => `Healthcare provider · ${row.provider_type || ""}` },
+      hasPermission("coupons_offers_marketing", "view") && { module: "coupons_offers_marketing", endpoint: `/marketing/coupons/?search=${encoded}`, label: (row) => row.code, detail: () => "Coupon" },
+      hasPermission("promotions", "view") && { module: "promotions", endpoint: `/marketing/promotions/?search=${encoded}`, label: (row) => row.title, detail: () => "Promotion" },
+    ].filter(Boolean);
+    const settled = await Promise.allSettled(sources.map((source) => adminApi(source.endpoint)));
+    if (requestId !== searchRequestId) return;
+    const results = [];
+    let failed = false;
+    settled.forEach((result, index) => {
+      if (result.status !== "fulfilled") {
+        failed = true;
+        return;
+      }
+      const rows = Array.isArray(result.value?.results)
+        ? result.value.results
+        : Array.isArray(result.value)
+          ? result.value
+          : [];
+      rows.slice(0, 5).forEach((row) => {
+        const label = sources[index].label(row);
+        if (label) results.push({ module: sources[index].module, label, detail: sources[index].detail(row) });
+      });
+    });
+    renderSearchResults(query, results, failed);
+  };
+  searchInput?.addEventListener("input", () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => searchAdminData(searchInput.value), 250);
+  });
+  searchInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeSearch();
+    if (event.key === "Enter") {
+      const firstResult = searchResults.querySelector("[data-search-module]");
+      if (firstResult) {
+        openModule(firstResult.dataset.searchModule);
+        closeSearch();
+      }
+    }
+  });
+  searchResults?.addEventListener("click", (event) => {
+    const result = event.target.closest("[data-search-module]");
+    if (!result) return;
+    openModule(result.dataset.searchModule);
+    closeSearch();
+  });
+  app.addEventListener("click", (event) => {
+    if (!event.target.closest(".thp-admin-search")) closeSearch();
+  });
+
+  const notificationToggle = app.querySelector("#thp-admin-notification-toggle");
+  const notificationPanel = app.querySelector("#thp-admin-notification-panel");
+  const notificationContent = app.querySelector("#thp-admin-notification-content");
+  const notificationCount = app.querySelector("#thp-admin-notification-count");
+  let notificationRequestId = 0;
+  const loadNotifications = async () => {
+    const requestId = ++notificationRequestId;
+    notificationContent.innerHTML = '<p>Loading recent admin activity…</p>';
+    try {
+      let entries = [];
+      let attention = [];
+      if (hasPermission("dashboard", "view")) {
+        const data = await getAdminDashboardOverview();
+        entries = data.recent_activity?.admin_activity || [];
+        const counts = data.needs_attention || {};
+        attention = [
+          ["doctor_verifications", "Doctor verifications", "users"],
+          ["provider_approvals", "Provider approvals", "providers"],
+          ["document_verifications", "Provider documents to verify", "providers"],
+        ].filter(([key]) => Number(counts[key]) > 0)
+          .map(([key, label, module]) => ({ label, detail: `${counts[key]} require attention`, module }));
+      } else if (hasPermission("audit_logs", "view")) {
+        const data = await adminApi("/audit-logs/?page_size=5");
+        entries = data.results || [];
+      } else {
+        notificationContent.innerHTML = '<p>Notifications are unavailable for your account.</p>';
+        notificationCount.hidden = true;
+        return;
+      }
+      if (requestId !== notificationRequestId) return;
+      const notices = [
+        ...attention.map((item) => `<button type="button" class="thp-admin-notification-item is-attention" data-notification-module="${item.module}"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></button>`),
+        ...entries.slice(0, 5).map((item) => `<div class="thp-admin-notification-item"><strong>${escapeHtml(item.description || item.action || "Admin activity")}</strong><span>${escapeHtml(item.actor || "Admin")} · ${escapeHtml(item.module || "system")} · ${escapeHtml(item.created_at ? new Date(item.created_at).toLocaleString() : "")}</span></div>`),
+      ];
+      notificationCount.hidden = attention.length === 0;
+      notificationContent.innerHTML = notices.length
+        ? notices.join("")
+        : '<p>No recent admin notifications.</p>';
+    } catch (error) {
+      if (requestId !== notificationRequestId) return;
+      notificationCount.hidden = true;
+      notificationContent.innerHTML = `<p>${escapeHtml(error.message || "Unable to load admin notifications.")}</p>`;
+    }
+  };
+  const setNotificationsOpen = (open) => {
+    notificationPanel.hidden = !open;
+    notificationToggle.setAttribute("aria-expanded", String(open));
+    if (open) loadNotifications();
+  };
+  notificationToggle?.addEventListener("click", () => {
+    setNotificationsOpen(notificationPanel.hidden);
+  });
+  app.querySelector("#thp-admin-notification-refresh")?.addEventListener("click", loadNotifications);
+  notificationContent?.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-notification-module]");
+    if (!item) return;
+    setNotificationsOpen(false);
+    openModule(item.dataset.notificationModule);
+  });
+  app.addEventListener("click", (event) => {
+    if (!event.target.closest("#thp-admin-notifications")) setNotificationsOpen(false);
   });
 
   const sidebarToggleButton = app.querySelector("#thp-admin-sidebar-toggle");

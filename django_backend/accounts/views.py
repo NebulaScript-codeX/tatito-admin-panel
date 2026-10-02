@@ -95,6 +95,85 @@ class AdminMeView(APIView):
         profile = request.user.admin_profile
         return Response({"success": True, "admin": admin_payload(request.user, profile)})
 
+    def patch(self, request):
+        user = request.user
+        data = request.data
+        updates = {}
+        errors = {}
+
+        if "username" in data:
+            username = str(data.get("username") or "").strip()
+            if not username:
+                errors["username"] = "Username is required."
+            else:
+                try:
+                    User._meta.get_field("username").clean(username, user)
+                except ValidationError as exc:
+                    errors["username"] = exc.messages
+                if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
+                    errors["username"] = "Username already exists."
+                updates["username"] = username
+
+        if "email" in data:
+            email = str(data.get("email") or "").strip().lower()
+            try:
+                validate_email(email)
+            except ValidationError:
+                errors["email"] = "Enter a valid email address."
+            if User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists():
+                errors["email"] = "Email already exists."
+            updates["email"] = email
+
+        password_changed = "new_password" in data
+        if password_changed:
+            current_password = data.get("current_password") or ""
+            new_password = data.get("new_password") or ""
+            confirm_password = data.get("confirm_password") or ""
+            if not current_password:
+                errors["current_password"] = "Current password is required."
+            elif not user.check_password(current_password):
+                errors["current_password"] = "Current password is incorrect."
+            if not new_password:
+                errors["new_password"] = "New password is required."
+            elif new_password != confirm_password:
+                errors["confirm_password"] = "New passwords do not match."
+            else:
+                password_errors = _check_password(new_password, user)
+                if password_errors:
+                    errors["new_password"] = password_errors
+
+        if errors:
+            return fail("Validation failed.", errors=errors)
+        if not updates and not password_changed:
+            return fail("Enter an account change before saving.")
+
+        changed_fields = []
+        for field, value in updates.items():
+            if getattr(user, field) != value:
+                setattr(user, field, value)
+                changed_fields.append(field)
+        if password_changed:
+            user.set_password(data["new_password"])
+            changed_fields.append("password")
+
+        if changed_fields:
+            user.save(update_fields=changed_fields)
+            log_action(
+                request,
+                "edit",
+                module="settings",
+                target_type="admin_account",
+                target_id=user.id,
+                description="Updated own admin account",
+                metadata={"changed_fields": changed_fields},
+            )
+
+        return Response({
+            "success": True,
+            "message": "Account updated successfully.",
+            "admin": admin_payload(user, user.admin_profile),
+        })
+
 
 class AdminLogoutView(APIView):
     permission_classes = [IsAdminUser]

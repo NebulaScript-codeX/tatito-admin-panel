@@ -29,7 +29,7 @@ const PERIODS = [
   { value: "30", label: "30 days", long: "the last 30 days" },
 ];
 
-const state = { period: "7", requestId: 0 };
+const state = { period: "7", requestId: 0, refreshTimer: null };
 
 /* =========================================================
    DATA
@@ -517,6 +517,8 @@ const METRIC_LABELS = {
   open_support_tickets: "Open Support Tickets",
   internship_applications: "Internship Applications",
   document_verifications: "Document Verifications",
+  active_coupons: "Active Coupons",
+  active_offers: "Active Offers",
 };
 
 // Which dashboard metrics each admin module feeds. A module is "live" when
@@ -531,6 +533,10 @@ const MODULE_GROUPS = [
       "total_pharmacies",
       "provider_approvals",
     ],
+  },
+  {
+    name: "Coupons & Offers",
+    metrics: ["active_coupons", "active_offers"],
   },
   {
     name: "Appointments",
@@ -579,6 +585,7 @@ function renderCoveragePanel(data) {
   const restrictedAudit = (data.meta?.restricted || []).includes(
     "recent_activity.admin_activity",
   );
+  const restrictedModules = new Set(data.meta?.restricted || []);
 
   const liveTiles = [
     { name: "Users", live: true },
@@ -588,7 +595,19 @@ function renderCoveragePanel(data) {
 
   const groupTiles = MODULE_GROUPS.map((group) => {
     const waiting = group.metrics.filter((key) => unavailable.has(key));
-    return { name: group.name, live: waiting.length === 0, waiting };
+    const moduleKey =
+      group.name === "Healthcare Providers"
+        ? "providers"
+        : group.name === "Coupons & Offers"
+          ? "coupons_offers_marketing"
+          : "";
+    const restricted = moduleKey && restrictedModules.has(moduleKey);
+    return {
+      name: group.name,
+      live: waiting.length === 0 && !restricted,
+      waiting,
+      restricted,
+    };
   });
 
   const tiles = [...liveTiles, ...groupTiles];
@@ -603,6 +622,20 @@ function renderCoveragePanel(data) {
         ${tiles
           .map((tile) => {
             const names = tile.waiting.map((key) => METRIC_LABELS[key] || key);
+            let detail = "";
+            if (tile.name === "Healthcare Providers" && tile.live) {
+              const overview = data.platform_overview || {};
+              detail = [
+                `${formatCount(overview.total_hospitals || 0)} hospitals`,
+                `${formatCount(overview.total_clinics || 0)} clinics`,
+                `${formatCount(overview.total_diagnostic_centres || 0)} diagnostic centres`,
+                `${formatCount(overview.total_pharmacies || 0)} pharmacies`,
+                `${formatCount(data.needs_attention?.provider_approvals || 0)} pending review`,
+              ].join(" · ");
+            } else if (tile.name === "Coupons & Offers" && tile.live) {
+              const offers = data.coupons_offers || {};
+              detail = `${formatCount(offers.active_coupons || 0)} active coupons · ${formatCount(offers.active_offers || 0)} active offers`;
+            }
             return `
               <li class="${tile.live ? "is-live" : "is-waiting"}" ${names.length ? `title="${escapeHtml(names.join(", "))}"` : ""}>
                 <span class="dash-status ${tile.live ? "is-ok" : "is-idle"}"></span>
@@ -610,7 +643,7 @@ function renderCoveragePanel(data) {
                   <strong>${escapeHtml(tile.name)}</strong>
                   <span>${
                     tile.live
-                      ? "Live data"
+                      ? detail || "Live data"
                       : tile.waiting.length
                         ? `${tile.waiting.length} ${tile.waiting.length === 1 ? "metric" : "metrics"} waiting for a data source`
                         : "No access with your role"
@@ -620,44 +653,6 @@ function renderCoveragePanel(data) {
           })
           .join("")}
       </ul>`,
-  });
-}
-
-/* ---- Quick links (only when a usable module page exists) --- */
-
-const QUICK_LINKS = [
-  { label: "Users", page: "users", action: "view" },
-  { label: "Doctors & Appointments", page: "doctors", action: "view" },
-  { label: "Staff, Roles & Admin", page: "staff", action: "view" },
-  { label: "Pharmacy", page: "pharmacy", action: "view" },
-  { label: "Lab Tests", page: "lab_tests", action: "view" },
-  { label: "Orders & Payments", page: "orders_payments", action: "view" },
-  { label: "Internships", page: "internships", action: "view" },
-  { label: "Support", page: "support", action: "view" },
-  { label: "Audit Logs", page: "audit_logs", action: "view" },
-];
-
-function renderQuickLinks() {
-  const links = QUICK_LINKS.filter(
-    (link) =>
-      isModuleAvailable(link.page) && hasPermission(link.page, link.action),
-  );
-
-  if (!links.length) return "";
-
-  return panel({
-    title: "Quick links",
-    subtitle: "Jump to a module",
-    className: "is-wide",
-    body: `
-      <div class="dash-quick">
-        ${links
-          .map(
-            (link) =>
-              `<button type="button" class="dash-quick-link" data-admin-page="${escapeHtml(link.page)}">${escapeHtml(link.label)}</button>`,
-          )
-          .join("")}
-      </div>`,
   });
 }
 
@@ -687,7 +682,6 @@ function renderContent(data) {
         ${renderRecentAdminActivity(data)}
       </div>
 
-      ${renderQuickLinks()}
       ${renderCoveragePanel(data)}
     </div>
   `;
@@ -823,6 +817,10 @@ function bindToolbar(app) {
 }
 
 export async function renderAdminDashboard(app) {
+  if (state.refreshTimer) {
+    window.clearInterval(state.refreshTimer);
+    state.refreshTimer = null;
+  }
   if (!isAdminAuthenticated()) {
     window.location.hash = "#/admin/login";
     return;
@@ -851,4 +849,12 @@ export async function renderAdminDashboard(app) {
   });
 
   await load(app);
+  state.refreshTimer = window.setInterval(() => {
+    if (!window.location.hash.startsWith("#/admin/dashboard")) {
+      window.clearInterval(state.refreshTimer);
+      state.refreshTimer = null;
+      return;
+    }
+    if (!document.hidden) load(app);
+  }, 30000);
 }

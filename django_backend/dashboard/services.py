@@ -1,12 +1,4 @@
-"""
-Dashboard aggregation.
-
-Every number here is read from the Node app's MongoDB. The only collections the
-Node app currently defines are:  users (User.js), doctors (Doctor.js),
-reviews (Review.js). Anything else the dashboard spec asks for has NO backend
-source yet, so it is returned as null / [] and listed in `meta.unavailable`
-- never estimated, never guessed from similarly named collections.
-"""
+"""Aggregate Dashboard data from MongoDB and Django-backed admin modules."""
 from datetime import datetime, timedelta, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
@@ -20,17 +12,11 @@ VALID_PERIODS = ("today", "7", "30")
 
 # metric -> what the backend is missing. Keeps the API honest and self-documenting.
 UNAVAILABLE = {
-    "total_hospitals": "No hospitals collection/model in the Node backend.",
-    "total_clinics": "No clinics collection/model in the Node backend.",
-    "total_diagnostic_centres": "No diagnostic-centres collection/model in the Node backend.",
-    "total_pharmacies": "No pharmacies collection/model in the Node backend.",
     "today_appointments": "No appointments model (only Doctor/User/Review exist).",
     "pending_medicine_orders": "No medicine/pharmacy orders model.",
     "lab_test_bookings": "No lab-test bookings model.",
     "sample_collections": "No sample-collections model.",
     "revenue": "No payments/orders/bookings model to derive revenue from.",
-    "provider_approvals": "No provider (hospital/clinic/lab/pharmacy) model.",
-    "document_verifications": "No documents/verification model.",
     "prescription_reviews": "No prescriptions model.",
     "refund_requests": "No refunds/payments model.",
     "internship_applications": "No internship-applications model in the Node backend.",
@@ -55,6 +41,9 @@ SOURCES = {
     "admin_activity": "django:audit.AuditLog",
     "users_by_role": "mongo:users grouped by role",
     "doctors_by_specialty": "mongo:doctors grouped by specialty",
+    "healthcare_providers": "django:providers.HealthcareProvider",
+    "provider_documents": "django:providers.ProviderDocument",
+    "coupons_offers": "django:marketing.Coupon, Promotion, FeaturedPromotion, PromotionalContent",
 }
 
 
@@ -148,7 +137,14 @@ def _safe_user(doc):
     }
 
 
-def build_overview(db, period, can_see_users=True, audit_rows=None):
+def build_overview(
+    db,
+    period,
+    can_see_users=True,
+    audit_rows=None,
+    provider_stats=None,
+    coupon_stats=None,
+):
     start, end = period_window(period)
     users = db[USERS]
     doctors = db[DOCTORS]
@@ -158,10 +154,12 @@ def build_overview(db, period, can_see_users=True, audit_rows=None):
     platform_overview = {
         "total_users": _count(users),
         "total_doctors": _count(doctors),
-        "total_hospitals": None,
-        "total_clinics": None,
-        "total_diagnostic_centres": None,
-        "total_pharmacies": None,
+        "total_hospitals": (provider_stats or {}).get("total_hospitals"),
+        "total_clinics": (provider_stats or {}).get("total_clinics"),
+        "total_diagnostic_centres": (provider_stats or {}).get(
+            "total_diagnostic_centres"
+        ),
+        "total_pharmacies": (provider_stats or {}).get("total_pharmacies"),
     }
 
     live_stats = {
@@ -175,8 +173,10 @@ def build_overview(db, period, can_see_users=True, audit_rows=None):
 
     needs_attention = {
         "doctor_verifications": _count(doctors, {"verified": False}),
-        "provider_approvals": None,
-        "document_verifications": None,
+        "provider_approvals": (provider_stats or {}).get("provider_approvals"),
+        "document_verifications": (provider_stats or {}).get(
+            "document_verifications"
+        ),
         "prescription_reviews": None,
         "refund_requests": None,
         "internship_applications": None,
@@ -213,6 +213,7 @@ def build_overview(db, period, can_see_users=True, audit_rows=None):
         "platform_overview": platform_overview,
         "live_stats": live_stats,
         "needs_attention": needs_attention,
+        "coupons_offers": coupon_stats,
         "charts": charts,
         "distributions": distributions,
         "recent_activity": {
