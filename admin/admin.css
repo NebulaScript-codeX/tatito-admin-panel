@@ -4673,3 +4673,199 @@ button.thp-admin-notification-item:hover {
     width: 100%;
   }
 }
+
+/* Module 12 - Content modal and forms */
+.thp-admin-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+  background: rgba(4, 35, 29, 0.45) !important;
+  backdrop-filter: blur(3px);
+}
+
+.thp-admin-modal {
+  display: block !important;
+  position: relative !important;
+  width: min(760px, calc(100vw - 48px)) !important;
+  max-width: 760px !important;
+  max-height: calc(100vh - 48px) !important;
+  margin: 0 auto !important;
+  overflow-y: auto !important;
+  background: #fff !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.2) !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+}
+
+.thp-admin-modal-header {
+  display: flex !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 20px !important;
+  margin: 0 0 24px !important;
+}
+
+.thp-admin-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.thp-admin-modal-header h2 {
+  margin: 0 0 4px;
+}
+
+.thp-admin-modal-header p {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+.thp-admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.thp-admin-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.thp-admin-form-grid label > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.thp-admin-form-grid input,
+.thp-admin-form-grid select,
+.thp-admin-form-grid textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #d6dfdc;
+  border-radius: 9px;
+  background: #fff;
+  color: #102a25;
+  font: inherit;
+}
+
+.thp-admin-form-grid textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.thp-admin-form-grid input:focus,
+.thp-admin-form-grid select:focus,
+.thp-admin-form-grid textarea:focus {
+  outline: none;
+  border-color: #087f6b;
+  box-shadow: 0 0 0 3px rgba(8, 127, 107, 0.12);
+}
+
+.thp-admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #e6ecea;
+}
+
+@media (max-width: 700px) {
+  .thp-admin-modal-overlay {
+    padding: 12px;
+  }
+
+  .thp-admin-modal {
+    padding: 18px;
+    max-height: calc(100vh - 24px);
+  }
+
+  .thp-admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.thp-content-taxonomy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .thp-content-taxonomy-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Module 12 - Blog Categories & Tags */
+.thp-content-taxonomy-grid {
+  min-width: 0;
+}
+
+.thp-content-taxonomy-grid > .thp-admin-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table-wrap {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table th,
+.thp-content-taxonomy-grid .thp-admin-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table th:first-child,
+.thp-content-taxonomy-grid .thp-admin-table td:first-child {
+  width: 42%;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table th:nth-child(2),
+.thp-content-taxonomy-grid .thp-admin-table td:nth-child(2) {
+  width: 23%;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table th:last-child,
+.thp-content-taxonomy-grid .thp-admin-table td:last-child {
+  width: 35%;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table td:last-child {
+  white-space: normal;
+}
+
+.thp-content-taxonomy-grid .thp-admin-table td:last-child .thp-admin-button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.thp-content-section-card {
+  margin-top: 20px;
+}

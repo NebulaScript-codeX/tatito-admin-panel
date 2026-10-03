@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "audit",
     "marketing",
     "providers",
+    "content",
 ]
 
 MIDDLEWARE = [
@@ -89,9 +90,9 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'tatito_admin',
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': 'Shivam@123',
         'HOST': '127.0.0.1',
-        'PORT': '3307',
+        'PORT': '3306',
     }
 }
 MONGO_URI = os.getenv(
