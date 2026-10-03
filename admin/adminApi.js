@@ -7,6 +7,9 @@ import {
 const API_BASE_URL = "http://127.0.0.1:8000/api";
 const ADMIN_API_BASE_URL = `${API_BASE_URL}/admin`;
 
+let cachedHealthRecordCounts = null;
+let healthRecordCountsRequest = null;
+
 export async function adminApi(
   path,
   {
@@ -503,6 +506,95 @@ export function runCareAction(resource, id, action, data = {}) {
   return adminApi(
     `/care/${resource}/${encodeURIComponent(id)}/action/${action}/`,
     { method: "POST", body: data },
+  );
+}
+
+function healthRecordsQuery(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+  const suffix = query.toString();
+  return suffix ? `?${suffix}` : "";
+}
+
+export function getHealthRecordPatients(search = "") {
+  return adminApi(
+    `/health-records/patients/${healthRecordsQuery({ search })}`,
+  );
+}
+
+export function getHealthRecordCounts(patientId = "") {
+  if (patientId) {
+    return adminApi(
+      `/health-records/counts/${healthRecordsQuery({ patient_id: patientId })}`,
+    ).then((response) => response.counts);
+  }
+  if (cachedHealthRecordCounts) {
+    return Promise.resolve(cachedHealthRecordCounts);
+  }
+  if (!healthRecordCountsRequest) {
+    healthRecordCountsRequest = adminApi("/health-records/counts/")
+      .then((response) => {
+        cachedHealthRecordCounts = response.counts;
+        window.dispatchEvent(new CustomEvent(
+          "thp-health-record-counts-updated",
+          { detail: cachedHealthRecordCounts },
+        ));
+        return cachedHealthRecordCounts;
+      })
+      .finally(() => {
+        healthRecordCountsRequest = null;
+      });
+  }
+  return healthRecordCountsRequest;
+}
+
+export function getCachedHealthRecordCounts() {
+  return cachedHealthRecordCounts;
+}
+
+export function refreshHealthRecordCounts() {
+  cachedHealthRecordCounts = null;
+  return getHealthRecordCounts();
+}
+
+export function getHealthRecordPatient(id) {
+  return adminApi(`/health-records/patients/${encodeURIComponent(id)}/`);
+}
+
+export function getHealthRecordCollection(resource, patientId) {
+  return adminApi(
+    `/health-records/${resource}/${healthRecordsQuery({ patient_id: patientId })}`,
+  );
+}
+
+export function getHealthRecordAccessLog(patientId) {
+  return adminApi(
+    `/health-records/patients/${encodeURIComponent(patientId)}/access-log/`,
+  );
+}
+
+export function createHealthRecord(resource, data) {
+  return adminApi(`/health-records/${resource}/`, {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateHealthRecord(resource, id, data) {
+  return adminApi(
+    `/health-records/${resource}/${encodeURIComponent(id)}/`,
+    { method: "PATCH", body: data },
+  );
+}
+
+export function deleteHealthRecord(resource, id) {
+  return adminApi(
+    `/health-records/${resource}/${encodeURIComponent(id)}/`,
+    { method: "DELETE" },
   );
 }
 

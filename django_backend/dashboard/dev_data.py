@@ -32,6 +32,7 @@ from dashboard.models import (
     PlatformReview,
     PlatformUser,
 )
+from health_records.models import Allergy, LabBooking, PrescriptionUpload, Vaccination, VitalReading
 from marketing.models import Coupon, FeaturedPromotion, Promotion, PromotionalContent
 from providers.models import HealthcareProvider, ProviderDocument
 
@@ -40,10 +41,15 @@ MODEL_ORDER = (
     Specialty,
     Doctor,
     CarePatient,
+    LabBooking,
+    Vaccination,
+    Allergy,
+    VitalReading,
     WeeklySchedule,
     DoctorLeave,
     AppointmentSlot,
     Appointment,
+    PrescriptionUpload,
     AppointmentTimeline,
     DoctorPayout,
     CarePayment,
@@ -104,6 +110,36 @@ def _safe_fields(model, field_name, value, record):
         return "DEV Sample Patient"
     if model is CarePatient and field_name == "external_id":
         return ""
+    if model is LabBooking:
+        if field_name == "test_name":
+            return "DEV Sample Completed Lab Test"
+        if field_name in {"phlebotomist", "pathologist"}:
+            return "DEV Sample Clinical Staff" if value else ""
+        if field_name == "clinical_summary":
+            return "Fictional development laboratory summary."
+        if field_name == "report_pdf_url":
+            return ""
+    if model is PrescriptionUpload:
+        if field_name == "prescription_number":
+            return _development_label(record, "DEV Prescription")
+        if field_name == "doctor_name":
+            return _related_development_doctor_name(record)
+        if field_name == "diagnosis":
+            return "Fictional development diagnosis." if value else ""
+        if field_name == "medicines":
+            return (
+                [{"name": "Development sample medicine", "dose": "As directed"}]
+                if value
+                else []
+            )
+        if field_name == "instructions":
+            return "Fictional development prescription instructions." if value else ""
+        if field_name == "pdf_url":
+            return ""
+    if model is Vaccination and field_name == "vaccine":
+        return "DEV Sample Vaccine"
+    if model is Allergy and field_name == "allergy":
+        return "DEV Sample Allergy"
     if model in {Appointment, Review} and field_name == "patient_name":
         return "DEV Sample Patient"
     if model in {CarePayment, RefundRequest, Review} and field_name == "patient_id":

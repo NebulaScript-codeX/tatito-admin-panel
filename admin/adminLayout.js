@@ -8,6 +8,7 @@ import { escapeHtml } from "./adminChart.js";
 import {
   adminApi,
   getAdminDashboardOverview,
+  refreshHealthRecordCounts,
   updateAdminAccount,
 } from "./adminApi.js";
 
@@ -20,6 +21,7 @@ const BUILT_MODULES = new Set([
   "providers",
   "doctors",
   "promotions",
+  "health_records",
   "coupons_offers_marketing",
 ]);
 
@@ -35,6 +37,7 @@ export function openModule(key) {
     promotions: "promotions",
     providers: "providers",
     doctors: "doctors",
+    health_records: "health-records",
     pharmacy: "pharmacy",
     lab_tests: "lab-tests",
     orders_payments: "orders-payments",
@@ -80,6 +83,7 @@ const sidebarGroups = [
     title: "CARE",
     items: [
       { key: "doctors", label: "Doctors & Appointments", icon: "doctor" },
+      { key: "health_records", label: "Health Records", icon: "records" },
     ],
   },
   {
@@ -137,6 +141,8 @@ const sidebarIconPaths = {
     '<path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2M11 21v-3h2v3"/>',
   doctor:
     '<path d="M6 3v6a4 4 0 0 0 8 0V3M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/><path d="M4 3h4m6 0h4"/>',
+  records:
+    '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8m-8 4h5"/><path d="M12 1v4m-2-2h4"/>',
   pharmacy:
     '<path d="m10.5 3.5 10 10a4.95 4.95 0 0 1-7 7l-10-10a4.95 4.95 0 0 1 7-7Z"/><path d="m8 6 10 10M13 8l3-3m-8 8-3 3"/>',
   lab: '<path d="M9 3h6m-5 0v7L4 19a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3l-6-9V3M7 16h10"/>',
@@ -182,6 +188,7 @@ const pageTitles = {
   staff: "Staff, Roles & Admin Accounts",
   providers: "Healthcare Providers",
   doctors: "Doctors & Appointments",
+  health_records: "Health Records",
   pharmacy: "Pharmacy",
   lab_tests: "Lab Tests",
   orders_payments: "Orders & Payments",
@@ -428,6 +435,12 @@ function setupAdminLayoutEvents(app) {
   app._adminLayoutEvents?.abort();
   const eventController = new AbortController();
   app._adminLayoutEvents = eventController;
+
+  if (hasPermission("health_records", "view")) {
+    refreshHealthRecordCounts().catch((error) => {
+      console.error("Unable to preload Health Records navigation counts.", error);
+    });
+  }
 
   const navigation = app.querySelector(".thp-admin-navigation");
   navigation?.addEventListener("click", (event) => {

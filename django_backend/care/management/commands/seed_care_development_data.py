@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.core.management import call_command
 from django.db import transaction
 from django.utils import timezone
 
@@ -165,7 +166,7 @@ class Command(BaseCommand):
                 doctors[slug] = doctor
 
             patients = {}
-            for slug, name in (("one", "DEV Sample Patient One"), ("two", "DEV Sample Patient Two")):
+            for slug, name in (("one", "Ananya Kulkarni"), ("two", "Rohan Deshmukh")):
                 patients[slug], _ = CarePatient.objects.update_or_create(
                     development_key=key(f"patient-{slug}"),
                     defaults={
@@ -376,6 +377,8 @@ class Command(BaseCommand):
                     "is_development_data": True,
                 },
             )
+
+            call_command("seed_health_records_development_data", verbosity=0)
 
             self.stdout.write(self.style.SUCCESS(
                 f"CARE SQL demo data is ready: {len(doctors)} doctors, {len(specialties)} specialties, "

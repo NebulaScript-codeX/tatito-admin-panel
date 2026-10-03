@@ -41,6 +41,14 @@ python manage.py seed_dashboard_development_data
 python manage.py seed_content_development_data
 ```
 
+`seed_care_development_data` also seeds the fictional Health Records examples.
+They include four stable fictional patients with lab reports, prescriptions,
+vaccinations, allergies, and multiple historical vital readings. Existing CARE
+patients and Health Records are updated by development key rather than
+duplicated. Refresh the CARE and Health Records data with
+`python manage.py seed_care_development_data`, or refresh Health Records alone
+with `python manage.py seed_health_records_development_data`.
+
 The seed commands require `DEBUG=True` and update only their own stable
 development records.
 

@@ -28,6 +28,10 @@ urlpatterns = [
         include("care.urls"),
     ),
     path(
+        "api/admin/health-records/",
+        include("health_records.urls"),
+    ),
+    path(
         "api/admin/",
         include("providers.urls"),
     ),
