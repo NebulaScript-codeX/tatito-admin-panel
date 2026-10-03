@@ -52,5 +52,17 @@ export const updateDoctor = (id, data, token) =>
 export const deleteDoctor = (id, token) =>
   api(`/doctors/${id}`, { method: 'DELETE', token })
 export const getReviews = (id) => api(`/doctors/${id}/reviews`)
+export const getDoctorAvailability = (id, date) =>
+  api(`/doctors/${encodeURIComponent(id)}/availability?date=${encodeURIComponent(date)}`)
+export const createDoctorAppointment = (id, payload, token) =>
+  api(`/doctors/${encodeURIComponent(id)}/appointments`, {
+    method: 'POST',
+    body: payload,
+    token,
+  })
+export const getMyDoctorAppointments = (token) =>
+  api('/doctors/appointments/me', { token })
+export const getMyDoctorPayments = (token) =>
+  api('/doctors/payments/me', { token })
 export const createReview = (id, payload, token) =>
   api(`/doctors/${id}/reviews`, { method: 'POST', body: payload, token })

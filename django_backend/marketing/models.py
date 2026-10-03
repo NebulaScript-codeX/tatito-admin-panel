@@ -5,8 +5,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from dashboard.models import DevelopmentRecord
 
-class Promotion(models.Model):
+
+class Promotion(DevelopmentRecord):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     image_url = models.URLField(max_length=500, blank=True)
@@ -41,7 +43,7 @@ class Promotion(models.Model):
         return self.title
 
 
-class Coupon(models.Model):
+class Coupon(DevelopmentRecord):
 
     DISCOUNT_TYPE_CHOICES = [
         ("percentage", "Percentage"),
@@ -243,7 +245,7 @@ class CouponUsage(models.Model):
         return f"{self.coupon.code} - {self.user.username}"
 
 
-class FeaturedPromotion(models.Model):
+class FeaturedPromotion(DevelopmentRecord):
     badge_text = models.CharField(max_length=100)
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
@@ -270,7 +272,7 @@ class FeaturedPromotion(models.Model):
         return self.title
 
 
-class PromotionalContent(models.Model):
+class PromotionalContent(DevelopmentRecord):
     PLACEMENT_CHOICES = [
         ("home", "Home"),
         ("pharmacy", "Pharmacy"),

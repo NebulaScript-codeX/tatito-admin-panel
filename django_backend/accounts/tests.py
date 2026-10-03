@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
-from unittest import mock
-
-import mongomock
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from audit.models import AuditLog
+from dashboard.models import PlatformDoctor, PlatformReview, PlatformUser
 
 from .models import AdminProfile, Role
 
@@ -24,10 +23,6 @@ def make_admin(username, role_name, password=STRONG, active=True):
 class Base(TestCase):
     def setUp(self):
         call_command("seed_admin_roles", verbosity=0)
-        self.mongo = mongomock.MongoClient()["tatito_test"]
-        patcher = mock.patch("dashboard.mongo.get_mongo_database", return_value=self.mongo)
-        patcher.start()
-        self.addCleanup(patcher.stop)
         self.api = APIClient()
 
     def login(self, username, password=STRONG):
@@ -120,6 +115,32 @@ class AuthTests(Base):
         self.assertEqual(me.status_code, 200)
         self.assertEqual(me.data["admin"]["username"], "root")
         self.assertTrue(AuditLog.objects.filter(action="login", actor_username="root").exists())
+
+    def test_expired_access_token_can_be_refreshed_for_admin_profile(self):
+        make_admin("root", "Super Admin")
+        login = APIClient().post(
+            "/api/admin/login/",
+            {"username": "root", "password": STRONG},
+            format="json",
+        )
+        self.assertEqual(login.status_code, 200, login.data)
+
+        expired_access = AccessToken(login.data["access"])
+        expired_access.set_exp(from_time=datetime.now(dt_timezone.utc) - timedelta(minutes=10))
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {expired_access}")
+        self.assertEqual(client.get("/api/admin/me/").status_code, 401)
+
+        refreshed = APIClient().post(
+            "/api/admin/token/refresh/",
+            {"refresh": login.data["refresh"]},
+            format="json",
+        )
+        self.assertEqual(refreshed.status_code, 200, refreshed.data)
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {refreshed.data['access']}")
+        profile = client.get("/api/admin/me/")
+        self.assertEqual(profile.status_code, 200, profile.data)
+        self.assertEqual(profile.data["admin"]["username"], "root")
 
     def test_bad_login_rejected_and_audited(self):
         make_admin("root", "Super Admin")
@@ -239,12 +260,12 @@ class PeopleUserLifecycleTests(Base):
 
         refreshed = self.api.get("/api/admin/users/")
         saved = next(row for row in refreshed.data["results"] if row["id"] == user_id)
-        stored = self.mongo.users.find_one({"email": "patient-lifecycle@example.com"})
+        stored = PlatformUser.objects.get(pk=user_id)
         self.assertEqual(saved["city"], "Shelbyville")
         self.assertEqual(saved["date_of_birth"], "1990-01-01")
         self.assertEqual(saved["blood_group"], "O+")
         self.assertEqual(saved["gender"], "Female")
-        self.assertEqual(stored["city"], "Shelbyville")
+        self.assertEqual(stored.city, "Shelbyville")
 
     def test_doctor_create_and_edit_persist_linked_profile(self):
         created = self.api.post("/api/admin/users/", {
@@ -271,26 +292,26 @@ class PeopleUserLifecycleTests(Base):
             "fee": 80,
         }, format="json")
         self.assertEqual(updated.status_code, 200)
-        profile = self.mongo.doctors.find_one({"_id": doctor_id})
+        profile = PlatformDoctor.objects.get(pk=doctor_id)
         refreshed = self.api.get("/api/admin/users/")
         saved = next(row for row in refreshed.data["results"] if row["id"] == user_id)
-        self.assertEqual(profile["specialty"], "Internal Medicine")
-        self.assertEqual(profile["city"], "Shelbyville")
-        self.assertEqual(profile["location"], "Shelbyville Clinic")
-        self.assertEqual(profile["detail"], "Updated physician bio.")
-        self.assertEqual(profile["fee"], 80)
+        self.assertEqual(profile.specialty, "Internal Medicine")
+        self.assertEqual(profile.city, "Shelbyville")
+        self.assertEqual(profile.location, "Shelbyville Clinic")
+        self.assertEqual(profile.detail, "Updated physician bio.")
+        self.assertEqual(float(profile.fee), 80)
         self.assertEqual(saved["specialty"], "Internal Medicine")
 
     def test_unlinked_doctor_edit_uses_doctor_id_and_survives_refresh(self):
-        self.mongo.doctors.insert_one({
-            "_id": "d-static",
-            "name": "Dr. Static Profile",
-            "specialty": "Cardiology",
-            "city": "Springfield",
-            "location": "Memorial Hospital",
-            "detail": "Original bio",
-            "fee": 60,
-        })
+        PlatformDoctor.objects.create(
+            id="d-static",
+            name="Dr. Static Profile",
+            specialty="Cardiology",
+            city="Springfield",
+            location="Memorial Hospital",
+            detail="Original bio",
+            fee=60,
+        )
         updated = self.api.patch("/api/admin/doctors/d-static/", {
             "specialty": "Internal Medicine",
             "city": "Shelbyville",
@@ -301,11 +322,11 @@ class PeopleUserLifecycleTests(Base):
         self.assertEqual(updated.status_code, 200)
         refreshed = self.api.get("/api/admin/doctors/")
         saved = next(row for row in refreshed.data["results"] if row["id"] == "d-static")
-        stored = self.mongo.doctors.find_one({"_id": "d-static"})
+        stored = PlatformDoctor.objects.get(pk="d-static")
         self.assertEqual(saved["specialty"], "Internal Medicine")
         self.assertEqual(saved["city"], "Shelbyville")
         self.assertEqual(saved["bio"], "Updated bio")
-        self.assertEqual(stored["fee"], 85)
+        self.assertEqual(float(stored.fee), 85)
 
     def test_partner_create_and_edit_survive_list_refresh(self):
         created = self.api.post("/api/admin/users/", {
@@ -328,35 +349,32 @@ class PeopleUserLifecycleTests(Base):
 
         refreshed = self.api.get("/api/admin/users/")
         saved = next(row for row in refreshed.data["results"] if row["id"] == user_id)
-        stored = self.mongo.users.find_one({"email": "partner-lifecycle@example.com"})
         self.assertEqual(saved["partner_role"], "Lab Technician")
         self.assertEqual(saved["city"], "Shelbyville")
         self.assertEqual(saved["availability"], "unavailable")
-        self.assertEqual(stored["city"], "Shelbyville")
+        self.assertEqual(PlatformUser.objects.get(pk=user_id).city, "Shelbyville")
 
     def test_doctor_delete_removes_profile_reviews_and_dashboard_count(self):
         doctor_id = "doctor-delete-test"
-        self.mongo.doctors.insert_one({
-            "_id": doctor_id,
-            "name": "Doctor To Delete",
-            "specialty": "Cardiology",
-            "verified": True,
-            "verificationStatus": "verified",
-        })
-        self.mongo.reviews.insert_one({
-            "doctorId": doctor_id,
-            "patientName": "Test Patient",
-            "rating": 5,
-            "comment": "Test review",
-        })
+        doctor = PlatformDoctor.objects.create(
+            id=doctor_id, name="Doctor To Delete", specialty="Cardiology",
+            verified=True, verification_status="verified",
+        )
+        PlatformReview.objects.create(
+            id="doctor-delete-review",
+            doctor=doctor,
+            patient_name="Test Patient",
+            rating=5,
+            comment="Test review",
+        )
         before = self.api.get("/api/dashboard/overview/?period=7")
         self.assertEqual(before.data["platform_overview"]["total_doctors"], 1)
 
         deleted = self.api.delete(f"/api/admin/doctors/{doctor_id}/")
 
         self.assertEqual(deleted.status_code, 204)
-        self.assertIsNone(self.mongo.doctors.find_one({"_id": doctor_id}))
-        self.assertEqual(self.mongo.reviews.count_documents({"doctorId": doctor_id}), 0)
+        self.assertFalse(PlatformDoctor.objects.filter(pk=doctor_id).exists())
+        self.assertFalse(PlatformReview.objects.filter(doctor_id=doctor_id).exists())
         refreshed = self.api.get("/api/admin/doctors/")
         self.assertFalse(any(row["id"] == doctor_id for row in refreshed.data["results"]))
         after = self.api.get("/api/dashboard/overview/?period=7")
@@ -364,45 +382,45 @@ class PeopleUserLifecycleTests(Base):
 
     def test_doctor_status_transitions_persist_on_profile_and_linked_account(self):
         doctor_id = "doctor-status-test"
-        account_id = self.mongo.users.insert_one({
-            "name": "Doctor Status Test",
-            "email": "doctor-status@example.com",
-            "role": "doctor",
-            "doctorId": doctor_id,
-            "status": "pending",
-            "verificationStatus": "pending",
-            "isActive": True,
-            "isBlocked": False,
-        }).inserted_id
-        self.mongo.doctors.insert_one({
-            "_id": doctor_id,
-            "name": "Doctor Status Test",
-            "specialty": "Cardiology",
-            "verified": False,
-            "verificationStatus": "pending",
-            "available": True,
-            "owner": account_id,
-        })
+        account = PlatformUser.objects.create(
+            id="doctor-status-account",
+            name="Doctor Status Test",
+            email="doctor-status@example.com",
+            role=PlatformUser.Role.DOCTOR,
+            status="pending",
+            verification_status="pending",
+        )
+        PlatformDoctor.objects.create(
+            id=doctor_id,
+            name="Doctor Status Test",
+            specialty="Cardiology",
+            verified=False,
+            verification_status="pending",
+            available=True,
+            owner=account,
+        )
 
         approved = self.api.post(f"/api/admin/doctors/{doctor_id}/status/approve/")
         self.assertEqual(approved.status_code, 200)
         self.assertEqual(approved.data["doctor"]["credentialStatus"], "verified")
-        self.assertTrue(self.mongo.doctors.find_one({"_id": doctor_id})["verified"])
-        self.assertEqual(self.mongo.users.find_one({"_id": account_id})["verificationStatus"], "verified")
+        self.assertTrue(PlatformDoctor.objects.get(pk=doctor_id).verified)
+        account.refresh_from_db()
+        self.assertEqual(account.verification_status, "verified")
 
         missing_reason = self.api.post(f"/api/admin/doctors/{doctor_id}/status/reject/", {}, format="json")
         self.assertEqual(missing_reason.status_code, 400)
         rejected = self.api.post(f"/api/admin/doctors/{doctor_id}/status/reject/", {"reason": "Incomplete registration"}, format="json")
         self.assertEqual(rejected.status_code, 200)
-        self.assertEqual(self.mongo.doctors.find_one({"_id": doctor_id})["rejectionReason"], "Incomplete registration")
+        self.assertEqual(PlatformDoctor.objects.get(pk=doctor_id).rejection_reason, "Incomplete registration")
 
         suspended = self.api.post(f"/api/admin/doctors/{doctor_id}/status/suspend/", {"reason": "Credential review"}, format="json")
         self.assertEqual(suspended.status_code, 200)
-        self.assertEqual(self.mongo.doctors.find_one({"_id": doctor_id})["verificationStatus"], "suspended")
+        self.assertEqual(PlatformDoctor.objects.get(pk=doctor_id).verification_status, "suspended")
         reinstated = self.api.post(f"/api/admin/doctors/{doctor_id}/status/reinstate/")
         self.assertEqual(reinstated.status_code, 200)
-        self.assertEqual(self.mongo.doctors.find_one({"_id": doctor_id})["verificationStatus"], "verified")
-        self.assertEqual(self.mongo.users.find_one({"_id": account_id})["status"], "verified")
+        self.assertEqual(PlatformDoctor.objects.get(pk=doctor_id).verification_status, "verified")
+        account.refresh_from_db()
+        self.assertEqual(account.status, "verified")
 
 class StaffLifecycleTests(Base):
     def setUp(self):
@@ -551,27 +569,38 @@ class RoleLifecycleTests(Base):
         self.assertEqual(bad.status_code, 400)
 
 
-def _user(name, role, when):
-    return {"name": name, "email": f"{name}@x.com", "role": role,
-            "passwordHash": "$2a$SECRET", "createdAt": when}
-
-
 class DashboardTests(Base):
     def setUp(self):
         super().setUp()
         now = datetime.now(dt_timezone.utc)
-        self.mongo.users.insert_many([
-            _user("today_patient", "patient", now),
-            _user("d3_patient", "patient", now - timedelta(days=3)),
-            _user("d20_patient", "patient", now - timedelta(days=20)),
-            _user("d20_doctor", "doctor", now - timedelta(days=20)),
-            _user("d90_patient", "patient", now - timedelta(days=90)),
-        ])
-        self.mongo.doctors.insert_many([
-            {"_id": "d1", "name": "A", "specialty": "Cardiology", "verified": True},
-            {"_id": "d2", "name": "B", "specialty": "Dermatology", "verified": False},
-            {"_id": "d3", "name": "C", "specialty": "Cardiology", "verified": False},
-        ])
+        for index, (name, role, created_at) in enumerate([
+            ("today_patient", "patient", now),
+            ("d3_patient", "patient", now - timedelta(days=3)),
+            ("d20_patient", "patient", now - timedelta(days=20)),
+            ("d20_doctor", "doctor", now - timedelta(days=20)),
+            ("d90_patient", "patient", now - timedelta(days=90)),
+        ]):
+            PlatformUser.objects.create(
+                id=f"dashboard-user-{index}",
+                name=name,
+                email=f"{name}@example.test",
+                role=role,
+                password_hash="SECRET",
+                created_at=created_at,
+                updated_at=created_at,
+            )
+        for doctor_id, name, specialty, verification_status in [
+            ("d1", "A", "Cardiology", "verified"),
+            ("d2", "B", "Dermatology", "pending"),
+            ("d3", "C", "Cardiology", "pending"),
+        ]:
+            PlatformDoctor.objects.create(
+                id=doctor_id,
+                name=name,
+                specialty=specialty,
+                verification_status=verification_status,
+                verified=verification_status == "verified",
+            )
         make_admin("root", "Super Admin")
         self.login("root")
 
@@ -606,36 +635,54 @@ class DashboardTests(Base):
             self.assertEqual(d["platform_overview"][key], 0)
         for key in ("today_appointments", "pending_medicine_orders", "lab_test_bookings",
                     "sample_collections", "revenue"):
-            self.assertIsNone(d["live_stats"][key])
+            if key in {"pending_medicine_orders", "lab_test_bookings", "sample_collections"}:
+                self.assertIsNone(d["live_stats"][key])
+            else:
+                self.assertEqual(d["live_stats"][key], 0)
         for key, val in d["needs_attention"].items():
             if key not in {
                 "doctor_verifications",
                 "provider_approvals",
                 "document_verifications",
+                "pending_reviews",
+                "refund_requests",
+                "unassigned_instant_consults",
+                "pending_payouts",
+                "patients_waiting_over_15_minutes",
             }:
                 self.assertIsNone(val, key)
-        self.assertEqual(d["needs_attention"]["provider_approvals"], 0)
-        self.assertEqual(d["needs_attention"]["document_verifications"], 0)
+        self.assertEqual(d["needs_attention"]["doctor_verifications"], 2)
+        for key in (
+            "provider_approvals",
+            "document_verifications",
+            "pending_reviews",
+            "refund_requests",
+            "unassigned_instant_consults",
+            "pending_payouts",
+            "patients_waiting_over_15_minutes",
+        ):
+            self.assertEqual(d["needs_attention"][key], 0, key)
         for chart in ("revenue_trend", "revenue_by_module", "appointments_by_specialty", "order_trend"):
             self.assertEqual(d["charts"][chart], [])
         names = {u["metric"] for u in d["meta"]["unavailable"]}
-        self.assertIn("revenue", names)
+        self.assertNotIn("revenue", names)
+        self.assertIn("revenue_trend", names)
 
     def test_contract_keys_and_labels(self):
         d = self.get("7")
         self.assertEqual(set(d["live_stats"]), {"today_appointments", "pending_medicine_orders",
                          "lab_test_bookings", "sample_collections", "revenue", "new_patients"})
-        self.assertEqual(len(d["needs_attention"]), 9)
+        self.assertEqual(len(d["needs_attention"]), 12)
         self.assertEqual(set(d["charts"]), {"revenue_trend", "revenue_by_module",
                          "appointments_by_specialty", "user_registration_trend", "order_trend"})
 
-    def test_distributions_come_from_real_collections(self):
+    def test_distributions_come_from_sql_models(self):
         d = self.get("7")
         self.assertEqual(d["distributions"]["users_by_role"],
                          [{"role": "patient", "count": 4}, {"role": "doctor", "count": 1}])
         self.assertEqual(d["distributions"]["doctors_by_specialty"],
                          [{"specialty": "Cardiology", "count": 2}, {"specialty": "Dermatology", "count": 1}])
-        self.mongo.doctors.delete_many({})
+        PlatformDoctor.objects.all().delete()
         self.assertEqual(self.get("7")["distributions"]["doctors_by_specialty"], [])
 
     def test_recent_users_never_leak_password_hash(self):
@@ -675,17 +722,28 @@ class DashboardTests(Base):
         self.login("hr2")
         self.assertEqual(self.api.get("/api/dashboard/overview/").status_code, 403)
 
-    def test_mongo_failure_returns_503_without_leaking(self):
-        with mock.patch("dashboard.mongo.get_mongo_database", side_effect=RuntimeError("mongodb://secret-host")):
-            res = self.api.get("/api/dashboard/overview/?period=7")
-        self.assertEqual(res.status_code, 503)
-        self.assertNotIn("secret-host", str(res.data))
+    def test_platform_metrics_source_is_sql(self):
+        response = self.api.get("/api/dashboard/overview/?period=7")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["meta"]["sources"]["total_users"],
+            "django:dashboard.PlatformUser",
+        )
 
 
 class UsersModuleTests(Base):
     def test_list_hides_password_hash_and_paginates(self):
         now = datetime.now(dt_timezone.utc)
-        self.mongo.users.insert_many([_user(f"u{i}", "patient", now - timedelta(minutes=i)) for i in range(3)])
+        for index in range(3):
+            PlatformUser.objects.create(
+                id=f"test-user-{index}",
+                name=f"u{index}",
+                email=f"u{index}@example.test",
+                role="patient",
+                password_hash="SECRET",
+                created_at=now - timedelta(minutes=index),
+                updated_at=now,
+            )
         make_admin("root", "Super Admin")
         self.login("root")
         res = self.api.get("/api/admin/users/?page_size=2")

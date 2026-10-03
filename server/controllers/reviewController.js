@@ -4,17 +4,21 @@ import { AppError } from '../middleware/error.js'
 
 async function reviewsSummary(doctorId) {
   const all = await Review.find({ doctorId }).sort({ createdAt: -1, _id: -1 })
-  const userReviews = all.filter((r) => !r.isSeed)
-  const seedReviews = all.filter((r) => r.isSeed)
+  const approvedReviews = all.filter(
+    (r) =>
+      r.moderationStatus === 'approved' ||
+      (r.isSeed && r.moderationStatus !== 'hidden'),
+  )
+  const userReviews = approvedReviews.filter((r) => !r.isSeed)
+  const seedReviews = approvedReviews.filter((r) => r.isSeed)
   const hasUser = userReviews.length > 0
-  // Honest rating: real user reviews only when present; otherwise labelled sample ratings.
-  const basis = hasUser ? userReviews : seedReviews
+  const basis = approvedReviews
   const overall = basis.length
     ? (basis.reduce((s, r) => s + r.rating, 0) / basis.length).toFixed(1)
     : '0.0'
   return {
     doctorId,
-    reviews: all.map((r) => r.toPublic()),
+    reviews: approvedReviews.map((r) => r.toPublic()),
     overall: Number(overall).toFixed(1),
     count: basis.length,
     userCount: userReviews.length,

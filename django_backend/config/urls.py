@@ -24,6 +24,10 @@ urlpatterns = [
         include("marketing.urls"),
     ),
     path(
+        "api/admin/care/",
+        include("care.urls"),
+    ),
+    path(
         "api/admin/",
         include("providers.urls"),
     ),

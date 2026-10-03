@@ -1,0 +1,1365 @@
+[
+  {
+    "model": "audit.auditlog",
+    "development_key": "dev-admin-audit-dashboard-sample",
+    "fields": {
+      "actor_username": "Development Admin",
+      "actor_role": "",
+      "action": "view",
+      "module": "dashboard",
+      "target_type": "development_sample",
+      "target_id": "",
+      "description": "Development sample activity.",
+      "metadata": {},
+      "ip_address": null,
+      "created_at": "2026-10-03T14:33:04.385000Z"
+    },
+    "relations": {
+      "actor": null
+    }
+  },
+  {
+    "model": "care.appointment",
+    "development_key": "dev-care-appointment-booked",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "patient_name": "DEV Sample Patient",
+      "specialty_name": "Family Medicine",
+      "date": "2026-10-05",
+      "start_time": "09:00:00",
+      "end_time": "09:30:00",
+      "fee": "500.00",
+      "status": "booked",
+      "payment_status": "pending",
+      "diagnosis": "",
+      "prescription_notes": "",
+      "medicines": [],
+      "created_at": "2026-10-03T14:27:10.736000Z",
+      "updated_at": "2026-10-03T14:33:02.958000Z",
+      "completed_at": null
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha",
+      "patient": "dev-care-patient-one",
+      "slot": "dev-care-slot-asha-booked"
+    }
+  },
+  {
+    "model": "care.appointment",
+    "development_key": "dev-care-appointment-cancelled",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "patient_name": "DEV Sample Patient",
+      "specialty_name": "Family Medicine",
+      "date": "2026-10-19",
+      "start_time": "10:00:00",
+      "end_time": "10:30:00",
+      "fee": "500.00",
+      "status": "cancelled",
+      "payment_status": "paid",
+      "diagnosis": "",
+      "prescription_notes": "",
+      "medicines": [],
+      "created_at": "2026-10-03T14:27:10.743000Z",
+      "updated_at": "2026-10-03T14:33:03.000000Z",
+      "completed_at": null
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha",
+      "patient": "dev-care-patient-two",
+      "slot": "dev-care-slot-asha-cancelled"
+    }
+  },
+  {
+    "model": "care.appointment",
+    "development_key": "dev-care-appointment-completed",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "patient_name": "DEV Sample Patient",
+      "specialty_name": "Family Medicine",
+      "date": "2026-09-28",
+      "start_time": "10:00:00",
+      "end_time": "10:30:00",
+      "fee": "500.00",
+      "status": "completed",
+      "payment_status": "paid",
+      "diagnosis": "",
+      "prescription_notes": "",
+      "medicines": [],
+      "created_at": "2026-10-03T14:27:10.751000Z",
+      "updated_at": "2026-10-03T14:33:02.977000Z",
+      "completed_at": "2026-10-03T14:33:02.975000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha",
+      "patient": "dev-care-patient-one",
+      "slot": "dev-care-slot-asha-completed"
+    }
+  },
+  {
+    "model": "care.appointment",
+    "development_key": "dev-care-appointment-confirmed",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "patient_name": "DEV Sample Patient",
+      "specialty_name": "Family Medicine",
+      "date": "2026-10-12",
+      "start_time": "09:30:00",
+      "end_time": "10:00:00",
+      "fee": "500.00",
+      "status": "confirmed",
+      "payment_status": "pending",
+      "diagnosis": "",
+      "prescription_notes": "",
+      "medicines": [],
+      "created_at": "2026-10-03T14:27:10.757000Z",
+      "updated_at": "2026-10-03T14:33:02.969000Z",
+      "completed_at": null
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha",
+      "patient": "dev-care-patient-two",
+      "slot": "dev-care-slot-asha-confirmed"
+    }
+  },
+  {
+    "model": "care.appointment",
+    "development_key": "dev-care-appointment-no-show",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "patient_name": "DEV Sample Patient",
+      "specialty_name": "Family Medicine",
+      "date": "2026-09-21",
+      "start_time": "10:30:00",
+      "end_time": "11:00:00",
+      "fee": "500.00",
+      "status": "no-show",
+      "payment_status": "pending",
+      "diagnosis": "",
+      "prescription_notes": "",
+      "medicines": [],
+      "created_at": "2026-10-03T14:27:10.763000Z",
+      "updated_at": "2026-10-03T14:33:02.993000Z",
+      "completed_at": null
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha",
+      "patient": "dev-care-patient-one",
+      "slot": "dev-care-slot-asha-no-show"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-blocked-slot-leave",
+    "fields": {
+      "date": "2026-11-05",
+      "weekday": 3,
+      "start_time": "09:00:00",
+      "end_time": "09:10:00",
+      "duration_minutes": 10,
+      "status": "blocked",
+      "block_reason": "leave",
+      "created_at": "2026-10-03T14:27:10.692000Z",
+      "updated_at": "2026-10-03T14:33:02.940000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-arjun"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-doctor-asha-slot-2026-10-09-1300",
+    "fields": {
+      "date": "2026-10-09",
+      "weekday": 4,
+      "start_time": "13:00:00",
+      "end_time": "13:30:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.696000Z",
+      "updated_at": "2026-10-03T14:27:10.942000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-doctor-asha-slot-2026-10-09-1330",
+    "fields": {
+      "date": "2026-10-09",
+      "weekday": 4,
+      "start_time": "13:30:00",
+      "end_time": "14:00:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.700000Z",
+      "updated_at": "2026-10-03T14:27:10.947000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-doctor-asha-slot-2026-10-09-1400",
+    "fields": {
+      "date": "2026-10-09",
+      "weekday": 4,
+      "start_time": "14:00:00",
+      "end_time": "14:30:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.703000Z",
+      "updated_at": "2026-10-03T14:27:10.959000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-doctor-asha-slot-2026-10-09-1430",
+    "fields": {
+      "date": "2026-10-09",
+      "weekday": 4,
+      "start_time": "14:30:00",
+      "end_time": "15:00:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.707000Z",
+      "updated_at": "2026-10-03T14:27:10.968000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-doctor-asha-slot-2026-10-09-1500",
+    "fields": {
+      "date": "2026-10-09",
+      "weekday": 4,
+      "start_time": "15:00:00",
+      "end_time": "15:30:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.710000Z",
+      "updated_at": "2026-10-03T14:27:10.973000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-doctor-asha-slot-2026-10-09-1530",
+    "fields": {
+      "date": "2026-10-09",
+      "weekday": 4,
+      "start_time": "15:30:00",
+      "end_time": "16:00:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.714000Z",
+      "updated_at": "2026-10-03T14:27:10.978000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-slot-asha-booked",
+    "fields": {
+      "date": "2026-10-05",
+      "weekday": 0,
+      "start_time": "09:00:00",
+      "end_time": "09:30:00",
+      "duration_minutes": 30,
+      "status": "booked",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.717000Z",
+      "updated_at": "2026-10-03T14:33:02.956000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-slot-asha-cancelled",
+    "fields": {
+      "date": "2026-10-19",
+      "weekday": 0,
+      "start_time": "10:00:00",
+      "end_time": "10:30:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.720000Z",
+      "updated_at": "2026-10-03T14:33:02.983000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-slot-asha-completed",
+    "fields": {
+      "date": "2026-09-28",
+      "weekday": 0,
+      "start_time": "10:00:00",
+      "end_time": "10:30:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.723000Z",
+      "updated_at": "2026-10-03T14:33:02.974000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-slot-asha-confirmed",
+    "fields": {
+      "date": "2026-10-12",
+      "weekday": 0,
+      "start_time": "09:30:00",
+      "end_time": "10:00:00",
+      "duration_minutes": 30,
+      "status": "booked",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.726000Z",
+      "updated_at": "2026-10-03T14:33:02.966000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmentslot",
+    "development_key": "dev-care-slot-asha-no-show",
+    "fields": {
+      "date": "2026-09-21",
+      "weekday": 0,
+      "start_time": "10:30:00",
+      "end_time": "11:00:00",
+      "duration_minutes": 30,
+      "status": "available",
+      "block_reason": "",
+      "created_at": "2026-10-03T14:27:10.729000Z",
+      "updated_at": "2026-10-03T14:33:02.990000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.appointmenttimeline",
+    "development_key": "dev-care-timeline-booked",
+    "fields": {
+      "action": "booked",
+      "actor_id": "",
+      "actor": "Development Admin",
+      "details": {},
+      "created_at": "2026-10-03T14:27:10.767000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-booked"
+    }
+  },
+  {
+    "model": "care.appointmenttimeline",
+    "development_key": "dev-care-timeline-cancelled",
+    "fields": {
+      "action": "cancelled",
+      "actor_id": "",
+      "actor": "Development Admin",
+      "details": {},
+      "created_at": "2026-10-03T14:27:10.771000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-cancelled"
+    }
+  },
+  {
+    "model": "care.appointmenttimeline",
+    "development_key": "dev-care-timeline-completed",
+    "fields": {
+      "action": "completed",
+      "actor_id": "",
+      "actor": "Development Admin",
+      "details": {},
+      "created_at": "2026-10-03T14:27:10.773000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-completed"
+    }
+  },
+  {
+    "model": "care.appointmenttimeline",
+    "development_key": "dev-care-timeline-confirmed",
+    "fields": {
+      "action": "confirmed",
+      "actor_id": "",
+      "actor": "Development Admin",
+      "details": {},
+      "created_at": "2026-10-03T14:27:10.777000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-confirmed"
+    }
+  },
+  {
+    "model": "care.appointmenttimeline",
+    "development_key": "dev-care-timeline-no-show",
+    "fields": {
+      "action": "no-show",
+      "actor_id": "",
+      "actor": "Development Admin",
+      "details": {},
+      "created_at": "2026-10-03T14:27:10.780000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-no-show"
+    }
+  },
+  {
+    "model": "care.calllog",
+    "development_key": "dev-care-call-completed-audio",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "start_time": "2026-10-03T14:25:03.019000Z",
+      "end_time": "2026-10-03T14:31:03.019000Z",
+      "duration_seconds": 360,
+      "consultation_type": "Audio",
+      "created_at": "2026-10-03T14:27:10.834000Z"
+    },
+    "relations": {
+      "consult": "dev-care-consult-completed-audio",
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.carepatient",
+    "development_key": "dev-care-patient-one",
+    "fields": {
+      "external_id": "",
+      "name": "DEV Sample Patient",
+      "created_at": "2026-10-03T14:27:10.664000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.carepatient",
+    "development_key": "dev-care-patient-two",
+    "fields": {
+      "external_id": "",
+      "name": "DEV Sample Patient",
+      "created_at": "2026-10-03T14:27:10.666000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.carepayment",
+    "development_key": "dev-care-payment-booked",
+    "fields": {
+      "patient_id": "",
+      "amount": "500.00",
+      "kind": "consultation",
+      "status": "pending",
+      "created_at": "2026-10-03T14:27:10.793000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-booked",
+      "payout": null,
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.carepayment",
+    "development_key": "dev-care-payment-cancelled",
+    "fields": {
+      "patient_id": "",
+      "amount": "500.00",
+      "kind": "consultation",
+      "status": "paid",
+      "created_at": "2026-10-03T14:27:10.798000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-cancelled",
+      "payout": null,
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.carepayment",
+    "development_key": "dev-care-payment-completed",
+    "fields": {
+      "patient_id": "",
+      "amount": "500.00",
+      "kind": "consultation",
+      "status": "paid",
+      "created_at": "2026-10-03T14:27:10.804000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-completed",
+      "payout": null,
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.carepayment",
+    "development_key": "dev-care-payment-confirmed",
+    "fields": {
+      "patient_id": "",
+      "amount": "500.00",
+      "kind": "consultation",
+      "status": "pending",
+      "created_at": "2026-10-03T14:27:10.808000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-confirmed",
+      "payout": null,
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.carepayment",
+    "development_key": "dev-care-payment-no-show",
+    "fields": {
+      "patient_id": "",
+      "amount": "500.00",
+      "kind": "consultation",
+      "status": "pending",
+      "created_at": "2026-10-03T14:27:10.814000Z"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-no-show",
+      "payout": null,
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.carepayment",
+    "development_key": "dev-care-payment-paid-payout-kabir",
+    "fields": {
+      "patient_id": "",
+      "amount": "2167.50",
+      "kind": "doctor_payout",
+      "status": "paid",
+      "created_at": "2026-10-03T14:27:10.819000Z"
+    },
+    "relations": {
+      "appointment": null,
+      "payout": "dev-care-payout-paid-kabir",
+      "doctor": "dev-care-doctor-kabir"
+    }
+  },
+  {
+    "model": "care.caresetting",
+    "development_key": "dev-care-setting-commission",
+    "fields": {
+      "key": "doctor_commission_percent",
+      "value": "15.00",
+      "updated_by": "Development Admin",
+      "updated_at": "2026-10-03T14:33:03.026000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.doctor",
+    "development_key": "dev-care-doctor-arjun",
+    "fields": {
+      "name": "DEV Doctor Arjun",
+      "photo": "",
+      "degree": "MBBS",
+      "qualifications": "MBBS; demo qualification",
+      "license_details": "DEV Licence Arjun",
+      "experience": "3 years",
+      "hospital": "Demo Family Clinic",
+      "city": "Nashik",
+      "fee": "400.00",
+      "consultation_type": "Both",
+      "available": false,
+      "bio": "Fictional development doctor profile.",
+      "verification_status": "rejected",
+      "created_at": "2026-10-03T14:27:10.652000Z",
+      "updated_at": "2026-10-03T14:33:02.908000Z"
+    },
+    "relations": {
+      "specialty": "dev-care-specialty-family-medicine"
+    }
+  },
+  {
+    "model": "care.doctor",
+    "development_key": "dev-care-doctor-asha",
+    "fields": {
+      "name": "DEV Doctor Asha",
+      "photo": "",
+      "degree": "MBBS, MD",
+      "qualifications": "MBBS, MD; demo qualification",
+      "license_details": "DEV Licence Asha",
+      "experience": "10 years",
+      "hospital": "Development Clinic",
+      "city": "Pune",
+      "fee": "500.00",
+      "consultation_type": "Both",
+      "available": true,
+      "bio": "Fictional development doctor profile.",
+      "verification_status": "verified",
+      "created_at": "2026-10-03T14:27:10.656000Z",
+      "updated_at": "2026-10-03T14:33:02.901000Z"
+    },
+    "relations": {
+      "specialty": "dev-care-specialty-family-medicine"
+    }
+  },
+  {
+    "model": "care.doctor",
+    "development_key": "dev-care-doctor-kabir",
+    "fields": {
+      "name": "DEV Doctor Kabir",
+      "photo": "",
+      "degree": "MBBS, DM",
+      "qualifications": "MBBS, DM; demo qualification",
+      "license_details": "DEV Licence Kabir",
+      "experience": "12 years",
+      "hospital": "Demo Heart Centre",
+      "city": "Mumbai",
+      "fee": "850.00",
+      "consultation_type": "Online",
+      "available": false,
+      "bio": "Fictional development doctor profile.",
+      "verification_status": "verified",
+      "created_at": "2026-10-03T14:27:10.659000Z",
+      "updated_at": "2026-10-03T14:33:02.904000Z"
+    },
+    "relations": {
+      "specialty": "dev-care-specialty-cardiology"
+    }
+  },
+  {
+    "model": "care.doctor",
+    "development_key": "dev-care-doctor-meera",
+    "fields": {
+      "name": "DEV Doctor Meera",
+      "photo": "",
+      "degree": "MBBS, DVD",
+      "qualifications": "MBBS, DVD; demo qualification",
+      "license_details": "DEV Licence Meera",
+      "experience": "6 years",
+      "hospital": "Demo Skin Clinic",
+      "city": "Nagpur",
+      "fee": "650.00",
+      "consultation_type": "In-person",
+      "available": true,
+      "bio": "Fictional development doctor profile.",
+      "verification_status": "pending",
+      "created_at": "2026-10-03T14:27:10.661000Z",
+      "updated_at": "2026-10-03T14:33:02.906000Z"
+    },
+    "relations": {
+      "specialty": "dev-care-specialty-dermatology"
+    }
+  },
+  {
+    "model": "care.doctorleave",
+    "development_key": "dev-care-leave-arjun",
+    "fields": {
+      "date": "2026-11-05",
+      "reason": "Development sample leave",
+      "created_at": "2026-10-03T14:27:10.688000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-arjun"
+    }
+  },
+  {
+    "model": "care.doctorpayout",
+    "development_key": "dev-care-payout-paid-kabir",
+    "fields": {
+      "doctor_name": "DEV Doctor Kabir",
+      "period": "2026-09",
+      "consultation_count": 3,
+      "gross_amount": "2550.00",
+      "commission_percent": "15.00",
+      "net_payable": "2167.50",
+      "status": "paid",
+      "created_at": "2026-10-03T14:27:10.784000Z",
+      "paid_at": "2026-10-02T14:33:03.038000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-kabir"
+    }
+  },
+  {
+    "model": "care.doctorpayout",
+    "development_key": "dev-care-payout-pending-asha",
+    "fields": {
+      "doctor_name": "DEV Doctor Asha",
+      "period": "2026-09",
+      "consultation_count": 1,
+      "gross_amount": "500.00",
+      "commission_percent": "15.00",
+      "net_payable": "425.00",
+      "status": "pending",
+      "created_at": "2026-10-03T14:27:10.787000Z",
+      "paid_at": null
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.instantconsult",
+    "development_key": "dev-care-consult-completed-audio",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "doctor_name": "DEV Doctor Asha",
+      "status": "completed",
+      "queue_position": 0,
+      "consultation_type": "Audio",
+      "created_at": "2026-10-03T14:27:10.826000Z",
+      "assigned_at": null,
+      "started_at": "2026-10-03T14:25:03.019000Z",
+      "ended_at": "2026-10-03T14:31:03.019000Z",
+      "duration_seconds": 360
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.instantconsult",
+    "development_key": "dev-care-consult-waiting-long",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "doctor_name": "Development Doctor",
+      "status": "waiting",
+      "queue_position": 1,
+      "consultation_type": "Video",
+      "created_at": "2026-10-03T14:13:03.018000Z",
+      "assigned_at": null,
+      "started_at": null,
+      "ended_at": null,
+      "duration_seconds": 0
+    },
+    "relations": {
+      "doctor": null
+    }
+  },
+  {
+    "model": "care.refundrequest",
+    "development_key": "dev-care-refund-cancelled-paid",
+    "fields": {
+      "patient_id": "",
+      "amount": "500.00",
+      "status": "pending",
+      "reason": "Development sample refund",
+      "created_at": "2026-10-03T14:27:10.822000Z",
+      "reviewed_at": null,
+      "reviewed_by": "Development Admin"
+    },
+    "relations": {
+      "appointment": "dev-care-appointment-cancelled",
+      "payment": "dev-care-payment-cancelled"
+    }
+  },
+  {
+    "model": "care.review",
+    "development_key": "dev-care-review-approved-one",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "rating": 5,
+      "comment": "Kind and clear.",
+      "moderation_status": "approved",
+      "created_at": "2026-10-03T14:27:10.838000Z",
+      "moderated_at": null,
+      "moderated_by": ""
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.review",
+    "development_key": "dev-care-review-approved-two",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "rating": 4,
+      "comment": "Helpful follow-up.",
+      "moderation_status": "approved",
+      "created_at": "2026-10-03T14:27:10.843000Z",
+      "moderated_at": null,
+      "moderated_by": ""
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.review",
+    "development_key": "dev-care-review-hidden",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "rating": 2,
+      "comment": "Development-only hidden sample.",
+      "moderation_status": "hidden",
+      "created_at": "2026-10-03T14:27:10.846000Z",
+      "moderated_at": null,
+      "moderated_by": ""
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-kabir"
+    }
+  },
+  {
+    "model": "care.review",
+    "development_key": "dev-care-review-pending",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "rating": 5,
+      "comment": "Development-only pending sample.",
+      "moderation_status": "pending",
+      "created_at": "2026-10-03T14:27:10.849000Z",
+      "moderated_at": null,
+      "moderated_by": ""
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-meera"
+    }
+  },
+  {
+    "model": "care.specialty",
+    "development_key": "dev-care-specialty-cardiology",
+    "fields": {
+      "name": "Cardiology",
+      "icon": "heart-pulse",
+      "description": "Heart and circulatory health.",
+      "is_active": true,
+      "created_at": "2026-10-03T14:27:10.631000Z",
+      "updated_at": "2026-10-03T14:33:02.890000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.specialty",
+    "development_key": "dev-care-specialty-dermatology",
+    "fields": {
+      "name": "Dermatology",
+      "icon": "sparkles",
+      "description": "Skin health and treatment.",
+      "is_active": true,
+      "created_at": "2026-10-03T14:27:10.643000Z",
+      "updated_at": "2026-10-03T14:33:02.893000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.specialty",
+    "development_key": "dev-care-specialty-family-medicine",
+    "fields": {
+      "name": "Family Medicine",
+      "icon": "stethoscope",
+      "description": "General primary care.",
+      "is_active": true,
+      "created_at": "2026-10-03T14:27:10.645000Z",
+      "updated_at": "2026-10-03T14:33:02.886000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.specialty",
+    "development_key": "dev-care-specialty-pediatrics",
+    "fields": {
+      "name": "Pediatrics",
+      "icon": "baby",
+      "description": "Child health.",
+      "is_active": false,
+      "created_at": "2026-10-03T14:27:10.647000Z",
+      "updated_at": "2026-10-03T14:33:02.896000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "care.weeklyschedule",
+    "development_key": "dev-care-schedule-arjun-3",
+    "fields": {
+      "weekday": 3,
+      "start_time": "09:00:00",
+      "end_time": "12:00:00",
+      "duration_minutes": 10,
+      "is_working": true,
+      "created_at": "2026-10-03T14:27:10.670000Z",
+      "updated_at": "2026-10-03T14:33:02.927000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-arjun"
+    }
+  },
+  {
+    "model": "care.weeklyschedule",
+    "development_key": "dev-care-schedule-asha-0",
+    "fields": {
+      "weekday": 0,
+      "start_time": "09:00:00",
+      "end_time": "12:00:00",
+      "duration_minutes": 30,
+      "is_working": true,
+      "created_at": "2026-10-03T14:27:10.673000Z",
+      "updated_at": "2026-10-03T14:33:02.920000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.weeklyschedule",
+    "development_key": "dev-care-schedule-asha-4",
+    "fields": {
+      "weekday": 4,
+      "start_time": "13:00:00",
+      "end_time": "16:00:00",
+      "duration_minutes": 30,
+      "is_working": true,
+      "created_at": "2026-10-03T14:27:10.677000Z",
+      "updated_at": "2026-10-03T14:33:02.930000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-asha"
+    }
+  },
+  {
+    "model": "care.weeklyschedule",
+    "development_key": "dev-care-schedule-kabir-1",
+    "fields": {
+      "weekday": 1,
+      "start_time": "10:00:00",
+      "end_time": "12:00:00",
+      "duration_minutes": 20,
+      "is_working": true,
+      "created_at": "2026-10-03T14:27:10.680000Z",
+      "updated_at": "2026-10-03T14:33:02.922000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-kabir"
+    }
+  },
+  {
+    "model": "care.weeklyschedule",
+    "development_key": "dev-care-schedule-meera-2",
+    "fields": {
+      "weekday": 2,
+      "start_time": "09:00:00",
+      "end_time": "12:00:00",
+      "duration_minutes": 15,
+      "is_working": true,
+      "created_at": "2026-10-03T14:27:10.684000Z",
+      "updated_at": "2026-10-03T14:33:02.925000Z"
+    },
+    "relations": {
+      "doctor": "dev-care-doctor-meera"
+    }
+  },
+  {
+    "model": "dashboard.platformdoctor",
+    "development_key": "dev-admin-doctor-one",
+    "fields": {
+      "name": "DEV Sample Doctor",
+      "specialty": "Cardiology",
+      "city": "Development",
+      "detail": "",
+      "location": "Development Clinic",
+      "rating": "",
+      "reviews": "",
+      "fee": "500.00",
+      "initials": "",
+      "color": "teal",
+      "next": "",
+      "consultation_type": "Both",
+      "photo": "",
+      "offer_text": "",
+      "verified": false,
+      "verification_status": "pending",
+      "rejection_reason": "",
+      "suspension_reason": "",
+      "available": true,
+      "qualification": "",
+      "experience": "",
+      "created_at": "2026-10-03T14:33:04.337000Z",
+      "updated_at": "2026-10-03T14:33:04.337000Z"
+    },
+    "relations": {
+      "owner": "dev-admin-user-doctor-one"
+    }
+  },
+  {
+    "model": "dashboard.platformdoctor",
+    "development_key": "dev-admin-doctor-two",
+    "fields": {
+      "name": "DEV Sample Doctor",
+      "specialty": "Dermatology",
+      "city": "Development",
+      "detail": "",
+      "location": "Development Clinic",
+      "rating": "",
+      "reviews": "",
+      "fee": "650.00",
+      "initials": "",
+      "color": "teal",
+      "next": "",
+      "consultation_type": "Both",
+      "photo": "",
+      "offer_text": "",
+      "verified": true,
+      "verification_status": "verified",
+      "rejection_reason": "",
+      "suspension_reason": "",
+      "available": true,
+      "qualification": "",
+      "experience": "",
+      "created_at": "2026-10-03T14:33:04.342000Z",
+      "updated_at": "2026-10-03T14:33:04.342000Z"
+    },
+    "relations": {
+      "owner": null
+    }
+  },
+  {
+    "model": "dashboard.platformreview",
+    "development_key": "dev-admin-review-one",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "rating": 5,
+      "comment": "Fictional development review.",
+      "is_seed": true,
+      "moderation_status": "approved",
+      "moderated_at": null,
+      "created_at": "2026-10-03T14:33:04.370000Z"
+    },
+    "relations": {
+      "doctor": "dev-admin-doctor-one"
+    }
+  },
+  {
+    "model": "dashboard.platformreview",
+    "development_key": "dev-admin-review-two",
+    "fields": {
+      "patient_id": "",
+      "patient_name": "DEV Sample Patient",
+      "rating": 4,
+      "comment": "Fictional development review.",
+      "is_seed": true,
+      "moderation_status": "approved",
+      "moderated_at": null,
+      "created_at": "2026-10-03T14:33:04.376000Z"
+    },
+    "relations": {
+      "doctor": "dev-admin-doctor-two"
+    }
+  },
+  {
+    "model": "dashboard.platformuser",
+    "development_key": "dev-admin-user-doctor-one",
+    "fields": {
+      "name": "DEV Sample Doctor",
+      "email": "dev-139c20e4a513037a@example.test",
+      "mobile": "",
+      "city": "Development",
+      "gender": "",
+      "date_of_birth": "",
+      "blood_group": "",
+      "role": "doctor",
+      "status": "pending",
+      "is_active": true,
+      "is_blocked": false,
+      "wallet_balance": "0.00",
+      "wallet_transactions": [],
+      "family_members": [],
+      "addresses": [],
+      "partner_role": "",
+      "availability": "available",
+      "verification_status": "pending",
+      "rejection_reason": "",
+      "suspension_reason": "",
+      "created_at": "2026-10-03T14:33:04.362000Z",
+      "updated_at": "2026-10-03T14:33:04.362000Z"
+    },
+    "relations": {
+      "doctor": "dev-admin-doctor-one"
+    }
+  },
+  {
+    "model": "dashboard.platformuser",
+    "development_key": "dev-admin-user-patient-one",
+    "fields": {
+      "name": "DEV Sample Patient",
+      "email": "dev-1da97cd52b139c8c@example.test",
+      "mobile": "",
+      "city": "Development",
+      "gender": "",
+      "date_of_birth": "",
+      "blood_group": "",
+      "role": "patient",
+      "status": "active",
+      "is_active": true,
+      "is_blocked": false,
+      "wallet_balance": "250.00",
+      "wallet_transactions": [],
+      "family_members": [],
+      "addresses": [],
+      "partner_role": "",
+      "availability": "available",
+      "verification_status": "pending",
+      "rejection_reason": "",
+      "suspension_reason": "",
+      "created_at": "2026-10-03T14:33:04.349000Z",
+      "updated_at": "2026-10-03T14:33:04.349000Z"
+    },
+    "relations": {
+      "doctor": null
+    }
+  },
+  {
+    "model": "dashboard.platformuser",
+    "development_key": "dev-admin-user-patient-two",
+    "fields": {
+      "name": "DEV Sample Patient",
+      "email": "dev-7ec5398c86e158c5@example.test",
+      "mobile": "",
+      "city": "Development",
+      "gender": "",
+      "date_of_birth": "",
+      "blood_group": "",
+      "role": "patient",
+      "status": "active",
+      "is_active": true,
+      "is_blocked": false,
+      "wallet_balance": "250.00",
+      "wallet_transactions": [],
+      "family_members": [],
+      "addresses": [],
+      "partner_role": "",
+      "availability": "available",
+      "verification_status": "pending",
+      "rejection_reason": "",
+      "suspension_reason": "",
+      "created_at": "2026-10-03T14:33:04.356000Z",
+      "updated_at": "2026-10-03T14:33:04.356000Z"
+    },
+    "relations": {
+      "doctor": null
+    }
+  },
+  {
+    "model": "marketing.coupon",
+    "development_key": "dev-admin-coupon-dev-health-10",
+    "fields": {
+      "code": "DEV-HEALTH-10",
+      "discount_type": "percentage",
+      "discount_value": "10.00",
+      "maximum_discount": "250.00",
+      "minimum_order_amount": "100.00",
+      "applies_to": "all",
+      "start_date": "2026-10-02T14:33:05.617000Z",
+      "expiry_date": "2027-10-03T14:33:05.617000Z",
+      "usage_limit": null,
+      "per_user_limit": 1,
+      "usage_count": 0,
+      "is_active": true,
+      "created_at": "2026-10-02T18:37:47.858000Z",
+      "updated_at": "2026-10-03T14:33:05.659000Z"
+    },
+    "relations": {
+      "created_by": null
+    }
+  },
+  {
+    "model": "marketing.coupon",
+    "development_key": "dev-admin-coupon-dev-pharmacy-50",
+    "fields": {
+      "code": "DEV-PHARMACY-50",
+      "discount_type": "flat",
+      "discount_value": "50.00",
+      "maximum_discount": null,
+      "minimum_order_amount": "100.00",
+      "applies_to": "pharmacy",
+      "start_date": "2026-10-02T14:33:05.617000Z",
+      "expiry_date": "2027-10-03T14:33:05.617000Z",
+      "usage_limit": null,
+      "per_user_limit": 1,
+      "usage_count": 0,
+      "is_active": true,
+      "created_at": "2026-10-02T18:37:47.866000Z",
+      "updated_at": "2026-10-03T14:33:05.667000Z"
+    },
+    "relations": {
+      "created_by": null
+    }
+  },
+  {
+    "model": "marketing.featuredpromotion",
+    "development_key": "dev-admin-featured-promotion",
+    "fields": {
+      "badge_text": "Development",
+      "title": "DEV Seed Featured Offer",
+      "description": "Development-only featured offer.",
+      "link": "/offers",
+      "colour": "#075f50",
+      "is_active": true,
+      "display_order": 999,
+      "created_at": "2026-10-02T18:37:47.881000Z",
+      "updated_at": "2026-10-03T14:33:05.681000Z"
+    },
+    "relations": {
+      "created_by": null
+    }
+  },
+  {
+    "model": "marketing.promotion",
+    "development_key": "dev-admin-promotion-seasonal",
+    "fields": {
+      "title": "DEV Seed Seasonal Offer",
+      "description": "Development-only sample promotion.",
+      "image_url": "",
+      "cta_text": "Explore offer",
+      "cta_link": "/offers",
+      "start_date": "2026-10-02T14:33:05.617000Z",
+      "end_date": "2026-11-02T14:33:05.617000Z",
+      "is_active": true,
+      "created_at": "2026-10-02T18:37:47.874000Z",
+      "updated_at": "2026-10-03T14:33:05.673000Z"
+    },
+    "relations": {
+      "created_by": null
+    }
+  },
+  {
+    "model": "marketing.promotionalcontent",
+    "development_key": "dev-admin-promotional-content",
+    "fields": {
+      "title": "DEV Seed Pharmacy Offer",
+      "description": "Development-only pharmacy offer.",
+      "link": "/pharmacy",
+      "placement": "pharmacy",
+      "content_type": "offer_strip",
+      "image_url": "",
+      "colour": "#075f50",
+      "is_active": true,
+      "display_order": 999,
+      "created_at": "2026-10-02T18:37:47.888000Z",
+      "updated_at": "2026-10-03T14:33:05.685000Z"
+    },
+    "relations": {
+      "created_by": null
+    }
+  },
+  {
+    "model": "providers.healthcareprovider",
+    "development_key": "dev-admin-provider-clinic-001",
+    "fields": {
+      "name": "DEV Sample Healthcare Provider",
+      "provider_type": "clinic",
+      "phone": "",
+      "email": "dev-provider-21d6ad0fe4c65a21@example.test",
+      "address": "",
+      "city": "Development",
+      "state": "Development",
+      "pincode": "",
+      "registration_number": "DEV-21D6AD0FE4C6",
+      "registration_date": null,
+      "status": "active",
+      "type_details": {},
+      "rejection_reason": "",
+      "created_at": "2026-10-02T18:37:47.834000Z",
+      "updated_at": "2026-10-03T14:33:05.641000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "providers.healthcareprovider",
+    "development_key": "dev-admin-provider-diagnostic-001",
+    "fields": {
+      "name": "DEV Sample Healthcare Provider",
+      "provider_type": "diagnostic_centre",
+      "phone": "",
+      "email": "dev-provider-830803afc5855975@example.test",
+      "address": "",
+      "city": "Development",
+      "state": "Development",
+      "pincode": "",
+      "registration_number": "DEV-830803AFC585",
+      "registration_date": null,
+      "status": "pending",
+      "type_details": {},
+      "rejection_reason": "",
+      "created_at": "2026-10-02T18:37:47.841000Z",
+      "updated_at": "2026-10-03T14:33:05.647000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "providers.healthcareprovider",
+    "development_key": "dev-admin-provider-hospital-001",
+    "fields": {
+      "name": "DEV Sample Healthcare Provider",
+      "provider_type": "hospital",
+      "phone": "",
+      "email": "dev-provider-26f4fe76acaa956c@example.test",
+      "address": "",
+      "city": "Development",
+      "state": "Development",
+      "pincode": "",
+      "registration_number": "DEV-26F4FE76ACAA",
+      "registration_date": null,
+      "status": "pending",
+      "type_details": {},
+      "rejection_reason": "",
+      "created_at": "2026-10-02T18:37:47.826000Z",
+      "updated_at": "2026-10-03T14:33:05.636000Z"
+    },
+    "relations": {}
+  },
+  {
+    "model": "providers.healthcareprovider",
+    "development_key": "dev-admin-provider-pharmacy-001",
+    "fields": {
+      "name": "DEV Sample Healthcare Provider",
+      "provider_type": "pharmacy",
+      "phone": "",
+      "email": "dev-provider-86d317f039520922@example.test",
+      "address": "",
+      "city": "Development",
+      "state": "Development",
+      "pincode": "",
+      "registration_number": "DEV-86D317F03952",
+      "registration_date": null,
+      "status": "active",
+      "type_details": {},
+      "rejection_reason": "",
+      "created_at": "2026-10-02T18:37:47.846000Z",
+      "updated_at": "2026-10-03T14:33:05.650000Z"
+    },
+    "relations": {}
+  }
+]

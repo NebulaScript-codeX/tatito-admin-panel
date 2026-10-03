@@ -10,6 +10,7 @@ import {
   renderAdminCouponsOffersMarketing,
   renderAdminModulePlaceholder,
 } from "./admin/adminPages.js";
+import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import {
   navigate,
   registerPages,
@@ -50,8 +51,6 @@ import { initChatbot } from "./chatbot.js";
 
 const adminPlaceholderRoutes = Object.fromEntries(
   [
-    "doctors",
-    "health_records",
     "pharmacy",
     "lab_tests",
     "orders_payments",
@@ -102,6 +101,7 @@ registerPages({
   "admin/access-denied": renderAdminAccessDenied,
   "admin/users": renderAdminUsers,
   "admin/providers": renderAdminProviders,
+  "admin/doctors": renderAdminDoctors,
   "admin/promotions": renderAdminPromotions,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   ...adminPlaceholderRoutes,

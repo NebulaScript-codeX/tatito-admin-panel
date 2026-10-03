@@ -53,7 +53,13 @@ export async function seedReviews() {
       doctorId: d.id,
       isSeed: true,
     });
-    if (existingCount >= samples.length) continue;
+    if (existingCount >= samples.length) {
+      await Review.updateMany(
+        { doctorId: d.id, isSeed: true, moderationStatus: { $exists: false } },
+        { $set: { moderationStatus: "approved" } },
+      );
+      continue;
+    }
     await Review.deleteMany({ doctorId: d.id, isSeed: true });
     const docs = samples.map((r, i) => {
       const daysAgo = (samples.length - i) * 2;
@@ -63,6 +69,7 @@ export async function seedReviews() {
         rating: r.rating,
         comment: r.text,
         isSeed: true,
+        moderationStatus: "approved",
         createdAt: new Date(Date.now() - daysAgo * 86400000),
       };
     });

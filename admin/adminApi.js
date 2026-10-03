@@ -1,4 +1,8 @@
-import { getAdminToken, logoutAdmin } from './adminAuth.js'
+import {
+  getAdminToken,
+  logoutAdmin,
+  refreshAdminAccessToken,
+} from './adminAuth.js'
 
 const API_BASE_URL = "http://127.0.0.1:8000/api";
 const ADMIN_API_BASE_URL = `${API_BASE_URL}/admin`;
@@ -26,7 +30,8 @@ export async function adminApi(
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${apiRoot ? API_BASE_URL : ADMIN_API_BASE_URL}${path}`, {
+  const url = `${apiRoot ? API_BASE_URL : ADMIN_API_BASE_URL}${path}`
+  let response = await fetch(url, {
     method,
     headers,
     body:
@@ -36,6 +41,21 @@ export async function adminApi(
           ? body
           : JSON.stringify(body),
   });
+  if (response.status === 401 && await refreshAdminAccessToken()) {
+    response = await fetch(url, {
+      method,
+      headers: {
+        ...headers,
+        Authorization: 'Bearer ' + getAdminToken(),
+      },
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? body
+            : JSON.stringify(body),
+    });
+  }
   const text = await response.text()
 
   let data = null
@@ -444,6 +464,48 @@ export async function getHealthcareProviders(params = {}) {
   const response = await adminApi(`/providers/${queryString(params)}`);
   return Array.isArray(response?.results) ? response.results : response;
 }
+
+function careQuery(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+  const suffix = query.toString();
+  return suffix ? `?${suffix}` : "";
+}
+
+export function getCareCollection(resource, params = {}) {
+  return adminApi(`/care/${resource}/${careQuery(params)}`);
+}
+
+export function createCareRecord(resource, data) {
+  return adminApi(`/care/${resource}/`, { method: "POST", body: data });
+}
+
+export function getCareRecord(resource, id) {
+  return adminApi(`/care/${resource}/${encodeURIComponent(id)}/`);
+}
+
+export function updateCareRecord(resource, id, data) {
+  return adminApi(`/care/${resource}/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteCareRecord(resource, id) {
+  return adminApi(`/care/${resource}/${encodeURIComponent(id)}/`, {
+    method: "DELETE",
+  });
+}
+
+export function runCareAction(resource, id, action, data = {}) {
+  return adminApi(
+    `/care/${resource}/${encodeURIComponent(id)}/action/${action}/`,
+    { method: "POST", body: data },
+  );
+}
+
 
 export function getHealthcareProvider(id) {
   return adminApi(`/providers/${encodeURIComponent(id)}/`);

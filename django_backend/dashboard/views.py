@@ -1,5 +1,3 @@
-import logging
-
 from django.db.models import Count, F, Q
 from django.utils import timezone
 from rest_framework.response import Response
@@ -9,17 +7,14 @@ from accounts.permissions import ModulePermission, has_module_permission
 from audit.models import AuditLog
 from marketing.models import Coupon, FeaturedPromotion, Promotion, PromotionalContent
 from providers.models import HealthcareProvider, ProviderDocument
+from care.services import care_dashboard_stats
 
-from . import mongo
 from .services import (
     SOURCES,
     build_overview,
     normalize_period,
     unavailable_list,
 )
-
-logger = logging.getLogger(__name__)
-
 
 def serialize_audit(entry):
     return {
@@ -108,28 +103,25 @@ class DashboardOverviewView(APIView):
             request.user, "coupons_offers_marketing", "view"
         )
 
-        try:
-            audit_rows = None
-            if can_audit:
-                audit_rows = [
-                    serialize_audit(entry)
-                    for entry in AuditLog.objects.select_related("actor")[:10]
-                ]
-            provider_stats = provider_dashboard_stats() if can_providers else None
-            coupon_stats = coupon_dashboard_stats() if can_coupons else None
-            data = build_overview(
-                mongo.get_mongo_database(), period,
-                can_see_users=can_users,
-                audit_rows=audit_rows,
-                provider_stats=provider_stats,
-                coupon_stats=coupon_stats,
-            )
-        except Exception:  # noqa: BLE001 - never leak driver internals to the client
-            logger.exception("Dashboard aggregation failed")
-            return Response(
-                {"success": False, "message": "Dashboard data source is unavailable."},
-                status=503,
-            )
+        audit_rows = None
+        if can_audit:
+            audit_rows = [
+                serialize_audit(entry)
+                for entry in AuditLog.objects.select_related("actor")[:10]
+            ]
+        provider_stats = provider_dashboard_stats() if can_providers else None
+        coupon_stats = coupon_dashboard_stats() if can_coupons else None
+        care_stats = None
+        if has_module_permission(request.user, "doctors", "view"):
+            care_stats = care_dashboard_stats()
+        data = build_overview(
+            period,
+            can_see_users=can_users,
+            audit_rows=audit_rows,
+            provider_stats=provider_stats,
+            coupon_stats=coupon_stats,
+            care_stats=care_stats,
+        )
 
         restricted = []
         if not can_users:

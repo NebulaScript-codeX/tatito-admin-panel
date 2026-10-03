@@ -56,6 +56,8 @@ class Command(BaseCommand):
             registration_number = values["registration_number"]
             defaults = {
                 **values,
+                "development_key": f"dev-admin-provider-{registration_number.removeprefix('DEV-SEED-').lower()}",
+                "is_development_data": True,
                 "phone": "9876543210",
                 "email": f"{registration_number.lower()}@example.test",
                 "city": "Development",
@@ -98,6 +100,8 @@ class Command(BaseCommand):
                 "per_user_limit": 1,
                 "usage_count": 0,
                 "is_active": True,
+                "development_key": f"dev-admin-coupon-{spec['code'].lower()}",
+                "is_development_data": True,
             }
             coupon, created = Coupon.objects.get_or_create(
                 code=spec["code"],
@@ -108,44 +112,61 @@ class Command(BaseCommand):
                     setattr(coupon, field, value)
                 coupon.save()
 
+        promotion_defaults = {
+            "description": "Development-only sample promotion.",
+            "cta_text": "Explore offer",
+            "cta_link": "/offers",
+            "start_date": now - timedelta(days=1),
+            "end_date": now + timedelta(days=30),
+            "is_active": True,
+            "development_key": "dev-admin-promotion-seasonal",
+            "is_development_data": True,
+        }
         promotion, created = Promotion.objects.get_or_create(
             title="DEV Seed Seasonal Offer",
-            defaults={
-                "description": "Development-only sample promotion.",
-                "cta_text": "Explore offer",
-                "cta_link": "/offers",
-                "start_date": now - timedelta(days=1),
-                "end_date": now + timedelta(days=30),
-                "is_active": True,
-            },
+            defaults=promotion_defaults,
         )
         if not created:
-            promotion.start_date = now - timedelta(days=1)
-            promotion.end_date = now + timedelta(days=30)
-            promotion.is_active = True
+            for field, value in promotion_defaults.items():
+                setattr(promotion, field, value)
             promotion.save()
 
-        FeaturedPromotion.objects.get_or_create(
+        featured_defaults = {
+            "badge_text": "Development",
+            "description": "Development-only featured offer.",
+            "link": "/offers",
+            "is_active": True,
+            "display_order": 999,
+            "development_key": "dev-admin-featured-promotion",
+            "is_development_data": True,
+        }
+        featured, created = FeaturedPromotion.objects.get_or_create(
             title="DEV Seed Featured Offer",
-            defaults={
-                "badge_text": "Development",
-                "description": "Development-only featured offer.",
-                "link": "/offers",
-                "is_active": True,
-                "display_order": 999,
-            },
+            defaults=featured_defaults,
         )
-        PromotionalContent.objects.get_or_create(
+        if not created:
+            for field, value in featured_defaults.items():
+                setattr(featured, field, value)
+            featured.save()
+
+        content_defaults = {
+            "description": "Development-only pharmacy offer.",
+            "link": "/pharmacy",
+            "placement": "pharmacy",
+            "content_type": "offer_strip",
+            "is_active": True,
+            "display_order": 999,
+            "development_key": "dev-admin-promotional-content",
+            "is_development_data": True,
+        }
+        content, created = PromotionalContent.objects.get_or_create(
             title="DEV Seed Pharmacy Offer",
-            defaults={
-                "description": "Development-only pharmacy offer.",
-                "link": "/pharmacy",
-                "placement": "pharmacy",
-                "content_type": "offer_strip",
-                "is_active": True,
-                "display_order": 999,
-            },
+            defaults=content_defaults,
         )
+        if not created:
+            for field, value in content_defaults.items():
+                setattr(content, field, value)
+            content.save()
 
         self.stdout.write(
             self.style.SUCCESS(

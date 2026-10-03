@@ -94,6 +94,10 @@ class ModulePermission(BasePermission):
         action = ACTION_MAP.get(view_action)
 
         if action is None:
+            action_map = getattr(view, "action_map", {})
+            action = action_map.get(request.method.lower())
+
+        if action is None:
             action = HTTP_ACTION.get(request.method)
 
         if action is None:

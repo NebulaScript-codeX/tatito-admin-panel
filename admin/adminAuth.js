@@ -39,6 +39,33 @@ export function getAdminToken() {
   return session?.access || null
 }
 
+export async function refreshAdminAccessToken() {
+  const session = getAdminSession()
+  if (!session?.refresh) return false
+
+  const response = await fetch(`${API_BASE_URL}/admin/token/refresh/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refresh: session.refresh }),
+  })
+  if (response.status === 400 || response.status === 401) return false
+  if (!response.ok) {
+    throw new Error(`Admin token refresh failed (${response.status}).`)
+  }
+
+  const data = await response.json()
+  if (typeof data?.access !== 'string' || !data.access) {
+    throw new Error('The admin token refresh response did not include an access token.')
+  }
+
+  const latestSession = getAdminSession()
+  if (latestSession?.refresh !== session.refresh) return false
+  saveAdminSession({ ...latestSession, access: data.access })
+  return true
+}
+
 /* ---------------------------------------------------------
    PERMISSIONS
    The server is the authority (every API enforces RBAC).
@@ -106,17 +133,26 @@ export async function logoutAdminRemote() {
 }
 
 export async function getAdminProfile() {
-  const token = getAdminToken()
+  let token = getAdminToken()
 
   if (!token) {
     return null
   }
 
-  const response = await fetch(`${API_BASE_URL}/admin/me/`, {
+  let response = await fetch(`${API_BASE_URL}/admin/me/`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   })
+
+  if (response.status === 401 && await refreshAdminAccessToken()) {
+    token = getAdminToken()
+    response = await fetch(`${API_BASE_URL}/admin/me/`, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+      },
+    })
+  }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {

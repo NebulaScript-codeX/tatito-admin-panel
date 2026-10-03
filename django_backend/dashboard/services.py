@@ -1,49 +1,44 @@
-"""Aggregate Dashboard data from MongoDB and Django-backed admin modules."""
+"""Aggregate dashboard metrics from Django ORM-backed Admin modules."""
+from collections import Counter
 from datetime import datetime, timedelta, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-
-# Node model -> Mongo collection (Mongoose pluralises model names).
-USERS = "users"
-DOCTORS = "doctors"
+from django.db.models import Count
+from .models import PlatformDoctor, PlatformUser
 
 VALID_PERIODS = ("today", "7", "30")
 
 # metric -> what the backend is missing. Keeps the API honest and self-documenting.
 UNAVAILABLE = {
-    "today_appointments": "No appointments model (only Doctor/User/Review exist).",
     "pending_medicine_orders": "No medicine/pharmacy orders model.",
     "lab_test_bookings": "No lab-test bookings model.",
     "sample_collections": "No sample-collections model.",
-    "revenue": "No payments/orders/bookings model to derive revenue from.",
     "prescription_reviews": "No prescriptions model.",
-    "refund_requests": "No refunds/payments model.",
     "internship_applications": "No internship-applications model in the Node backend.",
     "low_stock_products": "No products/inventory model.",
     "unassigned_sample_bookings": "No sample-bookings model.",
     "open_support_tickets": "No support-tickets model.",
     "revenue_trend": "Depends on revenue (no payments model).",
     "revenue_by_module": "Depends on revenue (no payments model).",
-    "appointments_by_specialty": "Depends on appointments (no appointments model).",
     "order_trend": "Depends on medicine orders (no orders model).",
-    "recent_appointments": "No appointments model.",
     "recent_orders": "No orders model.",
 }
 
 SOURCES = {
-    "total_users": "mongo:users",
-    "new_patients": "mongo:users (role=patient, createdAt in period)",
-    "user_registration_trend": "mongo:users.createdAt",
-    "total_doctors": "mongo:doctors",
-    "doctor_verifications": "mongo:doctors (verified=false)",
-    "recent_users": "mongo:users",
+    "total_users": "django:dashboard.PlatformUser",
+    "new_patients": "django:dashboard.PlatformUser (role=patient, created_at in period)",
+    "user_registration_trend": "django:dashboard.PlatformUser.created_at",
+    "total_doctors": "django:dashboard.PlatformDoctor",
+    "doctor_verifications": "django:dashboard.PlatformDoctor (verification_status=pending)",
+    "recent_users": "django:dashboard.PlatformUser",
     "admin_activity": "django:audit.AuditLog",
-    "users_by_role": "mongo:users grouped by role",
-    "doctors_by_specialty": "mongo:doctors grouped by specialty",
+    "users_by_role": "django:dashboard.PlatformUser grouped by role",
+    "doctors_by_specialty": "django:dashboard.PlatformDoctor grouped by specialty",
     "healthcare_providers": "django:providers.HealthcareProvider",
     "provider_documents": "django:providers.ProviderDocument",
     "coupons_offers": "django:marketing.Coupon, Promotion, FeaturedPromotion, PromotionalContent",
+    "care": "django:care.Doctor, Appointment, InstantConsult, Review, DoctorPayout",
 }
 
 
@@ -66,36 +61,22 @@ def period_window(period, now=None):
     return start_local.astimezone(dt_timezone.utc), local_now.astimezone(dt_timezone.utc)
 
 
-def _iso(value):
-    if isinstance(value, datetime):
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=dt_timezone.utc)
-        return value.isoformat()
-    return value
-
-
-def _count(collection, query=None):
-    return collection.count_documents(query or {})
-
-
-def _trend(collection, period, start, end, extra_query=None, date_field="createdAt"):
-    """Zero-filled count-per-bucket series (hourly for 'today', daily otherwise)."""
+def _trend(period, start, end):
+    """Zero-filled registration counts, hourly for today and daily otherwise."""
     tz = dashboard_tz()
     hourly = period == "today"
-    query = {date_field: {"$gte": start, "$lte": end}}
-    if extra_query:
-        query.update(extra_query)
-
-    counts = {}
-    for doc in collection.find(query, {date_field: 1}):
-        stamp = doc.get(date_field)
-        if not isinstance(stamp, datetime):
-            continue
-        if stamp.tzinfo is None:
-            stamp = stamp.replace(tzinfo=dt_timezone.utc)
-        local = stamp.astimezone(tz)
-        key = local.strftime("%Y-%m-%d %H:00") if hourly else local.strftime("%Y-%m-%d")
-        counts[key] = counts.get(key, 0) + 1
+    counts = Counter()
+    registrations = (
+        PlatformUser.objects.filter(created_at__gte=start, created_at__lte=end)
+        .values_list("created_at", flat=True)
+        .iterator()
+    )
+    for created_at in registrations:
+        local_created_at = created_at.astimezone(tz)
+        key = local_created_at.strftime(
+            "%Y-%m-%d %H:00" if hourly else "%Y-%m-%d"
+        )
+        counts[key] += 1
 
     series = []
     cursor = start.astimezone(tz)
@@ -112,48 +93,67 @@ def _trend(collection, period, start, end, extra_query=None, date_field="created
     return series
 
 
-def _group_counts(collection, field, key_name, limit=None, fallback="Unspecified"):
-    """[{key_name: value, count: n}] sorted by count desc, straight from Mongo."""
-    pipeline = [
-        {"$group": {"_id": "$" + field, "count": {"$sum": 1}}},
-        {"$sort": {"count": -1, "_id": 1}},
-    ]
-    if limit:
-        pipeline.append({"$limit": limit})
-    return [
-        {key_name: row["_id"] or fallback, "count": row["count"]}
-        for row in collection.aggregate(pipeline)
-    ]
-
-
-def _safe_user(doc):
-    """Whitelisted fields only - never leak passwordHash."""
+def _safe_user(user):
+    """Whitelisted fields only - never expose account credentials."""
     return {
-        "id": str(doc.get("_id")),
-        "name": doc.get("name", ""),
-        "email": doc.get("email", ""),
-        "role": doc.get("role", ""),
-        "created_at": _iso(doc.get("createdAt")),
+        "id": user.pk,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
 
+def _group_counts(queryset, field, key_name, limit=None, fallback="Unspecified"):
+    rows = (
+        queryset.values(field)
+        .annotate(count=Count("id"))
+        .order_by("-count", field)
+    )
+    if limit:
+        rows = rows[:limit]
+    return [
+        {key_name: row[field] or fallback, "count": row["count"]}
+        for row in rows
+    ]
+
+
+def _merge_counts(*groups, key_name, limit=None):
+    totals = {}
+    for group in groups:
+        for row in group:
+            key = row.get(key_name) or "Unspecified"
+            totals[key] = totals.get(key, 0) + row["count"]
+    rows = [
+        {key_name: key, "count": count}
+        for key, count in sorted(totals.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    return rows[:limit] if limit else rows
+
+
 def build_overview(
-    db,
     period,
     can_see_users=True,
     audit_rows=None,
     provider_stats=None,
     coupon_stats=None,
+    care_stats=None,
 ):
     start, end = period_window(period)
-    users = db[USERS]
-    doctors = db[DOCTORS]
-
-    in_period = {"$gte": start, "$lte": end}
+    users = PlatformUser.objects.all()
+    doctors = PlatformDoctor.objects.all()
+    new_patients = users.filter(
+        role=PlatformUser.Role.PATIENT,
+        created_at__gte=start,
+        created_at__lte=end,
+    )
 
     platform_overview = {
-        "total_users": _count(users),
-        "total_doctors": _count(doctors),
+        "total_users": users.count(),
+        "total_doctors": doctors.count(),
+        "care_total_doctors": (care_stats or {}).get("total_doctors"),
+        "care_verified_doctors": (care_stats or {}).get("verified_doctors"),
+        "care_pending_doctors": (care_stats or {}).get("pending_doctors"),
         "total_hospitals": (provider_stats or {}).get("total_hospitals"),
         "total_clinics": (provider_stats or {}).get("total_clinics"),
         "total_diagnostic_centres": (provider_stats or {}).get(
@@ -163,22 +163,32 @@ def build_overview(
     }
 
     live_stats = {
-        "today_appointments": None,
+        "today_appointments": (care_stats or {}).get("today_appointments"),
         "pending_medicine_orders": None,
         "lab_test_bookings": None,
         "sample_collections": None,
-        "revenue": None,
-        "new_patients": _count(users, {"role": "patient", "createdAt": in_period}),
+        "revenue": (care_stats or {}).get("consultation_revenue"),
+        "new_patients": new_patients.count(),
     }
 
     needs_attention = {
-        "doctor_verifications": _count(doctors, {"verified": False}),
+        "doctor_verifications": (
+            doctors.filter(
+                verification_status=PlatformDoctor.VerificationStatus.PENDING
+            ).count()
+            + (care_stats or {}).get("pending_doctors", 0)
+        ),
         "provider_approvals": (provider_stats or {}).get("provider_approvals"),
         "document_verifications": (provider_stats or {}).get(
             "document_verifications"
         ),
-        "prescription_reviews": None,
-        "refund_requests": None,
+        "pending_reviews": (care_stats or {}).get("pending_reviews"),
+        "refund_requests": (care_stats or {}).get("pending_refunds"),
+        "unassigned_instant_consults": (care_stats or {}).get("unassigned_consults"),
+        "pending_payouts": (care_stats or {}).get("pending_payouts"),
+        "patients_waiting_over_15_minutes": (care_stats or {}).get(
+            "waiting_over_15_minutes"
+        ),
         "internship_applications": None,
         "low_stock_products": None,
         "unassigned_sample_bookings": None,
@@ -188,8 +198,8 @@ def build_overview(
     charts = {
         "revenue_trend": [],
         "revenue_by_module": [],
-        "appointments_by_specialty": [],
-        "user_registration_trend": _trend(users, period, start, end),
+        "appointments_by_specialty": (care_stats or {}).get("appointments_by_specialty", []),
+        "user_registration_trend": _trend(period, start, end),
         "order_trend": [],
     }
 
@@ -197,14 +207,17 @@ def build_overview(
     # panels. Kept outside `charts` so the 5-chart contract stays untouched.
     distributions = {
         "users_by_role": _group_counts(users, "role", "role"),
-        "doctors_by_specialty": _group_counts(doctors, "specialty", "specialty", limit=8),
+        "doctors_by_specialty": _merge_counts(
+            _group_counts(doctors, "specialty", "specialty"),
+            (care_stats or {}).get("doctors_by_specialty", []),
+            key_name="specialty",
+            limit=8,
+        ),
     }
 
     recent_users = []
     if can_see_users:
-        recent_users = [
-            _safe_user(d) for d in users.find({}, {"passwordHash": 0}).sort("createdAt", -1).limit(5)
-        ]
+        recent_users = [_safe_user(user) for user in users[:5]]
 
     return {
         "period": period,
@@ -212,13 +225,14 @@ def build_overview(
         "period_end": end.isoformat(),
         "platform_overview": platform_overview,
         "live_stats": live_stats,
+        "care": care_stats,
         "needs_attention": needs_attention,
         "coupons_offers": coupon_stats,
         "charts": charts,
         "distributions": distributions,
         "recent_activity": {
             "users": recent_users,
-            "appointments": [],
+            "appointments": (care_stats or {}).get("recent_appointments", []),
             "orders": [],
             "admin_activity": audit_rows if audit_rows is not None else [],
         },

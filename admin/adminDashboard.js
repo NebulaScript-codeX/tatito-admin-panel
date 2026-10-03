@@ -4,6 +4,7 @@ import {
   hasPermission,
   isAdminAuthenticated,
   logoutAdmin,
+  refreshAdminAccessToken,
   refreshAdminSession,
 } from "./adminAuth.js";
 import {
@@ -61,6 +62,14 @@ async function fetchDashboard(period) {
         headers: { Authorization: `Bearer ${token}` },
       },
     );
+    if (response.status === 401 && await refreshAdminAccessToken()) {
+      response = await fetch(
+        `${DASHBOARD_API}?period=${encodeURIComponent(period)}`,
+        {
+          headers: { Authorization: 'Bearer ' + getAdminToken() },
+        },
+      );
+    }
   } catch {
     throw new DashboardRequestError(
       "Cannot reach the admin server. Check that the Django backend is running.",
@@ -205,12 +214,14 @@ function renderKpis(data, period) {
   const patients = roleCount("patient");
   const doctorUsers = roleCount("doctor");
 
-  const totalDoctors = overview.total_doctors;
+  const totalDoctors = overview.care_total_doctors ?? overview.total_doctors;
   const pending = attention.doctor_verifications;
   const verified =
-    !isNil(totalDoctors) && !isNil(pending)
-      ? Math.max(totalDoctors - pending, 0)
-      : null;
+    !isNil(overview.care_verified_doctors)
+      ? overview.care_verified_doctors
+      : !isNil(totalDoctors) && !isNil(pending)
+        ? Math.max(totalDoctors - pending, 0)
+        : null;
 
   return [
     kpiCard({
@@ -330,6 +341,10 @@ const ATTENTION_ITEMS = [
     page: "pharmacy",
   },
   { key: "refund_requests", label: "Refund Requests", page: "orders_payments" },
+  { key: "pending_reviews", label: "Doctor Reviews", page: "doctors" },
+  { key: "unassigned_instant_consults", label: "Unassigned Instant Consults", page: "doctors" },
+  { key: "patients_waiting_over_15_minutes", label: "CARE Patients Waiting 15+ Minutes", page: "doctors" },
+  { key: "pending_payouts", label: "Pending Doctor Payouts", page: "doctors" },
   {
     key: "internship_applications",
     label: "Internship Applications",
@@ -395,6 +410,32 @@ function renderAttentionPanel(data) {
           ? `Nothing waiting · ${waiting} checks not connected yet`
           : "Nothing is waiting on you",
     body: `<ul class="dash-attention">${rows}</ul>`,
+  });
+}
+
+function renderCareOperations(data) {
+  const care = data.care;
+  if (!care) {
+    return panel({
+      title: "CARE operations",
+      subtitle: "Doctors & Appointments",
+      body: renderEmpty("CARE data is restricted", "Your role does not have access to CARE operations."),
+    });
+  }
+  const appointments = care.appointment_statuses || {};
+  const metrics = [
+    ["Doctors", `${formatCount(care.total_doctors)} total · ${formatCount(care.verified_doctors)} verified · ${formatCount(care.pending_doctors)} pending · ${formatCount(care.active_specialties)} active specialties`],
+    ["Availability", `${formatCount(care.online_doctors)} online · ${formatCount(care.offline_doctors)} offline`],
+    ["Appointments", `${formatCount(care.today_appointments)} today · ${formatCount(appointments.booked)} booked · ${formatCount(appointments.confirmed)} confirmed`],
+    ["Outcomes", `${formatCount(appointments.completed)} completed · ${formatCount(appointments.cancelled)} cancelled · ${formatCount(appointments["no-show"])} no-show`],
+    ["Instant Consult", `${formatCount(care.unassigned_consults)} waiting · ${formatCount(care.waiting_over_15_minutes)} waiting 15+ min`],
+    ["Needs review", `${formatCount(care.pending_reviews)} reviews · ${formatCount(care.pending_payouts)} payouts · ${formatCount(care.pending_refunds)} refunds`],
+  ];
+  return panel({
+    title: "CARE operations",
+    subtitle: "Live SQL data · Doctors & Appointments",
+    className: "is-wide dash-care-operations",
+    body: `<ul class="dash-modules">${metrics.map(([label, value]) => `<li class="is-live"><span class="dash-status is-ok"></span><span class="dash-module-main"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></span></li>`).join("")}</ul>`,
   });
 }
 
@@ -675,6 +716,10 @@ function renderContent(data) {
       <div class="dash-grid dash-grid-even">
         ${renderSpecialtyPanel(data)}
         ${renderAttentionPanel(data)}
+      </div>
+
+      <div class="dash-grid dash-grid-care">
+        ${renderCareOperations(data)}
       </div>
 
       <div class="dash-grid dash-grid-even">

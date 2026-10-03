@@ -467,29 +467,65 @@ test("logged-in patient can submit a review persisted to MongoDB", async () => {
   assert.ok(data.review.createdAt);
   // patient identity comes from the token, never from the body
   assert.equal(data.review.patientName, "Aarav Patient");
+  assert.equal(data.review.moderationStatus, "pending");
 });
 
-test("review is attached to the correct doctor only", async () => {
+test("pending patient review stays out of public doctor review lists", async () => {
   const d1 = await api("/doctors/d1/reviews");
   const d3 = await api("/doctors/d3/reviews");
   const found = d1.data.reviews.some((r) =>
     r.comment.includes("extremely helpful"),
   );
-  assert.equal(found, true);
+  assert.equal(found, false);
   assert.equal(
     d3.data.reviews.some((r) => r.comment.includes("extremely helpful")),
     false,
   );
 });
 
-test("after a user review, rating is computed from real reviews", async () => {
+test("a patient review does not affect ratings until admin approval", async () => {
   const { data } = await api("/doctors/d1/reviews");
-  assert.equal(data.isDemo, false);
-  assert.equal(data.userCount, 1);
-  assert.equal(data.count, 1);
-  assert.equal(data.overall, "5.0");
-  assert.equal(
-    data.reviews.some((r) => r.isDemo === false),
-    true,
-  );
+  assert.equal(data.isDemo, true);
+  assert.equal(data.userCount, 0);
+  assert.equal(data.count, 4);
+  assert.equal(data.reviews.every((r) => r.isDemo), true);
+});
+
+test("patient booking reserves a live slot and creates pending payment records", async () => {
+  const now = new Date();
+  const daysToMonday = ((8 - now.getUTCDay()) % 7) || 7;
+  const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToMonday));
+  const date = target.toISOString().slice(0, 10);
+  await mongoose.connection.db.collection("care_schedules").insertOne({
+    _id: "test-booking-schedule",
+    doctor_id: "d1",
+    weekday: 0,
+    start_time: "09:00",
+    end_time: "10:00",
+    duration_minutes: 30,
+    is_working: true,
+  });
+  const slots = await api(`/doctors/d1/availability?date=${date}`);
+  assert.equal(slots.status, 200);
+  assert.ok(slots.data.results.length);
+
+  const patient = await api("/auth/login", {
+    method: "POST",
+    body: { email: "aarav@test.io", password: "Password1" },
+  });
+  const booked = await api("/doctors/d1/appointments", {
+    method: "POST",
+    token: patient.data.token,
+    body: { slot_id: slots.data.results[0].id, consultation_type: "Video" },
+  });
+  assert.equal(booked.status, 201);
+  assert.equal(booked.data.appointment.payment_status, "pending");
+  assert.equal(booked.data.payment.status, "pending");
+
+  const duplicate = await api("/doctors/d1/appointments", {
+    method: "POST",
+    token: patient.data.token,
+    body: { slot_id: slots.data.results[0].id, consultation_type: "Video" },
+  });
+  assert.equal(duplicate.status, 409);
 });

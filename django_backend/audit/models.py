@@ -1,8 +1,10 @@
 from django.conf import settings
 from django.db import models
 
+from dashboard.models import DevelopmentRecord
 
-class AuditLog(models.Model):
+
+class AuditLog(DevelopmentRecord):
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

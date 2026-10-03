@@ -4,13 +4,15 @@ import uuid
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from dashboard.models import DevelopmentRecord
+
 
 def provider_document_upload_to(instance, filename):
     extension = Path(filename).suffix.lower()
     return f"provider-documents/{instance.provider_id}/{uuid.uuid4().hex}{extension}"
 
 
-class HealthcareProvider(models.Model):
+class HealthcareProvider(DevelopmentRecord):
     class ProviderType(models.TextChoices):
         HOSPITAL = "hospital", "Hospital"
         CLINIC = "clinic", "Clinic"
@@ -56,7 +58,7 @@ class HealthcareProvider(models.Model):
         return self.name
 
 
-class ProviderDocument(models.Model):
+class ProviderDocument(DevelopmentRecord):
     class Kind(models.TextChoices):
         REGISTRATION_CERTIFICATE = "registration_certificate", "Registration Certificate"
         LICENCE = "licence", "Licence"

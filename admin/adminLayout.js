@@ -18,6 +18,7 @@ const BUILT_MODULES = new Set([
   "users",
   "staff",
   "providers",
+  "doctors",
   "promotions",
   "coupons_offers_marketing",
 ]);
@@ -34,7 +35,6 @@ export function openModule(key) {
     promotions: "promotions",
     providers: "providers",
     doctors: "doctors",
-    health_records: "health-records",
     pharmacy: "pharmacy",
     lab_tests: "lab-tests",
     orders_payments: "orders-payments",
@@ -80,7 +80,6 @@ const sidebarGroups = [
     title: "CARE",
     items: [
       { key: "doctors", label: "Doctors & Appointments", icon: "doctor" },
-      { key: "health_records", label: "Health Records", icon: "records" },
     ],
   },
   {
@@ -138,8 +137,6 @@ const sidebarIconPaths = {
     '<path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 7h2m2 0h2M9 11h2m2 0h2M9 15h2m2 0h2M11 21v-3h2v3"/>',
   doctor:
     '<path d="M6 3v6a4 4 0 0 0 8 0V3M10 13v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="11" r="2"/><path d="M4 3h4m6 0h4"/>',
-  records:
-    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8m-8 4h8"/>',
   pharmacy:
     '<path d="m10.5 3.5 10 10a4.95 4.95 0 0 1-7 7l-10-10a4.95 4.95 0 0 1 7-7Z"/><path d="m8 6 10 10M13 8l3-3m-8 8-3 3"/>',
   lab: '<path d="M9 3h6m-5 0v7L4 19a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3l-6-9V3M7 16h10"/>',
@@ -185,7 +182,6 @@ const pageTitles = {
   staff: "Staff, Roles & Admin Accounts",
   providers: "Healthcare Providers",
   doctors: "Doctors & Appointments",
-  health_records: "Health Records",
   pharmacy: "Pharmacy",
   lab_tests: "Lab Tests",
   orders_payments: "Orders & Payments",
@@ -601,9 +597,16 @@ function setupAdminLayoutEvents(app) {
 
     const encoded = encodeURIComponent(query);
     const sources = [
-      hasPermission("users", "view") && { module: "users", endpoint: `/users/?search=${encoded}&page_size=5`, label: (row) => row.name || row.email, detail: (row) => `${row.role || "User"} · ${row.email || ""}` },
-      hasPermission("staff", "view") && { module: "staff", endpoint: `/staff/?search=${encoded}`, label: (row) => row.name || row.username, detail: (row) => `Staff · ${row.email || ""}` },
-      hasPermission("providers", "view") && { module: "providers", endpoint: `/providers/?search=${encoded}`, label: (row) => row.name, detail: (row) => `Healthcare provider · ${row.provider_type || ""}` },
+      hasPermission("users", "view") && { module: "users", endpoint: `/users/?search=${encoded}&page_size=5`, label: (row) => row.name || row.email || row.mobile, detail: (row) => `${row.role || "User"} · ${row.email || row.mobile || ""}` },
+      hasPermission("staff", "view") && { module: "staff", endpoint: `/staff/?search=${encoded}`, label: (row) => row.name || row.username || row.email, detail: (row) => `Staff · ${row.email || ""}` },
+      hasPermission("providers", "view") && { module: "providers", endpoint: `/providers/?search=${encoded}`, label: (row) => row.name || row.email || row.registration_number, detail: (row) => `Healthcare provider · ${row.provider_type || row.city || ""}` },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/doctors/?search=${encoded}&page_size=5`, label: (row) => row.name, detail: (row) => `Doctor · ${row.specialty || ""}${row.city ? ` · ${row.city}` : ""}` },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/appointments/?search=${encoded}&page_size=5`, label: (row) => row.patient_name || row.patientName, detail: (row) => `Appointment · ${row.doctor_name || ""}${row.date ? ` · ${row.date}` : ""}` },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/patients/?search=${encoded}`, label: (row) => row.name, detail: (row) => `CARE patient · ${row.external_id || ""}` },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/specialties/?search=${encoded}&page_size=5`, label: (row) => row.name, detail: () => "CARE specialty" },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/instant-consults/?search=${encoded}&page_size=5`, label: (row) => row.patient_name || row.patientName, detail: (row) => `Instant consult · ${row.doctor_name || row.status || ""}` },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/reviews/?search=${encoded}&page_size=5`, label: (row) => row.patientName || row.patient_name || row.doctor_name, detail: (row) => `CARE review · ${row.doctor_name || row.moderationStatus || ""}` },
+      hasPermission("doctors", "view") && { module: "doctors", endpoint: `/care/payouts/?search=${encoded}`, label: (row) => row.doctor_name, detail: (row) => `CARE payout · ${row.status || ""}` },
       hasPermission("coupons_offers_marketing", "view") && { module: "coupons_offers_marketing", endpoint: `/marketing/coupons/?search=${encoded}`, label: (row) => row.code, detail: () => "Coupon" },
       hasPermission("promotions", "view") && { module: "promotions", endpoint: `/marketing/promotions/?search=${encoded}`, label: (row) => row.title, detail: () => "Promotion" },
     ].filter(Boolean);
@@ -623,14 +626,20 @@ function setupAdminLayoutEvents(app) {
           : [];
       rows.slice(0, 5).forEach((row) => {
         const label = sources[index].label(row);
-        if (label) results.push({ module: sources[index].module, label, detail: sources[index].detail(row) });
+        if (typeof label === "string" && label.trim()) {
+          results.push({
+            module: sources[index].module,
+            label: label.trim(),
+            detail: sources[index].detail(row),
+          });
+        }
       });
     });
     renderSearchResults(query, results, failed);
   };
   searchInput?.addEventListener("input", () => {
     window.clearTimeout(searchTimer);
-    searchTimer = window.setTimeout(() => searchAdminData(searchInput.value), 250);
+    searchTimer = window.setTimeout(() => searchAdminData(searchInput.value), 150);
   });
   searchInput?.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeSearch();

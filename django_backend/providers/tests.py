@@ -1,8 +1,6 @@
 import tempfile
-from unittest import mock
 from pathlib import Path
 
-import mongomock
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
@@ -190,12 +188,7 @@ class HealthcareProviderApiTests(TestCase):
             )
         )
 
-        mongo_database = mongomock.MongoClient()["provider_dashboard_test"]
-        with mock.patch(
-            "dashboard.views.mongo.get_mongo_database",
-            return_value=mongo_database,
-        ):
-            dashboard = self.client.get("/api/dashboard/overview/?period=7")
+        dashboard = self.client.get("/api/dashboard/overview/?period=7")
         self.assertEqual(dashboard.status_code, 200, dashboard.data)
         dashboard_entries = dashboard.data["recent_activity"]["admin_activity"]
         self.assertTrue(
@@ -221,12 +214,7 @@ class HealthcareProviderApiTests(TestCase):
         self.assertEqual(provider_list.status_code, 200, provider_list.data)
         self.assertEqual(len(provider_list.data), 4)
 
-        mongo_database = mongomock.MongoClient()["provider_dashboard_metrics_test"]
-        with mock.patch(
-            "dashboard.views.mongo.get_mongo_database",
-            return_value=mongo_database,
-        ):
-            dashboard = self.client.get("/api/dashboard/overview/?period=7")
+        dashboard = self.client.get("/api/dashboard/overview/?period=7")
 
         self.assertEqual(dashboard.status_code, 200, dashboard.data)
         self.assertEqual(

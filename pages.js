@@ -1,8 +1,14 @@
 import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, accountDrawerHTML, openAccountDrawer, closeAccountDrawer } from './ui.js'
 import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages, internshipPrograms } from './data.js'
-import { isAuthenticated, getAuthUser, requireAuth, logoutUser } from './auth.js'
+import { isAuthenticated, getAuthUser, getAuthToken, requireAuth, logoutUser } from './auth.js'
 import { openAuthModal } from './authPages.js'
 import { languages, getLanguage, setLanguage, t } from './translations.js'
+import {
+  createDoctorAppointment,
+  getDoctorAvailability,
+  getMyDoctorAppointments,
+  getMyDoctorPayments,
+} from './api.js'
 
 
 export function sharedHeader(ctx, activeNav) {
@@ -1559,7 +1565,7 @@ function bindWriteReview(section, doctorId, ctx, onSaved) {
     btn.disabled = true;
     try {
       const res = await createReview(doctorId, { rating: chosen, comment: text }, getAuthToken());
-      ctx.showToast("Thank you — your review has been published.");
+      ctx.showToast("Thank you — your review was submitted for moderation.");
       if (onSaved && res && res.summary) onSaved(res.summary);
     } catch (err) {
       btn.disabled = false;
@@ -1662,6 +1668,7 @@ export function renderDoctorDetail(appRoot, ctx) {
   `;
   bindNav(appRoot, ctx);
   booking.bind(appRoot);
+  booking.loadSlots();
   initDoctorReviews(appRoot, d, ctx);
   ensureLive()
     .then(() => booking.refreshFees(appRoot))
@@ -1669,10 +1676,6 @@ export function renderDoctorDetail(appRoot, ctx) {
 }
 
 // === Direct Appointment Booking Module (Doctor Detail) ===
-const BOOKING_SLOTS = [
-  "9:00 AM", "11:00 AM", "1:00 PM", "3:00 PM",
-  "5:00 PM", "7:00 PM", "9:00 PM",
-];
 const BOOKING_RAIL_DAYS = 3;
 const BOOKING_CAL_MAX_MONTHS = 3;
 const BOOKING_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -1703,19 +1706,34 @@ function createDoctorBooking(d, ctx) {
   let type = "Online Video";
   let dateKey = bookingTodayKey();
   let timeSlot = null;
+  let availableSlots = [];
+  let slotsLoading = false;
+  let appointmentResult = null;
+  let bookingRoot = null;
   let calMonth = new Date(bookingFromKey(dateKey).getFullYear(), bookingFromKey(dateKey).getMonth(), 1);
   let calChoice = dateKey;
 
-  function slotDisabled(slot) {
-    if (dateKey !== bookingTodayKey()) return false;
-    const m = slot.match(/^(\d{1,2}):00\s*(AM|PM)$/);
-    if (!m) return false;
-    let h = Number(m[1]) % 12;
-    if (m[2] === "PM") h += 12;
-    const now = new Date();
-    const slotStart = new Date();
-    slotStart.setHours(h, 0, 0, 0);
-    return now > slotStart;
+  function displayTime(value) {
+    const [hourText, minute] = String(value || "").split(":");
+    const hour = Number(hourText);
+    if (!Number.isFinite(hour) || minute === undefined) return "—";
+    return `${hour % 12 || 12}:${minute} ${hour < 12 ? "AM" : "PM"}`;
+  }
+
+  async function loadSlots() {
+    slotsLoading = true;
+    availableSlots = [];
+    timeSlot = null;
+    if (bookingRoot) refresh(bookingRoot);
+    try {
+      const response = await getDoctorAvailability(d.id, dateKey);
+      availableSlots = Array.isArray(response?.results) ? response.results : [];
+    } catch (error) {
+      showToast(error.message || "Unable to load appointment availability.");
+    } finally {
+      slotsLoading = false;
+      if (bookingRoot) refresh(bookingRoot);
+    }
   }
 
   function railDates() {
@@ -1737,17 +1755,12 @@ function createDoctorBooking(d, ctx) {
   }
 
   function timeGridHTML() {
-    const today = dateKey === bookingTodayKey();
-    return (
-      BOOKING_SLOTS.map((s) => {
-        const dis = slotDisabled(s);
-        const sel = s === timeSlot ? " selected" : "";
-        return `<button type="button" class="time-slot${sel}" data-time-key="${s}"${dis ? " disabled" : ""}>${s}</button>`;
-      }).join("") +
-      (today
-        ? `<p class="booking-hint">${icon("clock")} Past slots for today are unavailable.</p>`
-        : "")
-    );
+    if (slotsLoading) return '<p class="booking-hint" role="status">Loading available times…</p>';
+    if (!availableSlots.length) return '<p class="booking-hint" role="status">No appointment times are available for this date.</p>';
+    return availableSlots.map((slot) => {
+      const selected = slot.id === timeSlot ? " selected" : "";
+      return `<button type="button" class="time-slot${selected}" data-time-key="${escAttr(slot.id)}">${displayTime(slot.start_time)}</button>`;
+    }).join("");
   }
 
   function renderCard() {
@@ -1844,10 +1857,10 @@ function createDoctorBooking(d, ctx) {
             <div><span class="bcs-icon">${icon("user")}</span><span class="bcs-label">Doctor</span><strong>${d.name}</strong></div>
             <div><span class="bcs-icon">${icon("video")}</span><span class="bcs-label">Type</span><strong id="confirm-type">${type}</strong></div>
             <div><span class="bcs-icon">${icon("calendar")}</span><span class="bcs-label">Date</span><strong id="confirm-date">${bookingLongDate(dateKey)}</strong></div>
-            <div><span class="bcs-icon">${icon("clock")}</span><span class="bcs-label">Time</span><strong id="confirm-time">${timeSlot || "—"}</strong></div>
+            <div><span class="bcs-icon">${icon("clock")}</span><span class="bcs-label">Time</span><strong id="confirm-time">${displayTime(availableSlots.find((slot) => slot.id === timeSlot)?.start_time)}</strong></div>
             <div class="confirm-total"><span>Total Fee</span><strong data-fee-view>${feeText(d) ?? "—"}</strong></div>
           </div>
-          <div class="booking-confirm-note">${icon("shield")} <span>Frontend demo only — no real payment or backend booking has been processed.</span></div>
+          <div class="booking-confirm-note">${icon("shield")} <span id="booking-payment-note">Your appointment request will be saved securely.</span></div>
           <div class="booking-confirm-actions">
             <button type="button" class="button button-primary full-button" id="booking-done-btn">Done ${icon("check")}</button>
             <button type="button" class="button button-quiet full-button" data-nav="dashboard">Go to My Appointments</button>
@@ -1863,7 +1876,7 @@ function createDoctorBooking(d, ctx) {
     const grid = appRoot.querySelector("#booking-time-grid");
     if (grid) grid.innerHTML = timeGridHTML();
     const confirmBtn = appRoot.querySelector("#book-appointment-confirm");
-    if (confirmBtn) confirmBtn.disabled = !timeSlot;
+    if (confirmBtn) confirmBtn.disabled = !timeSlot || slotsLoading || Boolean(appointmentResult);
   }
 
   function refreshFees(appRoot) {
@@ -1876,11 +1889,12 @@ function createDoctorBooking(d, ctx) {
   }
 
   function bind(appRoot) {
+    bookingRoot = appRoot;
     const calendarModal = appRoot.querySelector("#booking-calendar-modal");
     const confirmModal = appRoot.querySelector("#booking-confirm-modal");
     const calendarRoot = appRoot.querySelector("#calendar-root");
 
-    appRoot.addEventListener("click", (e) => {
+    appRoot.addEventListener("click", async (e) => {
       const typeBtn = e.target.closest("[data-booking-type]");
       if (typeBtn) {
         type = typeBtn.dataset.bookingType;
@@ -1891,8 +1905,8 @@ function createDoctorBooking(d, ctx) {
       const dateBtn = e.target.closest("[data-date-key]");
       if (dateBtn) {
         dateKey = dateBtn.dataset.dateKey;
-        timeSlot = null;
         refresh(appRoot);
+        loadSlots();
         return;
       }
 
@@ -1901,7 +1915,7 @@ function createDoctorBooking(d, ctx) {
         timeSlot = timeBtn.dataset.timeKey;
         appRoot.querySelectorAll(".time-slot").forEach((b) => b.classList.toggle("selected", b.dataset.timeKey === timeSlot));
         const confirmBtn = appRoot.querySelector("#book-appointment-confirm");
-        if (confirmBtn) confirmBtn.disabled = false;
+        if (confirmBtn && !appointmentResult) confirmBtn.disabled = false;
         return;
       }
 
@@ -1909,6 +1923,7 @@ function createDoctorBooking(d, ctx) {
         if (calChoice) {
           dateKey = calChoice;
           refresh(appRoot);
+          loadSlots();
         }
         calendarModal.hidden = true;
         return;
@@ -1947,21 +1962,47 @@ function createDoctorBooking(d, ctx) {
       }
 
       const confirmBtn = e.target.closest("#book-appointment-confirm");
-      if (confirmBtn && timeSlot) {
+      if (confirmBtn && timeSlot && !appointmentResult) {
         if (!isAuthenticated()) {
           openAuthModal("login", ctx);
           return;
         }
+        confirmBtn.disabled = true;
+        try {
+          const result = await createDoctorAppointment(
+            d.id,
+            {
+              slot_id: timeSlot,
+              consultation_type: type === "Online Video" ? "Video" : "In-person",
+            },
+            getAuthToken(),
+          );
+          appointmentResult = result;
+          confirmModal.querySelector("h2").innerHTML = 'Appointment <em class="editorial">Booked</em>';
+          confirmModal.querySelector(".booking-confirm-sub").textContent =
+            "Your appointment has been saved and is awaiting confirmation.";
+          confirmModal.querySelector("#booking-payment-note").textContent =
+            `Payment of ₹${Number(result.payment?.amount || 0).toLocaleString("en-IN")} is pending. Online payment is not configured yet.`;
+          const doneButton = confirmModal.querySelector("#booking-done-btn");
+          if (doneButton) doneButton.textContent = "Done";
+          availableSlots = availableSlots.filter((slot) => slot.id !== timeSlot);
+          refresh(appRoot);
+        } catch (error) {
+          showToast(error.message || "Unable to book this appointment.");
+          confirmBtn.disabled = false;
+          return;
+        }
         confirmModal.querySelector("#confirm-type").textContent = type;
         confirmModal.querySelector("#confirm-date").textContent = bookingLongDate(dateKey);
-        confirmModal.querySelector("#confirm-time").textContent = timeSlot;
+        confirmModal.querySelector("#confirm-time").textContent =
+          displayTime(appointmentResult.appointment.start_time);
         confirmModal.hidden = false;
         return;
       }
       const doneBtn = e.target.closest("#booking-done-btn");
       if (doneBtn) {
         confirmModal.hidden = true;
-        showToast("Appointment confirmed (demo) — check My Appointments.");
+        showToast("Appointment booked. Payment is pending.");
         return;
       }
       if (e.target.closest("#close-booking-confirm")) {
@@ -1975,7 +2016,7 @@ function createDoctorBooking(d, ctx) {
     });
   }
 
-  return { renderCard, renderModals, bind, refreshFees };
+  return { renderCard, renderModals, bind, refreshFees, loadSlots };
 }
 
 // === Lab Tests Page ===
@@ -3779,9 +3820,36 @@ export function renderPlans(appRoot, ctx) {
 export function renderDashboard(appRoot, ctx) {
   const { navigate, showToast } = ctx;
   let activeTab = "overview"; // overview, appointments, orders, records, addresses, payments
+  let patientAppointments = [];
+  let appointmentsLoading = false;
+  let appointmentsError = "";
+  let patientPayments = [];
+  let paymentsLoading = false;
+  let paymentsError = "";
 
   function renderTabContent() {
+    const text = (value) => String(value || "—").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[character]);
     if (activeTab === "appointments") {
+      const appointmentsContent = appointmentsLoading
+        ? '<div class="empty-state" role="status"><p>Loading your appointments…</p></div>'
+        : appointmentsError
+          ? `<div class="empty-state" role="alert"><p>${text(appointmentsError)}</p><button type="button" class="button button-outline" id="appointments-retry">Try again</button></div>`
+          : patientAppointments.length
+            ? patientAppointments.map((appointment) => {
+              const date = new Date(`${appointment.date}T12:00:00`);
+              const dateLabel = Number.isNaN(date.valueOf())
+                ? text(appointment.date)
+                : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+              const time = String(appointment.start_time || "").split(":");
+              const hour = Number(time[0]);
+              const timeLabel = Number.isFinite(hour) && time[1]
+                ? `${hour % 12 || 12}:${time[1]} ${hour < 12 ? "AM" : "PM"}`
+                : "—";
+              return `<article class="dash-appointment-card"><div class="dash-apt-left"><div class="dash-apt-date-badge"><strong>${text(dateLabel.split(" ")[0])}</strong><span>${text(dateLabel.split(" ").slice(1).join(" "))}</span><small>${text(timeLabel)}</small></div><div class="dash-apt-doc-info"><div class="dash-doc-avatar">${text((appointment.doctor_name || "D").slice(0, 1))}</div><div><span class="dash-apt-spec">${text(appointment.specialty)}</span><h4>${text(appointment.doctor_name)}</h4><span class="dash-apt-loc">${text(appointment.consultation_type || "Consultation")}</span></div></div></div><div class="dash-apt-actions"><span class="status-badge status-${text(appointment.status)}">${text(appointment.status)} · payment ${text(appointment.payment_status)}</span></div></article>`;
+            }).join("")
+            : '<div class="empty-state"><h3>No appointments yet</h3><p>Booked appointments will appear here.</p><button class="button button-primary" data-nav="doctors">Find a Doctor</button></div>';
       return `
         <div class="dash-section-box">
           <div class="dash-box-head">
@@ -3789,54 +3857,21 @@ export function renderDashboard(appRoot, ctx) {
             <button class="button button-small button-primary" data-nav="doctors">Book New Doctor ${icon("arrow")}</button>
           </div>
           <div class="dash-appointments-list">
-            <div class="dash-appointment-card main-appointment">
-              <div class="dash-apt-left">
-                <div class="dash-apt-date-badge">
-                  <strong>18</strong>
-                  <span>JUN 2026</span>
-                  <small>10:30 AM</small>
-                </div>
-                <div class="dash-apt-doc-info">
-                  ${avatar("MC", "coral", "dash-doc-avatar")}
-                  <div>
-                    <span class="dash-apt-spec">Internal Medicine</span>
-                    <h4>Dr. Maya Chen</h4>
-                    <span class="dash-apt-loc">${icon("building")} St. Jude Health Center · In-Person</span>
-                  </div>
-                </div>
-              </div>
-              <div class="dash-apt-actions">
-                <span class="status-badge status-confirmed">${icon("check")} Confirmed</span>
-                <button class="button button-small button-primary" id="btn-get-directions">${icon("pin")} Get Directions</button>
-                <button class="button button-small button-outline" id="btn-reschedule-1">Reschedule</button>
-              </div>
-            </div>
-
-            <div class="dash-appointment-card">
-              <div class="dash-apt-left">
-                <div class="dash-apt-date-badge date-teal">
-                  <strong>20</strong>
-                  <span>JUN 2026</span>
-                  <small>04:15 PM</small>
-                </div>
-                <div class="dash-apt-doc-info">
-                  ${avatar("SJ", "teal", "dash-doc-avatar")}
-                  <div>
-                    <span class="dash-apt-spec">Dermatology</span>
-                    <h4>Dr. Sarah Jenkins</h4>
-                    <span class="dash-apt-loc">${icon("video")} Online Video Consultation</span>
-                  </div>
-                </div>
-              </div>
-              <div class="dash-apt-actions">
-                <span class="status-badge status-confirmed">${icon("video")} Video Ready</span>
-                <button class="button button-small button-primary" id="btn-join-call">${icon("video")} Join Call</button>
-                <button class="button button-small button-outline" id="btn-reschedule-2">Reschedule</button>
-              </div>
-            </div>
+            ${appointmentsContent}
           </div>
         </div>
       `;
+    }
+
+    if (activeTab === "payments") {
+      const content = paymentsLoading
+        ? '<div class="empty-state" role="status"><p>Loading your payments…</p></div>'
+        : paymentsError
+          ? `<div class="empty-state" role="alert"><p>${text(paymentsError)}</p><button type="button" class="button button-outline" id="payments-retry">Try again</button></div>`
+          : patientPayments.length
+            ? `<div class="table-responsive"><table class="data-table"><thead><tr><th>Type</th><th>Appointment</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>${patientPayments.map((payment) => `<tr><td>${text(payment.kind)}</td><td>${text(payment.appointment_id)}</td><td>₹${Number(payment.amount || 0).toLocaleString("en-IN")}</td><td>${text(payment.status)}</td><td>${text(payment.created_at)}</td></tr>`).join("")}</tbody></table></div><p class="booking-hint">Payments are recorded here. Online payment processing is not configured.</p>`
+            : '<div class="empty-state"><h3>No payments yet</h3><p>Consultation payment records will appear here after booking.</p></div>';
+      return `<div class="dash-section-box"><div class="dash-box-head"><h3>${icon("file")} Consultation Payments</h3></div>${content}</div>`;
     }
 
     if (activeTab === "orders") {
@@ -4258,11 +4293,17 @@ export function renderDashboard(appRoot, ctx) {
         container.innerHTML = renderTabContent();
         bindNav(appRoot, ctx);
         bindTabActions();
+        if (activeTab === "appointments") loadPatientAppointments();
+        if (activeTab === "payments") loadPatientPayments();
       }
     });
   });
 
   function bindTabActions() {
+    const retryAppointments = appRoot.querySelector("#appointments-retry");
+    if (retryAppointments) retryAppointments.addEventListener("click", loadPatientAppointments);
+    const retryPayments = appRoot.querySelector("#payments-retry");
+    if (retryPayments) retryPayments.addEventListener("click", loadPatientPayments);
     const btnGetDirections = appRoot.querySelector("#btn-get-directions");
     if (btnGetDirections)
       btnGetDirections.addEventListener("click", () =>
@@ -4287,6 +4328,64 @@ export function renderDashboard(appRoot, ctx) {
         container.innerHTML = renderTabContent();
         bindNav(appRoot, ctx);
         bindTabActions();
+
+        async function loadPatientAppointments() {
+          const token = getAuthToken();
+          if (!token) {
+            appointmentsError = "Sign in to view your appointments.";
+            appointmentsLoading = false;
+            const container = appRoot.querySelector("#dash-tab-container");
+            if (container) container.innerHTML = renderTabContent();
+            return;
+          }
+          appointmentsLoading = true;
+          appointmentsError = "";
+          const container = appRoot.querySelector("#dash-tab-container");
+          if (container) container.innerHTML = renderTabContent();
+          try {
+            const result = await getMyDoctorAppointments(token);
+            patientAppointments = Array.isArray(result?.results) ? result.results : [];
+          } catch (error) {
+            appointmentsError = error.message || "Unable to load your appointments.";
+          } finally {
+            appointmentsLoading = false;
+            const currentContainer = appRoot.querySelector("#dash-tab-container");
+            if (currentContainer && activeTab === "appointments") {
+              currentContainer.innerHTML = renderTabContent();
+              bindNav(appRoot, ctx);
+              bindTabActions();
+            }
+
+            async function loadPatientPayments() {
+              const token = getAuthToken();
+              if (!token) {
+                paymentsError = "Sign in to view your payment history.";
+                paymentsLoading = false;
+                const container = appRoot.querySelector("#dash-tab-container");
+                if (container) container.innerHTML = renderTabContent();
+                return;
+              }
+              paymentsLoading = true;
+              paymentsError = "";
+              const container = appRoot.querySelector("#dash-tab-container");
+              if (container) container.innerHTML = renderTabContent();
+              try {
+                const result = await getMyDoctorPayments(token);
+                patientPayments = Array.isArray(result?.results) ? result.results : [];
+              } catch (error) {
+                paymentsError = error.message || "Unable to load your payment history.";
+              } finally {
+                paymentsLoading = false;
+                const currentContainer = appRoot.querySelector("#dash-tab-container");
+                if (currentContainer && activeTab === "payments") {
+                  currentContainer.innerHTML = renderTabContent();
+                  bindNav(appRoot, ctx);
+                  bindTabActions();
+                }
+              }
+            }
+          }
+        }
       }
     };
 

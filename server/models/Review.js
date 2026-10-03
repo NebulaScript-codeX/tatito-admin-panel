@@ -8,6 +8,13 @@ const reviewSchema = new mongoose.Schema(
     rating: { type: Number, required: true, min: 1, max: 5 },
     comment: { type: String, required: true, trim: true },
     isSeed: { type: Boolean, default: false },
+    moderationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'hidden'],
+      default: 'pending',
+      index: true,
+    },
+    moderatedAt: { type: Date, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 )
@@ -19,6 +26,9 @@ reviewSchema.methods.toPublic = function () {
     patientName: this.patientName,
     rating: this.rating,
     comment: this.comment,
+    moderationStatus: this.isSeed
+      ? (this.moderationStatus === 'hidden' ? 'hidden' : 'approved')
+      : this.moderationStatus,
     isDemo: Boolean(this.isSeed),
     createdAt: this.createdAt,
   }

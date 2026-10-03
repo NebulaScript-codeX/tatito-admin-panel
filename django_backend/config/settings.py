@@ -21,10 +21,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-ld30!mt3oqzg%spef170=m*#jvs$8%n7svm&_=v46z5@77^^t+"
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "development-only-insecure-key-change-before-deployment",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "true").strip().lower() in {"1", "true", "yes"}
 
 ALLOWED_HOSTS = []
 
@@ -48,6 +51,7 @@ INSTALLED_APPS = [
     "audit",
     "marketing",
     "providers",
+    "care",
 ]
 
 MIDDLEWARE = [
@@ -84,27 +88,25 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'tatito_admin',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': '127.0.0.1',
-        'PORT': '3307',
+DATABASE_ENGINE = os.getenv("DJANGO_DB_ENGINE", "django.db.backends.mysql")
+if DATABASE_ENGINE == "django.db.backends.sqlite3":
+    DATABASES = {
+        "default": {
+            "ENGINE": DATABASE_ENGINE,
+            "NAME": os.getenv("DJANGO_DB_NAME", str(BASE_DIR / "db.sqlite3")),
+        }
     }
-}
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb://127.0.0.1:27017/tatito_health",
-)
-
-MONGO_DATABASE = os.getenv(
-    "MONGO_DATABASE",
-    "tatito_health",
-)
-
-
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": DATABASE_ENGINE,
+            "NAME": os.getenv("DJANGO_DB_NAME", "tatito_admin"),
+            "USER": os.getenv("DJANGO_DB_USER", "root"),
+            "PASSWORD": os.getenv("DJANGO_DB_PASSWORD", "root"),
+            "HOST": os.getenv("DJANGO_DB_HOST", "127.0.0.1"),
+            "PORT": os.getenv("DJANGO_DB_PORT", "3307"),
+        }
+    }
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 
