@@ -85,7 +85,7 @@
 }
 
 .dash-segment button[aria-pressed="true"] {
-  background: #0b735c;
+  background: var(--admin-action-gradient, #0b735c);
   color: #ffffff;
 }
 
@@ -806,7 +806,7 @@
   border: 0;
   border-radius: 8px;
   padding: 9px 18px;
-  background: var(--d-accent);
+  background: var(--admin-action-gradient, var(--d-accent));
   color: #ffffff;
   font: inherit;
   font-size: 13px;
@@ -815,7 +815,7 @@
 }
 
 .thp-admin-retry-button:hover {
-  background: var(--admin-accent-hover, #064f43);
+  background: var(--admin-action-gradient-hover, var(--admin-accent-hover, #064f43));
 }
 
 @media (prefers-reduced-motion: reduce) {

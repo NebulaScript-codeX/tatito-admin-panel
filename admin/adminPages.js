@@ -72,6 +72,8 @@ import {
   getAdminModules,
 } from './adminApi.js'
 
+import * as contentApi from "./adminApi.js";
+
 // The dashboard lives in adminDashboard.js; re-exported so main.js keeps
 // importing both admin pages from one place.
 export { renderAdminDashboard } from './adminDashboard.js'
@@ -232,15 +234,4789 @@ export function renderAdminAccessDenied(app) {
 }
 
 export function renderAdminModulePlaceholder(app, moduleKey) {
+  if (moduleKey === "content") {
+    return renderAdminContent(app);
+  }
+
   renderAdminLayout(
     app,
     moduleKey,
-    `<section class="thp-admin-empty-state" role="status">
-      <strong>Coming soon</strong>
-      <span>This admin module does not have a page yet.</span>
-    </section>`,
+    `
+      <section class="thp-admin-empty-state" role="status">
+        <strong>Coming soon</strong>
+        <span>This admin module does not have a page yet.</span>
+      </section>
+    `,
   );
 }
+
+export async function renderAdminContent(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  if (!window.location.hash.startsWith("#/admin/content")) {
+    return;
+  }
+
+  if (!hasPermission("content", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  let blogs = [];
+  let categories = [];
+  let tags = [];
+  let banners = [];
+  let announcements = [];
+  let featuredServices = [];
+  let faqs = [];
+  let testimonials = [];
+  let trustStats = [];
+  let websitePages = [];
+  let cities = [];
+  let loading = true;
+  let errorMessage = "";
+  let search = "";
+  let status = "";
+  let category = "";
+  let page = 1;
+  let activeContentTab = "blogs";
+  const pageSize = 10;
+
+  const escapeHtml = (value = "") =>
+    String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const showToast = (message, type = "success") => {
+    const existing = document.querySelector(".thp-content-toast");
+    existing?.remove();
+
+    const toast = document.createElement("div");
+    toast.className = `thp-content-toast thp-content-toast-${type}`;
+    toast.textContent = message;
+
+    Object.assign(toast.style, {
+      position: "fixed",
+      right: "24px",
+      bottom: "24px",
+      zIndex: "99999",
+      padding: "12px 18px",
+      borderRadius: "10px",
+      background: type === "error" ? "#b42318" : "#067647",
+      color: "#fff",
+      fontSize: "14px",
+      fontWeight: "600",
+      boxShadow: "0 8px 24px rgba(0,0,0,.18)",
+    });
+
+    document.body.appendChild(toast);
+
+    window.setTimeout(() => toast.remove(), 3000);
+  };
+
+  const loadData = async () => {
+    loading = true;
+    errorMessage = "";
+
+    try {
+      const [
+        blogResponse,
+        categoryResponse,
+        tagResponse,
+        homepageBannerResponse,
+        announcementResponse,
+        featuredServiceResponse,
+        faqResponse,
+        testimonialResponse,
+        trustStatResponse,
+        websitePageResponse,
+        cityResponse,
+      ] = await Promise.all([
+        contentApi.getContentBlogs({ search, status, category }),
+        contentApi.getContentBlogCategories({ is_active: true }),
+        contentApi.getContentBlogTags({ is_active: true }),
+        contentApi.getContentHomepageBanners(),
+        contentApi.getContentAnnouncements(),
+        contentApi.getContentFeaturedServices(),
+        contentApi.getContentFaqs(),
+        contentApi.getContentTestimonials(),
+        contentApi.getContentTrustStats(),
+        contentApi.getContentWebsitePages(),
+        contentApi.getContentCities(),
+      ]);
+
+      blogs = Array.isArray(blogResponse)
+        ? blogResponse
+        : blogResponse?.results || [];
+
+      categories = Array.isArray(categoryResponse)
+        ? categoryResponse
+        : categoryResponse?.results || [];
+
+      tags = Array.isArray(tagResponse)
+        ? tagResponse
+        : tagResponse?.results || [];
+
+      banners = Array.isArray(homepageBannerResponse)
+        ? homepageBannerResponse
+        : homepageBannerResponse?.results || [];
+
+      announcements = Array.isArray(announcementResponse)
+        ? announcementResponse
+        : announcementResponse?.results || [];
+
+      featuredServices = Array.isArray(featuredServiceResponse)
+        ? featuredServiceResponse
+        : featuredServiceResponse?.results || [];
+
+      faqs = Array.isArray(faqResponse)
+        ? faqResponse
+        : faqResponse?.results || [];
+
+      testimonials = Array.isArray(testimonialResponse)
+        ? testimonialResponse
+        : testimonialResponse?.results || [];
+
+      trustStats = Array.isArray(trustStatResponse)
+        ? trustStatResponse
+        : trustStatResponse?.results || [];
+
+      websitePages = Array.isArray(websitePageResponse)
+        ? websitePageResponse
+        : websitePageResponse?.results || [];
+
+      cities = Array.isArray(cityResponse)
+        ? cityResponse
+        : cityResponse?.results || [];
+
+      blogs = Array.isArray(blogResponse)
+        ? blogResponse
+        : blogResponse?.results || [];
+
+      categories = Array.isArray(categoryResponse)
+        ? categoryResponse
+        : categoryResponse?.results || [];
+    } catch (error) {
+      console.error("Module 12 blog loading failed:", error);
+      errorMessage = "Unable to load blogs. Please check the backend connection.";
+    } finally {
+      loading = false;
+      render();
+    }
+  };
+
+  const render = () => {
+    const totalPages = Math.max(1, Math.ceil(blogs.length / pageSize));
+
+    if (page > totalPages) {
+      page = totalPages;
+    }
+
+    const start = (page - 1) * pageSize;
+    const visibleBlogs = blogs.slice(start, start + pageSize);
+
+    const categoryOptions = categories
+      .map(
+        (item) =>
+          `<option value="${escapeHtml(item.id)}" ${
+            String(category) === String(item.id) ? "selected" : ""
+          }>
+            ${escapeHtml(item.name)}
+          </option>`,
+      )
+      .join("");
+
+    let content = "";
+
+    if (loading) {
+      content = `
+        <div class="thp-admin-empty-state">
+          <strong>Loading blogs...</strong>
+          <span>Please wait while the content data is loaded.</span>
+        </div>
+      `;
+    } else if (errorMessage) {
+      content = `
+        <div class="thp-admin-empty-state">
+          <strong>Unable to load blogs</strong>
+          <span>${escapeHtml(errorMessage)}</span>
+          <button type="button" class="thp-admin-button thp-admin-button-primary" id="content-retry">
+            Retry
+          </button>
+        </div>
+      `;
+    } else if (!visibleBlogs.length) {
+      content = `
+        <div class="thp-admin-empty-state">
+          <strong>No blogs found</strong>
+          <span>
+            ${
+              search || status || category
+                ? "Try changing your filters."
+                : "Create your first blog to get started."
+            }
+          </span>
+          ${
+            hasPermission("content", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-button thp-admin-button-primary"
+                  id="content-add-blog-empty"
+                >
+                  Add Blog
+                </button>
+              `
+              : ""
+          }
+        </div>
+      `;
+    } else {
+      content = `
+        <div class="thp-admin-table-wrap">
+          <table class="thp-admin-table">
+            <thead>
+              <tr>
+                <th>Article Title &amp; Slug</th>
+                <th>Category</th>
+                <th>Author</th>
+                <th>Tags</th>
+                <th>Publication Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${visibleBlogs
+                .map(
+                  (blog) => `
+                    <tr>
+                      <td>
+                        <div style="font-weight:600;">
+                          ${escapeHtml(blog.title)}
+                        </div>
+                        <div style="font-size:12px;opacity:.65;">
+                          /${escapeHtml(blog.slug || "")}
+                        </div>
+                      </td>
+
+                      <td>
+                        ${escapeHtml(blog.category_name || "—")}
+                      </td>
+
+                      <td>
+                        ${escapeHtml(blog.author_name || "—")}
+                      </td>
+
+                      <td>
+                        <div class="thp-content-tags">
+                          ${(blog.tag_names || [])
+                            .map(
+                              (tag) =>
+                                `<span class="thp-content-tag">${escapeHtml(tag)}</span>`,
+                            )
+                            .join("") || "—"}
+                        </div>
+                      </td>
+
+                      <td>
+                        <span class="thp-admin-status-badge ${
+                          blog.status === "published"
+                            ? "thp-admin-status-success"
+                            : "thp-admin-status-warning"
+                        }">
+                          ${escapeHtml(blog.status || "draft")}
+                        </span>
+                      </td>
+
+                      <td>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                          ${
+                            hasPermission("content", "edit")
+                              ? `
+                                <button
+                                  type="button"
+                                  class="thp-admin-button"
+                                  data-blog-edit="${blog.id}"
+                                >
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  class="thp-admin-button"
+                                  data-blog-toggle="${blog.id}"
+                                >
+                                  ${
+                                    blog.status === "published"
+                                      ? "Unpublish"
+                                      : "Publish"
+                                  }
+                                </button>
+                              `
+                              : ""
+                          }
+
+                          ${
+                            hasPermission("content", "delete")
+                              ? `
+                                <button
+                                  type="button"
+                                  class="thp-admin-button"
+                                  data-blog-delete="${blog.id}"
+                                >
+                                  Delete
+                                </button>
+                              `
+                              : ""
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+          <span style="font-size:13px;opacity:.7;">
+            Showing ${start + 1}–${Math.min(
+              start + visibleBlogs.length,
+              blogs.length,
+            )} of ${blogs.length}
+          </span>
+
+          <div style="display:flex;gap:8px;">
+            <button
+              type="button"
+              class="thp-admin-button"
+              id="content-prev"
+              ${page <= 1 ? "disabled" : ""}
+            >
+              Previous
+            </button>
+
+            <span style="padding:8px 12px;font-size:13px;">
+              Page ${page} of ${totalPages}
+            </span>
+
+            <button
+              type="button"
+              class="thp-admin-button"
+              id="content-next"
+              ${page >= totalPages ? "disabled" : ""}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    renderAdminLayout(
+      app,
+      "content",
+      `
+        <section class="thp-admin-page thp-content-page">
+          <div class="thp-admin-page-header">
+            <div>
+              <h1>Web &amp; Mobile <em>Content</em></h1>
+              <p>
+                Medical educational articles, SEO metadata, hero banners, verified patient reviews, and city operations hubs.
+              </p>
+            </div>
+          </div>
+
+          <nav class="thp-content-tabs" aria-label="Content sections" role="tablist">
+            <button type="button" class="thp-content-tab ${activeContentTab === "blogs" ? "is-active" : ""}" id="content-tab-blogs" role="tab" aria-selected="${activeContentTab === "blogs"}" aria-controls="content-panel-blogs" data-content-tab="blogs">
+              Blog Articles <span class="thp-content-tab-count">${blogs.length}</span>
+            </button>
+            <button type="button" class="thp-content-tab ${activeContentTab === "banners" ? "is-active" : ""}" id="content-tab-banners" role="tab" aria-selected="${activeContentTab === "banners"}" aria-controls="content-panel-banners" data-content-tab="banners">
+              Banners <span class="thp-content-tab-count">${banners.length}</span>
+            </button>
+            <button type="button" class="thp-content-tab ${activeContentTab === "faqs" ? "is-active" : ""}" id="content-tab-faqs" role="tab" aria-selected="${activeContentTab === "faqs"}" aria-controls="content-panel-faqs" data-content-tab="faqs">
+              FAQs <span class="thp-content-tab-count">${faqs.length}</span>
+            </button>
+            <button type="button" class="thp-content-tab ${activeContentTab === "testimonials" ? "is-active" : ""}" id="content-tab-testimonials" role="tab" aria-selected="${activeContentTab === "testimonials"}" aria-controls="content-panel-testimonials" data-content-tab="testimonials">
+              Testimonials <span class="thp-content-tab-count">${testimonials.length}</span>
+            </button>
+            <button type="button" class="thp-content-tab ${activeContentTab === "trust-stats" ? "is-active" : ""}" id="content-tab-trust-stats" role="tab" aria-selected="${activeContentTab === "trust-stats"}" aria-controls="content-panel-trust-stats" data-content-tab="trust-stats">
+              Trust Stats
+            </button>
+            <button type="button" class="thp-content-tab ${activeContentTab === "cities" ? "is-active" : ""}" id="content-tab-cities" role="tab" aria-selected="${activeContentTab === "cities"}" aria-controls="content-panel-cities" data-content-tab="cities">
+              Operational Cities <span class="thp-content-tab-count">${cities.length}</span>
+            </button>
+          </nav>
+
+          <section class="thp-admin-card thp-content-blog-card" id="content-panel-blogs" role="tabpanel" aria-labelledby="content-tab-blogs" data-content-panel="blogs" ${activeContentTab !== "blogs" ? "hidden" : ""}>
+            <div class="thp-admin-page-header thp-content-section-heading">
+              <div>
+                <h2>Clinical Blog &amp; Education</h2>
+                <p>Articles with automated SEO tags, author credentials, and reading vaults</p>
+              </div>
+              ${
+                hasPermission("content", "create")
+                  ? `
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button thp-content-add-primary"
+                      id="content-add-blog"
+                    >
+                      ${userIcon("plus")}<span>Write Article</span>
+                    </button>
+                  `
+                  : ""
+              }
+            </div>
+
+            <div class="thp-admin-toolbar thp-content-toolbar">
+              <div class="thp-admin-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <path d="m20 20-4-4"></path>
+                </svg>
+
+                <input
+                  id="content-search"
+                  type="search"
+                  placeholder="Search blogs..."
+                  value="${escapeHtml(search)}"
+                />
+              </div>
+
+              <select id="content-status-filter">
+                <option value="">All statuses</option>
+                <option value="draft" ${
+                  status === "draft" ? "selected" : ""
+                }>Draft</option>
+                <option value="published" ${
+                  status === "published" ? "selected" : ""
+                }>Published</option>
+              </select>
+
+              <select id="content-category-filter">
+                <option value="">All categories</option>
+                ${categoryOptions}
+              </select>
+            </div>
+
+            <div class="thp-content-blog-table">
+              ${content}
+            </div>
+          </section>
+
+            <div class="thp-content-taxonomy-grid" data-content-panel="blogs" ${activeContentTab !== "blogs" ? "hidden" : ""}>
+
+              <section class="thp-admin-card">
+                <div class="thp-admin-page-header">
+                  <div>
+                    <h2>Blog Categories</h2>
+                    <p>Manage categories used by Health Blogs.</p>
+                  </div>
+
+                  ${
+                    hasPermission("content", "create")
+                      ? `
+                        <button
+                          type="button"
+                          class="thp-admin-button thp-admin-button-primary"
+                          id="content-add-category"
+                        >
+                          + Add Category
+                        </button>
+                      `
+                      : ""
+                  }
+                </div>
+
+                ${
+                  categories.length
+                    ? `
+                      <div class="thp-admin-table-wrap">
+                        <table class="thp-admin-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            ${categories
+                              .map(
+                                (item) => `
+                                  <tr>
+                                    <td>${escapeHtml(item.name)}</td>
+
+                                    <td>
+                                      <span class="thp-admin-status-badge ${
+                                        item.is_active
+                                          ? "thp-admin-status-success"
+                                          : "thp-admin-status-warning"
+                                      }">
+                                        ${item.is_active ? "Active" : "Inactive"}
+                                      </span>
+                                    </td>
+
+                                    <td>
+                                      ${
+                                        hasPermission("content", "edit")
+                                          ? `
+                                            <button
+                                              type="button"
+                                              class="thp-admin-button"
+                                              data-category-edit="${item.id}"
+                                            >
+                                              Edit
+                                            </button>
+                                          `
+                                          : ""
+                                      }
+
+                                      ${
+                                        hasPermission("content", "delete")
+                                          ? `
+                                            <button
+                                              type="button"
+                                              class="thp-admin-button"
+                                              data-category-delete="${item.id}"
+                                            >
+                                              Delete
+                                            </button>
+                                          `
+                                          : ""
+                                      }
+                                    </td>
+                                  </tr>
+                                `,
+                              )
+                              .join("")}
+                          </tbody>
+                        </table>
+                      </div>
+                    `
+                    : `
+                      <div class="thp-admin-empty-state">
+                        <strong>No categories yet</strong>
+                        <span>Create a category for your Health Blogs.</span>
+                      </div>
+                    `
+                }
+              </section>
+
+              <section class="thp-admin-card">
+                <div class="thp-admin-page-header">
+                  <div>
+                    <h2>Blog Tags</h2>
+                    <p>Manage tags used by Health Blogs.</p>
+                  </div>
+
+                  ${
+                    hasPermission("content", "create")
+                      ? `
+                        <button
+                          type="button"
+                          class="thp-admin-button thp-admin-button-primary"
+                          id="content-add-tag"
+                        >
+                          + Add Tag
+                        </button>
+                      `
+                      : ""
+                  }
+                </div>
+
+                ${
+                  tags.length
+                    ? `
+                      <div class="thp-admin-table-wrap">
+                        <table class="thp-admin-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            ${tags
+                              .map(
+                                (item) => `
+                                  <tr>
+                                    <td>${escapeHtml(item.name)}</td>
+
+                                    <td>
+                                      <span class="thp-admin-status-badge ${
+                                        item.is_active
+                                          ? "thp-admin-status-success"
+                                          : "thp-admin-status-warning"
+                                      }">
+                                        ${item.is_active ? "Active" : "Inactive"}
+                                      </span>
+                                    </td>
+
+                                    <td>
+                                      ${
+                                        hasPermission("content", "edit")
+                                          ? `
+                                            <button
+                                              type="button"
+                                              class="thp-admin-button"
+                                              data-tag-edit="${item.id}"
+                                            >
+                                              Edit
+                                            </button>
+                                          `
+                                          : ""
+                                      }
+
+                                      ${
+                                        hasPermission("content", "delete")
+                                          ? `
+                                            <button
+                                              type="button"
+                                              class="thp-admin-button"
+                                              data-tag-delete="${item.id}"
+                                            >
+                                              Delete
+                                            </button>
+                                          `
+                                          : ""
+                                      }
+                                    </td>
+                                  </tr>
+                                `,
+                              )
+                              .join("")}
+                          </tbody>
+                        </table>
+                      </div>
+                    `
+                    : `
+                      <div class="thp-admin-empty-state">
+                        <strong>No tags yet</strong>
+                        <span>Create tags to organize your Health Blogs.</span>
+                      </div>
+                    `
+                }
+              </section>
+
+            </div>
+
+            <section class="thp-admin-card thp-content-section-card" id="content-panel-banners" role="tabpanel" aria-labelledby="content-tab-banners" data-content-panel="banners" ${activeContentTab !== "banners" ? "hidden" : ""}>
+              <div class="thp-admin-page-header">
+                <div>
+                  <h2>App &amp; Web Promotional Banners</h2>
+                  <p>Display positions across the homepage and public website.</p>
+                </div>
+
+                ${
+                  hasPermission("content", "create")
+                    ? `
+                      <button
+                        type="button"
+                        class="thp-admin-button thp-admin-button-primary"
+                        id="content-add-banner"
+                      >
+                        + Add Banner
+                      </button>
+                    `
+                    : ""
+                }
+              </div>
+
+              ${
+                banners.length
+                  ? `
+                    <div class="thp-admin-table-wrap">
+                      <table class="thp-admin-table">
+                        <thead>
+                          <tr>
+                            <th>Banner Headline</th>
+                            <th>Action Link</th>
+                            <th>Order</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${banners
+                            .map(
+                              (banner) => `
+                                <tr>
+                                  <td>
+                                    <strong>${escapeHtml(banner.title || "—")}</strong>
+                                    ${
+                                      banner.description
+                                        ? `<div class="thp-content-muted">${escapeHtml(
+                                            banner.description,
+                                          )}</div>`
+                                        : ""
+                                    }
+                                  </td>
+
+                                  <td>
+                                    ${
+                                      banner.link_url
+                                        ? `<a href="${escapeHtml(banner.link_url)}" target="_blank" rel="noreferrer">${escapeHtml(banner.link_url)}</a>`
+                                        : "—"
+                                    }
+                                  </td>
+
+                                  <td>${escapeHtml(banner.display_order ?? 0)}</td>
+
+                                  <td>
+                                    <span class="thp-admin-status-badge ${
+                                      banner.is_active
+                                        ? "thp-admin-status-success"
+                                        : "thp-admin-status-warning"
+                                    }">
+                                      ${banner.is_active ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+
+                                  <td>
+                                    ${
+                                      hasPermission("content", "edit")
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-banner-edit="${banner.id}"
+                                          >
+                                            Edit
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-banner-toggle="${banner.id}"
+                                          >
+                                            ${banner.is_active ? "Deactivate" : "Activate"}
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-banner-up="${banner.id}"
+                                          >
+                                            ↑
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-banner-down="${banner.id}"
+                                          >
+                                            ↓
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                    ${
+                                      hasPermission("content", "delete")
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-banner-delete="${banner.id}"
+                                          >
+                                            Delete
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+                                  </td>
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                        </tbody>
+                      </table>
+                    </div>
+                  `
+                  : `
+                    <div class="thp-admin-empty-state">
+                      <strong>No homepage banners yet</strong>
+                      <span>Create your first homepage banner.</span>
+                    </div>
+                  `
+              }
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" data-content-panel="banners" ${activeContentTab !== "banners" ? "hidden" : ""}>
+
+              <div class="thp-admin-page-header">
+                <div>
+                  <h2>Announcements</h2>
+                  <p>Manage announcements displayed across the public website.</p>
+                </div>
+
+                ${
+                  hasPermission("content", "create")
+                    ? `
+                      <button
+                        type="button"
+                        class="thp-admin-button thp-admin-button-primary"
+                        id="content-add-announcement"
+                      >
+                        + Add Announcement
+                      </button>
+                    `
+                    : ""
+                }
+              </div>
+
+              ${
+                announcements.length
+                  ? `
+                    <div class="thp-admin-table-wrap">
+                      <table class="thp-admin-table">
+                        <thead>
+                          <tr>
+                            <th>Title</th>
+                            <th>Order</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${announcements
+                            .map(
+                              (item) => `
+                                <tr>
+
+                                  <td>
+                                    <strong>
+                                      ${escapeHtml(item.title || "—")}
+                                    </strong>
+
+                                    ${
+                                      item.message
+                                        ? `
+                                          <div class="thp-content-muted">
+                                            ${escapeHtml(item.message)}
+                                          </div>
+                                        `
+                                        : ""
+                                    }
+                                  </td>
+
+                                  <td>
+                                    ${escapeHtml(item.display_order ?? 0)}
+                                  </td>
+
+                                  <td>
+                                    <span
+                                      class="thp-admin-status-badge ${
+                                        item.is_active
+                                          ? "thp-admin-status-success"
+                                          : "thp-admin-status-warning"
+                                      }"
+                                    >
+                                      ${item.is_active ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+
+                                  <td>
+
+                                    ${
+                                      hasPermission("content", "edit")
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-announcement-edit="${item.id}"
+                                          >
+                                            Edit
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-announcement-toggle="${item.id}"
+                                          >
+                                            ${
+                                              item.is_active
+                                                ? "Deactivate"
+                                                : "Activate"
+                                            }
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                    ${
+                                      hasPermission("content", "delete")
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-announcement-delete="${item.id}"
+                                          >
+                                            Delete
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                  </td>
+
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                        </tbody>
+                      </table>
+                    </div>
+                  `
+                  : `
+                    <div class="thp-admin-empty-state">
+                      <strong>No announcements yet</strong>
+                      <span>
+                        Create your first website announcement.
+                      </span>
+                    </div>
+                  `
+              }
+
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" data-content-panel="banners" ${activeContentTab !== "banners" ? "hidden" : ""}>
+
+              <div class="thp-admin-page-header">
+                <div>
+                  <h2>Featured Services</h2>
+                  <p>Manage featured services displayed on the public website.</p>
+                </div>
+
+                ${
+                  hasPermission("content", "create")
+                    ? `
+                      <button
+                        type="button"
+                        class="thp-admin-button thp-admin-button-primary"
+                        id="content-add-featured-service"
+                      >
+                        + Add Service
+                      </button>
+                    `
+                    : ""
+                }
+              </div>
+
+              ${
+                featuredServices.length
+                  ? `
+                    <div class="thp-admin-table-wrap">
+                      <table class="thp-admin-table">
+                        <thead>
+                          <tr>
+                            <th>Service</th>
+                            <th>Order</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${featuredServices
+                            .map(
+                              (item) => `
+                                <tr>
+
+                                  <td>
+                                    <strong>
+                                      ${escapeHtml(item.title || "—")}
+                                    </strong>
+
+                                    ${
+                                      item.description
+                                        ? `
+                                          <div class="thp-content-muted">
+                                            ${escapeHtml(item.description)}
+                                          </div>
+                                        `
+                                        : ""
+                                    }
+                                  </td>
+
+                                  <td>
+                                    ${escapeHtml(item.display_order ?? 0)}
+                                  </td>
+
+                                  <td>
+                                    <span
+                                      class="thp-admin-status-badge ${
+                                        item.is_active
+                                          ? "thp-admin-status-success"
+                                          : "thp-admin-status-warning"
+                                      }"
+                                    >
+                                      ${item.is_active ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+
+                                  <td>
+
+                                    ${
+                                      hasPermission("content", "edit")
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-featured-service-edit="${item.id}"
+                                          >
+                                            Edit
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-featured-service-toggle="${item.id}"
+                                          >
+                                            ${
+                                              item.is_active
+                                                ? "Deactivate"
+                                                : "Activate"
+                                            }
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                    ${
+                                      hasPermission("content", "delete")
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-featured-service-delete="${item.id}"
+                                          >
+                                            Delete
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                  </td>
+
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                        </tbody>
+                      </table>
+                    </div>
+                  `
+                  : `
+                    <div class="thp-admin-empty-state">
+                      <strong>No featured services yet</strong>
+                      <span>Create your first featured service.</span>
+                    </div>
+                  `
+              }
+
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" id="content-panel-faqs" role="tabpanel" aria-labelledby="content-tab-faqs" data-content-panel="faqs" ${activeContentTab !== "faqs" ? "hidden" : ""}>
+
+              <div class="thp-admin-page-header">
+                <div>
+                  <h2>Frequently Asked Questions</h2>
+                  <p>Help center articles displayed on public pages.</p>
+                </div>
+
+                ${
+                  hasPermission("content", "create")
+                    ? `
+                      <button
+                        type="button"
+                        class="thp-admin-button thp-admin-button-primary"
+                        id="content-add-faq"
+                      >
+                        + Add FAQ
+                      </button>
+                    `
+                    : ""
+                }
+              </div>
+
+              ${
+                faqs.length
+                  ? `
+                    <div class="thp-admin-table-wrap">
+                      <table class="thp-admin-table">
+
+                        <thead>
+                          <tr>
+                            <th>Question</th>
+                            <th>Answer</th>
+                            <th>Category</th>
+                            <th>Live</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${faqs
+                            .map(
+                              (faq) => `
+                                <tr>
+
+                                  <td>
+                                    <strong>
+                                      ${escapeHtml(
+                                        faq.question || "—",
+                                      )}
+                                    </strong>
+                                  </td>
+
+                                  <td>
+                                    ${escapeHtml(faq.answer || "—")}
+                                  </td>
+
+                                  <td>
+                                    ${escapeHtml(
+                                      String(
+                                        faq.category || "general",
+                                      ).replace(
+                                        /^./,
+                                        (char) =>
+                                          char.toUpperCase(),
+                                      ),
+                                    )}
+                                  </td>
+
+                                  <td>
+                                    <span
+                                      class="thp-admin-status-badge ${
+                                        faq.is_active
+                                          ? "thp-admin-status-success"
+                                          : "thp-admin-status-warning"
+                                      }"
+                                    >
+                                      ${
+                                        faq.is_active
+                                          ? "Active"
+                                          : "Inactive"
+                                      }
+                                    </span>
+                                  </td>
+
+                                  <td>
+
+                                    ${
+                                      hasPermission(
+                                        "content",
+                                        "edit",
+                                      )
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-faq-edit="${faq.id}"
+                                          >
+                                            Edit
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-faq-toggle="${faq.id}"
+                                          >
+                                            ${
+                                              faq.is_active
+                                                ? "Deactivate"
+                                                : "Activate"
+                                            }
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                    ${
+                                      hasPermission(
+                                        "content",
+                                        "delete",
+                                      )
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-faq-delete="${faq.id}"
+                                          >
+                                            Delete
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                  </td>
+
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                        </tbody>
+
+                      </table>
+                    </div>
+                  `
+                  : `
+                    <div class="thp-admin-empty-state">
+                      <strong>No FAQs yet</strong>
+                      <span>
+                        Create your first frequently asked question.
+                      </span>
+                    </div>
+                  `
+              }
+
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" id="content-panel-testimonials" role="tabpanel" aria-labelledby="content-tab-testimonials" data-content-panel="testimonials" ${activeContentTab !== "testimonials" ? "hidden" : ""}>
+
+              <div class="thp-admin-page-header">
+                <div>
+                  <h2>Verified Patient Stories</h2>
+                  <p>Featured on the Tatito platform home page.</p>
+                </div>
+
+                ${
+                  hasPermission("content", "create")
+                    ? `
+                      <button
+                        type="button"
+                        class="thp-admin-button thp-admin-button-primary"
+                        id="content-add-testimonial"
+                      >
+                        + Add Testimonial
+                      </button>
+                    `
+                    : ""
+                }
+              </div>
+
+              ${
+                testimonials.length
+                  ? `
+                    <div class="thp-admin-table-wrap">
+                      <table class="thp-admin-table">
+
+                        <thead>
+                          <tr>
+                            <th>Patient Name &amp; Section</th>
+                            <th>Patient Review Quote</th>
+                            <th>Rating</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${testimonials
+                            .map(
+                              (item) => `
+                                <tr>
+
+                                  <td>
+                                    <strong>
+                                      ${escapeHtml(item.name || "—")}
+                                    </strong>
+                                    <div class="thp-content-muted">
+                                      ${escapeHtml(item.section || "—")}
+                                    </div>
+                                  </td>
+
+                                  <td>
+                                    <em class="thp-content-testimonial-quote">
+                                      ${escapeHtml(item.text || "—")}
+                                    </em>
+                                  </td>
+
+                                  <td>
+                                    ${escapeHtml(
+                                      item.rating ?? 0,
+                                    )}/5
+                                  </td>
+
+                                  <td>
+                                    <span
+                                      class="thp-admin-status-badge ${
+                                        item.is_active
+                                          ? "thp-admin-status-success"
+                                          : "thp-admin-status-warning"
+                                      }"
+                                    >
+                                      ${
+                                        item.is_active
+                                          ? "Active"
+                                          : "Inactive"
+                                      }
+                                    </span>
+                                  </td>
+
+                                  <td>
+
+                                    ${
+                                      hasPermission(
+                                        "content",
+                                        "edit",
+                                      )
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-testimonial-edit="${item.id}"
+                                          >
+                                            Edit
+                                          </button>
+
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-testimonial-toggle="${item.id}"
+                                          >
+                                            ${
+                                              item.is_active
+                                                ? "Deactivate"
+                                                : "Activate"
+                                            }
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                    ${
+                                      hasPermission(
+                                        "content",
+                                        "delete",
+                                      )
+                                        ? `
+                                          <button
+                                            type="button"
+                                            class="thp-admin-button"
+                                            data-testimonial-delete="${item.id}"
+                                          >
+                                            Delete
+                                          </button>
+                                        `
+                                        : ""
+                                    }
+
+                                  </td>
+
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                        </tbody>
+
+                      </table>
+                    </div>
+                  `
+                  : `
+                    <div class="thp-admin-empty-state">
+                      <strong>No testimonials yet</strong>
+                      <span>
+                        Create your first testimonial.
+                      </span>
+                    </div>
+                  `
+              }
+
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" id="content-panel-trust-stats" role="tabpanel" aria-labelledby="content-tab-trust-stats" data-content-panel="trust-stats" ${activeContentTab !== "trust-stats" ? "hidden" : ""}>
+              <div class="thp-admin-card-header">
+                <div>
+                  <h3>Trust Stats</h3>
+                  <p>Manage the trust numbers displayed on the public website.</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="thp-admin-button thp-admin-button-primary"
+                  id="content-add-trust-stat"
+                >
+                  + Add Trust Stat
+                </button>
+              </div>
+
+              <div class="thp-content-stats-grid">
+                ${
+                  trustStats.length
+                    ? `
+                      ${trustStats
+                            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+                            .map(
+                              (stat, index) => `
+                                <article class="thp-content-stat-card">
+                                  <span class="thp-content-stat-eyebrow">Metric #${index + 1}</span>
+                                  <p>${escapeHtml(stat.label || "-")}</p>
+                                  <strong>${escapeHtml(stat.value || "-")}</strong>
+                                  <span class="thp-admin-status ${
+                                    stat.is_active
+                                      ? "thp-admin-status-success"
+                                      : "thp-admin-status-muted"
+                                  }">
+                                    ${stat.is_active ? "Active" : "Inactive"}
+                                  </span>
+                                  <div class="thp-content-stat-actions">
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-secondary"
+                                      data-trust-stat-edit="${stat.id}"
+                                    >
+                                      Edit
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-secondary"
+                                      data-trust-stat-toggle="${stat.id}"
+                                    >
+                                      ${stat.is_active ? "Deactivate" : "Activate"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-danger"
+                                      data-trust-stat-delete="${stat.id}"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </article>
+                              `
+                            )
+                            .join("")}
+                    `
+                    : `
+                      <div class="thp-admin-empty-state">
+                        No trust stats found.
+                      </div>
+                    `
+                }
+              </div>
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" data-content-panel="trust-stats" ${activeContentTab !== "trust-stats" ? "hidden" : ""}>
+              <div class="thp-admin-card-header">
+                <div>
+                  <h3>Website Pages</h3>
+                  <p>Manage configurable public website pages.</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="thp-admin-button thp-admin-button-primary"
+                  id="content-add-website-page"
+                >
+                  + Add Page
+                </button>
+              </div>
+
+              <div class="thp-admin-table-wrap">
+                ${
+                  websitePages.length
+                    ? `
+                      <table class="thp-admin-table">
+                        <thead>
+                          <tr>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Slug</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${websitePages
+                            .map(
+                              (page) => `
+                                <tr>
+                                  <td>${escapeHtml(page.title || "-")}</td>
+
+                                  <td>
+                                    ${escapeHtml(page.page_type || "-")}
+                                  </td>
+
+                                  <td>
+                                    ${escapeHtml(page.slug || "-")}
+                                  </td>
+
+                                  <td>
+                                    <span class="thp-admin-status ${
+                                      page.is_published
+                                        ? "thp-admin-status-success"
+                                        : "thp-admin-status-muted"
+                                    }">
+                                      ${page.is_published ? "Published" : "Unpublished"}
+                                    </span>
+                                  </td>
+
+                                  <td>
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-secondary"
+                                      data-website-page-edit="${page.id}"
+                                    >
+                                      Edit
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-secondary"
+                                      data-website-page-toggle="${page.id}"
+                                    >
+                                      ${page.is_published ? "Unpublish" : "Publish"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-danger"
+                                      data-website-page-delete="${page.id}"
+                                    >
+                                      Delete
+                                    </button>
+                                  </td>
+                                </tr>
+                              `
+                            )
+                            .join("")}
+                        </tbody>
+                      </table>
+                    `
+                    : `
+                      <div class="thp-admin-empty-state">
+                        No website pages found.
+                      </div>
+                    `
+                }
+              </div>
+            </section>
+
+            <section class="thp-admin-card thp-content-section-card" id="content-panel-cities" role="tabpanel" aria-labelledby="content-tab-cities" data-content-panel="cities" ${activeContentTab !== "cities" ? "hidden" : ""}>
+              <div class="thp-admin-card-header">
+                <div>
+                  <h3>Regional Operating Cities</h3>
+                  <p>Municipal coverage areas for public services.</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="thp-admin-button thp-admin-button-primary"
+                  id="content-add-city"
+                >
+                  + Add City
+                </button>
+              </div>
+
+              <div class="thp-admin-table-wrap">
+                ${
+                  cities.length
+                    ? `
+                      <table class="thp-admin-table">
+                        <thead>
+                          <tr>
+                            <th>City</th>
+                            <th>State</th>
+                            <th>Order</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          ${cities
+                            .sort(
+                              (a, b) =>
+                                (a.display_order || 0) - (b.display_order || 0)
+                            )
+                            .map(
+                              (city) => `
+                                <tr>
+                                  <td>${escapeHtml(city.name || "-")}</td>
+                                  <td>${escapeHtml(city.state || "-")}</td>
+                                  <td>${city.display_order ?? 0}</td>
+
+                                  <td>
+                                    <span class="thp-admin-status ${
+                                      city.is_active
+                                        ? "thp-admin-status-success"
+                                        : "thp-admin-status-muted"
+                                    }">
+                                      ${city.is_active ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+
+                                  <td>
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-secondary"
+                                      data-city-edit="${city.id}"
+                                    >
+                                      Edit
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-secondary"
+                                      data-city-toggle="${city.id}"
+                                    >
+                                      ${city.is_active ? "Deactivate" : "Activate"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      class="thp-admin-button thp-admin-button-danger"
+                                      data-city-delete="${city.id}"
+                                    >
+                                      Delete
+                                    </button>
+                                  </td>
+                                </tr>
+                              `
+                            )
+                            .join("")}
+                        </tbody>
+                      </table>
+                    `
+                    : `
+                      <div class="thp-admin-empty-state">
+                        No cities found.
+                      </div>
+                    `
+                }
+              </div>
+            </section>
+
+        </section>
+      `,
+    );
+
+    window.openTaxonomyForm = async (type, item = null) => {
+      const editing = Boolean(item);
+      const isCategory = type === "category";
+
+      const overlay = document.createElement("div");
+      overlay.className = "thp-admin-modal-overlay";
+
+      overlay.innerHTML = `
+        <div class="thp-admin-modal" role="dialog" aria-modal="true">
+          <div class="thp-admin-modal-header">
+            <div>
+              <h2>${editing ? "Edit" : "Add"} ${
+              isCategory ? "Category" : "Tag"
+            }</h2>
+              <p>Manage your blog ${isCategory ? "category" : "tag"}.</p>
+            </div>
+
+            <button type="button" class="thp-admin-button" id="taxonomy-close">
+              ×
+            </button>
+          </div>
+
+          <form id="taxonomy-form">
+            <div class="thp-admin-form-grid">
+              <label style="grid-column:1/-1;">
+                <span>Name *</span>
+                <input
+                  name="name"
+                  required
+                  value="${escapeHtml(item?.name || "")}"
+                />
+              </label>
+
+              <label>
+                <span>Description</span>
+                <textarea name="description" rows="4">${
+                  escapeHtml(item?.description || "")
+                }</textarea>
+              </label>
+
+              <label>
+                <span>Status</span>
+                <select name="is_active">
+                  <option value="true" ${
+                    item?.is_active !== false ? "selected" : ""
+                  }>
+                    Active
+                  </option>
+                  <option value="false" ${
+                    item?.is_active === false ? "selected" : ""
+                  }>
+                    Inactive
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div class="thp-admin-modal-actions">
+              <button type="button" class="thp-admin-button" id="taxonomy-cancel">
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                class="thp-admin-button thp-admin-button-primary"
+              >
+                ${editing ? "Save Changes" : "Create"}
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const close = () => overlay.remove();
+
+      overlay.querySelector("#taxonomy-close").addEventListener("click", close);
+      overlay.querySelector("#taxonomy-cancel").addEventListener("click", close);
+
+      overlay.querySelector("#taxonomy-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(event.currentTarget);
+
+        const payload = {
+          name: formData.get("name"),
+          is_active: formData.get("is_active") === "true",
+        };
+
+        if (isCategory) {
+          payload.description = formData.get("description") || "";
+        }
+
+        try {
+          if (isCategory) {
+            if (editing) {
+              await contentApi.updateContentBlogCategory(item.id, payload);
+            } else {
+              await contentApi.createContentBlogCategory(payload);
+            }
+          } else {
+            if (editing) {
+              await contentApi.updateContentBlogTag(item.id, payload);
+            } else {
+              await contentApi.createContentBlogTag(payload);
+            }
+          }
+
+          close();
+          showToast(
+            `${isCategory ? "Category" : "Tag"} ${
+              editing ? "updated" : "created"
+            } successfully.`,
+          );
+
+          await loadData();
+        } catch (error) {
+          console.error("Taxonomy save failed:", error);
+
+          showToast(
+            error?.message ||
+              `Unable to save the ${isCategory ? "category" : "tag"}.`,
+            "error",
+          );
+        }
+      });
+    };
+
+    bindEvents();
+  };
+
+  const openBlogForm = (blog = null) => {
+    const editing = Boolean(blog);
+
+    const overlay = document.createElement("div");
+    overlay.className = "thp-admin-modal-overlay";
+
+    overlay.innerHTML = `
+      <div class="thp-admin-modal" role="dialog" aria-modal="true">
+        <div class="thp-admin-modal-header">
+          <div>
+            <h2>${editing ? "Edit Blog" : "Add Blog"}</h2>
+            <p>
+              ${
+                editing
+                  ? "Update the selected blog."
+                  : "Create a new website blog."
+              }
+            </p>
+          </div>
+
+          <button type="button" class="thp-admin-button" id="content-form-close">
+            ×
+          </button>
+        </div>
+
+        <form id="content-blog-form">
+          <div class="thp-admin-form-grid">
+
+            <label>
+              <span>Title *</span>
+              <input
+                name="title"
+                required
+                value="${escapeHtml(blog?.title || "")}"
+              />
+            </label>
+
+            <label>
+              <span>Category</span>
+              <select name="category">
+                <option value="">No category</option>
+                ${categories
+                  .map(
+                    (item) =>
+                      `<option value="${item.id}" ${
+                        String(blog?.category || "") === String(item.id)
+                          ? "selected"
+                          : ""
+                      }>
+                        ${escapeHtml(item.name)}
+                      </option>`,
+                  )
+                  .join("")}
+              </select>
+            </label>
+
+            <label style="grid-column:1/-1;">
+              <span>Cover Image URL</span>
+              <input
+                name="cover_image"
+                type="url"
+                value="${escapeHtml(blog?.cover_image || "")}"
+                placeholder="https://..."
+              />
+            </label>
+
+            <label style="grid-column:1/-1;">
+              <span>Content *</span>
+              <textarea
+                name="content"
+                rows="10"
+                required
+              >${escapeHtml(blog?.content || "")}</textarea>
+            </label>
+
+            <label>
+              <span>SEO Title</span>
+              <input
+                name="seo_title"
+                value="${escapeHtml(blog?.seo_title || "")}"
+              />
+            </label>
+
+            <label>
+              <span>SEO Description</span>
+              <textarea
+                name="seo_description"
+                rows="3"
+              >${escapeHtml(blog?.seo_description || "")}</textarea>
+            </label>
+
+            <label>
+              <span>Status</span>
+              <select name="status">
+                <option value="draft" ${
+                  (blog?.status || "draft") === "draft"
+                    ? "selected"
+                    : ""
+                }>Draft</option>
+                <option value="published" ${
+                  blog?.status === "published" ? "selected" : ""
+                }>Published</option>
+              </select>
+            </label>
+
+          </div>
+
+          <div class="thp-admin-modal-actions">
+            <button type="button" class="thp-admin-button" id="content-form-cancel">
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              class="thp-admin-button thp-admin-button-primary"
+            >
+              ${editing ? "Save Changes" : "Create Blog"}
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+
+    overlay.querySelector("#content-form-close").addEventListener("click", close);
+    overlay.querySelector("#content-form-cancel").addEventListener("click", close);
+
+    overlay.querySelector("#content-blog-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+
+      const payload = {
+        title: formData.get("title"),
+        category: formData.get("category") || null,
+        cover_image: formData.get("cover_image") || "",
+        content: formData.get("content"),
+        seo_title: formData.get("seo_title") || "",
+        seo_description: formData.get("seo_description") || "",
+        status: formData.get("status") || "draft",
+      };
+
+      try {
+        if (editing) {
+          await contentApi.updateContentBlog(blog.id, payload);
+          showToast("Blog updated successfully.");
+        } else {
+          await contentApi.createContentBlog(payload);
+          showToast("Blog created successfully.");
+        }
+
+        close();
+        await loadData();
+      } catch (error) {
+        console.error("Blog save failed:", error);
+        showToast(
+          error?.message || "Unable to save the blog.",
+          "error",
+        );
+      }
+    });
+  };
+
+  const openBannerForm = (banner = null) => {
+    const editing = Boolean(banner);
+
+    const overlay = document.createElement("div");
+    overlay.className = "thp-admin-modal-overlay";
+
+    overlay.innerHTML = `
+      <div class="thp-admin-modal" role="dialog" aria-modal="true">
+        <div class="thp-admin-modal-header">
+          <div>
+            <h2>${editing ? "Edit Banner" : "Add Homepage Banner"}</h2>
+            <p>
+              ${
+                editing
+                  ? "Update the selected homepage banner."
+                  : "Create a homepage promotional banner."
+              }
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="banner-form-close"
+          >
+            ×
+          </button>
+        </div>
+
+        <form id="banner-form">
+          <div class="thp-admin-form-grid">
+
+            <label>
+              <span>Title *</span>
+              <input
+                name="title"
+                required
+                value="${escapeHtml(banner?.title || "")}"
+              />
+            </label>
+
+            <label>
+              <span>Display Order</span>
+              <input
+                name="display_order"
+                type="number"
+                min="0"
+                value="${escapeHtml(banner?.display_order ?? 0)}"
+              />
+            </label>
+
+            <label style="grid-column:1/-1;">
+              <span>Description</span>
+              <textarea
+                name="description"
+                rows="4"
+              >${escapeHtml(banner?.description || "")}</textarea>
+            </label>
+
+            <label style="grid-column:1/-1;">
+              <span>Image URL *</span>
+              <input
+                name="image_url"
+                type="url"
+                required
+                placeholder="https://..."
+                value="${escapeHtml(banner?.image_url || "")}"
+              />
+            </label>
+
+            <label style="grid-column:1/-1;">
+              <span>Link URL</span>
+              <input
+                name="link_url"
+                type="url"
+                placeholder="https://..."
+                value="${escapeHtml(banner?.link_url || "")}"
+              />
+            </label>
+
+            <label>
+              <span>Status</span>
+              <select name="is_active">
+                <option value="true" ${
+                  banner?.is_active !== false ? "selected" : ""
+                }>
+                  Active
+                </option>
+
+                <option value="false" ${
+                  banner?.is_active === false ? "selected" : ""
+                }>
+                  Inactive
+                </option>
+              </select>
+            </label>
+
+          </div>
+
+          <div class="thp-admin-modal-actions">
+            <button
+              type="button"
+              class="thp-admin-button"
+              id="banner-form-cancel"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              class="thp-admin-button thp-admin-button-primary"
+            >
+              ${editing ? "Save Changes" : "Create Banner"}
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+
+    overlay
+      .querySelector("#banner-form-close")
+      .addEventListener("click", close);
+
+    overlay
+      .querySelector("#banner-form-cancel")
+      .addEventListener("click", close);
+
+    overlay
+      .querySelector("#banner-form")
+      .addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const formData = new FormData(event.currentTarget);
+
+        const payload = {
+          title: String(formData.get("title") || "").trim(),
+          description: String(formData.get("description") || "").trim(),
+          image_url: String(formData.get("image_url") || "").trim(),
+          link_url: String(formData.get("link_url") || "").trim(),
+          display_order: Number(formData.get("display_order") || 0),
+          is_active: formData.get("is_active") === "true",
+        };
+
+        try {
+          if (editing) {
+            await contentApi.updateContentHomepageBanner(
+              banner.id,
+              payload,
+            );
+
+            showToast("Homepage banner updated.");
+          } else {
+            await contentApi.createContentHomepageBanner(payload);
+
+            showToast("Homepage banner created.");
+          }
+
+          close();
+          await loadData();
+        } catch (error) {
+          console.error("Homepage banner save failed:", error);
+
+          showToast(
+            error?.message || "Unable to save homepage banner.",
+            "error",
+          );
+        }
+      });
+  };
+
+  const openAnnouncementForm = (announcement = null) => {
+  const editing = Boolean(announcement);
+
+  const overlay = document.createElement("div");
+  overlay.className = "thp-admin-modal-overlay";
+
+  overlay.innerHTML = `
+    <div
+      class="thp-admin-modal"
+      role="dialog"
+      aria-modal="true"
+    >
+
+      <div class="thp-admin-modal-header">
+
+        <div>
+          <h2>
+            ${
+              editing
+                ? "Edit Announcement"
+                : "Add Announcement"
+            }
+          </h2>
+
+          <p>
+            ${
+              editing
+                ? "Update the selected announcement."
+                : "Create a new website announcement."
+            }
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-button"
+          id="announcement-form-close"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form id="announcement-form">
+
+        <div class="thp-admin-form-grid">
+
+          <label>
+            <span>Title *</span>
+
+            <input
+              name="title"
+              required
+              value="${escapeHtml(
+                announcement?.title || "",
+              )}"
+            />
+          </label>
+
+          <label>
+            <span>Display Order</span>
+
+            <input
+              name="display_order"
+              type="number"
+              min="0"
+              value="${escapeHtml(
+                announcement?.display_order ?? 0,
+              )}"
+            />
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Message *</span>
+
+            <textarea
+              name="message"
+              rows="5"
+              required
+            >${escapeHtml(
+              announcement?.message || "",
+            )}</textarea>
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Link URL</span>
+
+            <input
+              name="link_url"
+              type="url"
+              placeholder="https://..."
+              value="${escapeHtml(
+                announcement?.link_url || "",
+              )}"
+            />
+          </label>
+
+          <label>
+            <span>Status</span>
+
+            <select name="is_active">
+
+              <option
+                value="true"
+                ${
+                  announcement?.is_active !== false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${
+                  announcement?.is_active === false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Inactive
+              </option>
+
+            </select>
+          </label>
+
+        </div>
+
+        <div class="thp-admin-modal-actions">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="announcement-form-cancel"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${
+              editing
+                ? "Save Changes"
+                : "Create Announcement"
+            }
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+
+  overlay
+    .querySelector("#announcement-form-close")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#announcement-form-cancel")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#announcement-form")
+    .addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(
+        event.currentTarget,
+      );
+
+      const payload = {
+        title: String(
+          formData.get("title") || "",
+        ).trim(),
+
+        message: String(
+          formData.get("message") || "",
+        ).trim(),
+
+        link_url: String(
+          formData.get("link_url") || "",
+        ).trim(),
+
+        display_order: Number(
+          formData.get("display_order") || 0,
+        ),
+
+        is_active:
+          formData.get("is_active") === "true",
+      };
+
+      try {
+        if (editing) {
+          await contentApi.updateContentAnnouncement(
+            announcement.id,
+            payload,
+          );
+
+          showToast(
+            "Announcement updated.",
+          );
+        } else {
+          await contentApi.createContentAnnouncement(
+            payload,
+          );
+
+          showToast(
+            "Announcement created.",
+          );
+        }
+
+        close();
+
+        await loadData();
+
+      } catch (error) {
+
+        console.error(
+          "Announcement save failed:",
+          error,
+        );
+
+        showToast(
+          error?.message ||
+            "Unable to save announcement.",
+          "error",
+        );
+      }
+    });
+};
+
+const openFeaturedServiceForm = (service = null) => {
+  const editing = Boolean(service);
+
+  const overlay = document.createElement("div");
+  overlay.className = "thp-admin-modal-overlay";
+
+  overlay.innerHTML = `
+    <div
+      class="thp-admin-modal"
+      role="dialog"
+      aria-modal="true"
+    >
+
+      <div class="thp-admin-modal-header">
+
+        <div>
+          <h2>
+            ${
+              editing
+                ? "Edit Featured Service"
+                : "Add Featured Service"
+            }
+          </h2>
+
+          <p>
+            ${
+              editing
+                ? "Update the selected featured service."
+                : "Create a new featured service."
+            }
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-button"
+          id="featured-service-form-close"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form id="featured-service-form">
+
+        <div class="thp-admin-form-grid">
+
+          <label>
+            <span>Title *</span>
+
+            <input
+              name="title"
+              required
+              value="${escapeHtml(service?.title || "")}"
+            />
+          </label>
+
+          <label>
+            <span>Display Order</span>
+
+            <input
+              name="display_order"
+              type="number"
+              min="0"
+              value="${escapeHtml(
+                service?.display_order ?? 0,
+              )}"
+            />
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Description</span>
+
+            <textarea
+              name="description"
+              rows="4"
+            >${escapeHtml(
+              service?.description || "",
+            )}</textarea>
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Icon URL</span>
+
+            <input
+              name="icon_url"
+              type="url"
+              placeholder="https://..."
+              value="${escapeHtml(
+                service?.icon_url || "",
+              )}"
+            />
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Link URL</span>
+
+            <input
+              name="link_url"
+              type="url"
+              placeholder="https://..."
+              value="${escapeHtml(
+                service?.link_url || "",
+              )}"
+            />
+          </label>
+
+          <label>
+            <span>Status</span>
+
+            <select name="is_active">
+
+              <option
+                value="true"
+                ${
+                  service?.is_active !== false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${
+                  service?.is_active === false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Inactive
+              </option>
+
+            </select>
+          </label>
+
+        </div>
+
+        <div class="thp-admin-modal-actions">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="featured-service-form-cancel"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${
+              editing
+                ? "Save Changes"
+                : "Create Service"
+            }
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+
+  overlay
+    .querySelector("#featured-service-form-close")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#featured-service-form-cancel")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#featured-service-form")
+    .addEventListener("submit", async (event) => {
+
+      event.preventDefault();
+
+      const formData = new FormData(
+        event.currentTarget,
+      );
+
+      const payload = {
+        title: String(
+          formData.get("title") || "",
+        ).trim(),
+
+        description: String(
+          formData.get("description") || "",
+        ).trim(),
+
+        icon_url: String(
+          formData.get("icon_url") || "",
+        ).trim(),
+
+        link_url: String(
+          formData.get("link_url") || "",
+        ).trim(),
+
+        display_order: Number(
+          formData.get("display_order") || 0,
+        ),
+
+        is_active:
+          formData.get("is_active") === "true",
+      };
+
+      try {
+
+        if (editing) {
+
+          await contentApi.updateContentFeaturedService(
+            service.id,
+            payload,
+          );
+
+          showToast(
+            "Featured service updated.",
+          );
+
+        } else {
+
+          await contentApi.createContentFeaturedService(
+            payload,
+          );
+
+          showToast(
+            "Featured service created.",
+          );
+        }
+
+        close();
+
+        await loadData();
+
+      } catch (error) {
+
+        console.error(
+          "Featured service save failed:",
+          error,
+        );
+
+        showToast(
+          error?.message ||
+            "Unable to save featured service.",
+          "error",
+        );
+      }
+    });
+};
+
+const openFaqForm = (faq = null) => {
+  const editing = Boolean(faq);
+
+  const overlay = document.createElement("div");
+  overlay.className = "thp-admin-modal-overlay";
+
+  overlay.innerHTML = `
+    <div
+      class="thp-admin-modal"
+      role="dialog"
+      aria-modal="true"
+    >
+
+      <div class="thp-admin-modal-header">
+
+        <div>
+          <h2>
+            ${
+              editing
+                ? "Edit FAQ"
+                : "Add FAQ"
+            }
+          </h2>
+
+          <p>
+            ${
+              editing
+                ? "Update the selected FAQ."
+                : "Create a new frequently asked question."
+            }
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-button"
+          id="faq-form-close"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form id="faq-form">
+
+        <div class="thp-admin-form-grid">
+
+          <label style="grid-column:1/-1;">
+            <span>Question *</span>
+
+            <input
+              name="question"
+              required
+              value="${escapeHtml(
+                faq?.question || "",
+              )}"
+            />
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Answer *</span>
+
+            <textarea
+              name="answer"
+              rows="7"
+              required
+            >${escapeHtml(
+              faq?.answer || "",
+            )}</textarea>
+          </label>
+
+          <label>
+            <span>Category *</span>
+
+            <select name="category" required>
+
+              <option
+                value="pharmacy"
+                ${
+                  faq?.category === "pharmacy"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Pharmacy
+              </option>
+
+              <option
+                value="plans"
+                ${
+                  faq?.category === "plans"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Plans
+              </option>
+
+              <option
+                value="fellowship"
+                ${
+                  faq?.category ===
+                  "fellowship"
+                    ? "selected"
+                    : ""
+                }
+              >
+                Fellowship
+              </option>
+
+              <option
+                value="general"
+                ${
+                  !faq?.category ||
+                  faq?.category === "general"
+                    ? "selected"
+                    : ""
+                }
+              >
+                General
+              </option>
+
+            </select>
+          </label>
+
+          <label>
+            <span>Display Order</span>
+
+            <input
+              name="display_order"
+              type="number"
+              min="0"
+              value="${escapeHtml(
+                faq?.display_order ?? 0,
+              )}"
+            />
+          </label>
+
+          <label>
+            <span>Status</span>
+
+            <select name="is_active">
+
+              <option
+                value="true"
+                ${
+                  faq?.is_active !== false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${
+                  faq?.is_active === false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Inactive
+              </option>
+
+            </select>
+          </label>
+
+        </div>
+
+        <div class="thp-admin-modal-actions">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="faq-form-cancel"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${
+              editing
+                ? "Save Changes"
+                : "Create FAQ"
+            }
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+
+  overlay
+    .querySelector("#faq-form-close")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#faq-form-cancel")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#faq-form")
+    .addEventListener("submit", async (event) => {
+
+      event.preventDefault();
+
+      const formData = new FormData(
+        event.currentTarget,
+      );
+
+      const payload = {
+        question: String(
+          formData.get("question") || "",
+        ).trim(),
+
+        answer: String(
+          formData.get("answer") || "",
+        ).trim(),
+
+        category:
+          formData.get("category") ||
+          "general",
+
+        display_order: Number(
+          formData.get("display_order") || 0,
+        ),
+
+        is_active:
+          formData.get("is_active") === "true",
+      };
+
+      try {
+
+        if (editing) {
+
+          await contentApi.updateContentFaq(
+            faq.id,
+            payload,
+          );
+
+          showToast("FAQ updated.");
+
+        } else {
+
+          await contentApi.createContentFaq(
+            payload,
+          );
+
+          showToast("FAQ created.");
+        }
+
+        close();
+
+        await loadData();
+
+      } catch (error) {
+
+        console.error(
+          "FAQ save failed:",
+          error,
+        );
+
+        showToast(
+          error?.message ||
+            "Unable to save FAQ.",
+          "error",
+        );
+      }
+    });
+};
+
+const openTestimonialForm = (testimonial = null) => {
+  const editing = Boolean(testimonial);
+
+  const overlay = document.createElement("div");
+  overlay.className = "thp-admin-modal-overlay";
+
+  overlay.innerHTML = `
+    <div
+      class="thp-admin-modal"
+      role="dialog"
+      aria-modal="true"
+    >
+
+      <div class="thp-admin-modal-header">
+
+        <div>
+          <h2>
+            ${
+              editing
+                ? "Edit Testimonial"
+                : "Add Testimonial"
+            }
+          </h2>
+
+          <p>
+            ${
+              editing
+                ? "Update the selected testimonial."
+                : "Create a new customer testimonial."
+            }
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-button"
+          id="testimonial-form-close"
+        >
+          ×
+        </button>
+
+      </div>
+
+      <form id="testimonial-form">
+
+        <div class="thp-admin-form-grid">
+
+          <label>
+            <span>Name *</span>
+
+            <input
+              name="name"
+              required
+              value="${escapeHtml(
+                testimonial?.name || "",
+              )}"
+            />
+          </label>
+
+          <label>
+            <span>Rating *</span>
+
+            <select name="rating" required>
+
+              ${[1, 2, 3, 4, 5]
+                .map(
+                  (rating) => `
+                    <option
+                      value="${rating}"
+                      ${
+                        Number(
+                          testimonial?.rating,
+                        ) === rating
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${rating}/5
+                    </option>
+                  `,
+                )
+                .join("")}
+
+            </select>
+          </label>
+
+          <label style="grid-column:1/-1;">
+            <span>Testimonial *</span>
+
+            <textarea
+              name="text"
+              rows="6"
+              required
+            >${escapeHtml(
+              testimonial?.text || "",
+            )}</textarea>
+          </label>
+
+          <label>
+            <span>Section</span>
+
+            <input
+              name="section"
+              value="${escapeHtml(
+                testimonial?.section || "",
+              )}"
+              placeholder="Homepage"
+            />
+          </label>
+
+          <label>
+            <span>Display Order</span>
+
+            <input
+              name="display_order"
+              type="number"
+              min="0"
+              value="${escapeHtml(
+                testimonial?.display_order ?? 0,
+              )}"
+            />
+          </label>
+
+          <label>
+            <span>Status</span>
+
+            <select name="is_active">
+
+              <option
+                value="true"
+                ${
+                  testimonial?.is_active !== false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${
+                  testimonial?.is_active === false
+                    ? "selected"
+                    : ""
+                }
+              >
+                Inactive
+              </option>
+
+            </select>
+          </label>
+
+        </div>
+
+        <div class="thp-admin-modal-actions">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="testimonial-form-cancel"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${
+              editing
+                ? "Save Changes"
+                : "Create Testimonial"
+            }
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+
+  overlay
+    .querySelector("#testimonial-form-close")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#testimonial-form-cancel")
+    .addEventListener("click", close);
+
+  overlay
+    .querySelector("#testimonial-form")
+    .addEventListener("submit", async (event) => {
+
+      event.preventDefault();
+
+      const formData = new FormData(
+        event.currentTarget,
+      );
+
+      const payload = {
+        name: String(
+          formData.get("name") || "",
+        ).trim(),
+
+        text: String(
+          formData.get("text") || "",
+        ).trim(),
+
+        rating: Number(
+          formData.get("rating") || 5,
+        ),
+
+        section: String(
+          formData.get("section") || "",
+        ).trim(),
+
+        display_order: Number(
+          formData.get("display_order") || 0,
+        ),
+
+        is_active:
+          formData.get("is_active") === "true",
+      };
+
+      try {
+
+        if (editing) {
+
+          await contentApi.updateContentTestimonial(
+            testimonial.id,
+            payload,
+          );
+
+          showToast("Testimonial updated.");
+
+        } else {
+
+          await contentApi.createContentTestimonial(
+            payload,
+          );
+
+          showToast("Testimonial created.");
+        }
+
+        close();
+
+        await loadData();
+
+      } catch (error) {
+
+        console.error(
+          "Testimonial save failed:",
+          error,
+        );
+
+        showToast(
+          error?.message ||
+            "Unable to save testimonial.",
+          "error",
+        );
+      }
+    });
+};
+
+window.openTrustStatForm = async (stat = null) => {
+  const isEdit = Boolean(stat);
+
+  const modal = document.createElement("div");
+  modal.className = "thp-admin-modal-overlay";
+
+  modal.innerHTML = `
+    <div class="thp-admin-modal">
+      <div class="thp-admin-modal-header">
+        <h3>${isEdit ? "Edit Trust Stat" : "Add Trust Stat"}</h3>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="trust-stat-form" class="thp-admin-form">
+        <div class="thp-admin-form-group">
+          <label>Value *</label>
+          <input
+            type="text"
+            name="value"
+            value="${escapeHtml(stat?.value || "")}"
+            placeholder="98%"
+            required
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Label *</label>
+          <input
+            type="text"
+            name="label"
+            value="${escapeHtml(stat?.label || "")}"
+            placeholder="Customer Satisfaction"
+            required
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Display Order</label>
+          <input
+            type="number"
+            name="display_order"
+            value="${stat?.display_order ?? 0}"
+            min="0"
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Status</label>
+
+          <select name="is_active">
+            <option value="true" ${
+              stat?.is_active !== false ? "selected" : ""
+            }>
+              Active
+            </option>
+
+            <option value="false" ${
+              stat?.is_active === false ? "selected" : ""
+            }>
+              Inactive
+            </option>
+          </select>
+        </div>
+
+        <div class="thp-admin-modal-actions">
+          <button
+            type="button"
+            class="thp-admin-button thp-admin-button-secondary"
+            data-close-modal
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${isEdit ? "Update Trust Stat" : "Create Trust Stat"}
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+
+  modal.querySelectorAll("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", closeModal);
+  });
+
+  modal.querySelector("#trust-stat-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+
+    const payload = {
+      value: String(formData.get("value") || "").trim(),
+      label: String(formData.get("label") || "").trim(),
+      display_order: Number(formData.get("display_order") || 0),
+      is_active: formData.get("is_active") === "true",
+    };
+
+    if (!payload.value || !payload.label) {
+      showToast("Value and label are required.", "error");
+      return;
+    }
+
+    try {
+      if (isEdit) {
+        await contentApi.updateContentTrustStat(stat.id, payload);
+        showToast("Trust stat updated successfully.", "success");
+      } else {
+        await contentApi.createContentTrustStat(payload);
+        showToast("Trust stat created successfully.", "success");
+      }
+
+      closeModal();
+      await loadData();
+      render();
+    } catch (error) {
+      console.error(error);
+      showToast(
+        error?.message || "Failed to save trust stat.",
+        "error"
+      );
+    }
+  });
+};
+
+window.openWebsitePageForm = (page = null) => {
+  const isEdit = Boolean(page);
+
+  const modal = document.createElement("div");
+  modal.className = "thp-admin-modal-overlay";
+
+  modal.innerHTML = `
+    <div class="thp-admin-modal">
+      <div class="thp-admin-modal-header">
+        <h3>${isEdit ? "Edit Website Page" : "Add Website Page"}</h3>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="website-page-form" class="thp-admin-form">
+
+        <div class="thp-admin-form-group">
+          <label>Title *</label>
+
+          <input
+            type="text"
+            name="title"
+            value="${escapeHtml(page?.title || "")}"
+            placeholder="Terms & Conditions"
+            required
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Page Type *</label>
+
+          <select name="page_type" required>
+            <option value="terms" ${
+              page?.page_type === "terms" ? "selected" : ""
+            }>
+              Terms
+            </option>
+
+            <option value="privacy" ${
+              page?.page_type === "privacy" ? "selected" : ""
+            }>
+              Privacy
+            </option>
+
+            <option value="about" ${
+              page?.page_type === "about" ? "selected" : ""
+            }>
+              About
+            </option>
+
+            <option value="other" ${
+              page?.page_type === "other" || !page ? "selected" : ""
+            }>
+              Other
+            </option>
+          </select>
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Content *</label>
+
+          <textarea
+            name="content"
+            rows="10"
+            placeholder="Enter page content..."
+            required
+          >${escapeHtml(page?.content || "")}</textarea>
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Status</label>
+
+          <select name="is_published">
+            <option value="true" ${
+              page?.is_published !== false ? "selected" : ""
+            }>
+              Published
+            </option>
+
+            <option value="false" ${
+              page?.is_published === false ? "selected" : ""
+            }>
+              Unpublished
+            </option>
+          </select>
+        </div>
+
+        <div class="thp-admin-modal-actions">
+          <button
+            type="button"
+            class="thp-admin-button thp-admin-button-secondary"
+            data-close-modal
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${isEdit ? "Update Page" : "Create Page"}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+
+  modal.querySelectorAll("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", closeModal);
+  });
+
+  modal
+    .querySelector("#website-page-form")
+    .addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const formData = new FormData(event.target);
+
+      const payload = {
+        title: String(formData.get("title") || "").trim(),
+        page_type: String(formData.get("page_type") || "other"),
+        content: String(formData.get("content") || "").trim(),
+        is_published: formData.get("is_published") === "true",
+      };
+
+      if (!payload.title || !payload.content) {
+        showToast("Title and content are required.", "error");
+        return;
+      }
+
+      try {
+        if (isEdit) {
+          await contentApi.updateContentWebsitePage(page.id, payload);
+          showToast("Website page updated successfully.", "success");
+        } else {
+          await contentApi.createContentWebsitePage(payload);
+          showToast("Website page created successfully.", "success");
+        }
+
+        closeModal();
+        await loadData();
+        render();
+      } catch (error) {
+        console.error(error);
+
+        showToast(
+          error?.message || "Failed to save website page.",
+          "error"
+        );
+      }
+    });
+};
+
+window.openCityForm = (city = null) => {
+  const isEdit = Boolean(city);
+
+  const modal = document.createElement("div");
+  modal.className = "thp-admin-modal-overlay";
+
+  modal.innerHTML = `
+    <div class="thp-admin-modal">
+      <div class="thp-admin-modal-header">
+        <h3>${isEdit ? "Edit City" : "Add City"}</h3>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          data-close-modal
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="city-form" class="thp-admin-form">
+
+        <div class="thp-admin-form-group">
+          <label>City Name *</label>
+
+          <input
+            type="text"
+            name="name"
+            value="${escapeHtml(city?.name || "")}"
+            placeholder="Bengaluru"
+            required
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>State</label>
+
+          <input
+            type="text"
+            name="state"
+            value="${escapeHtml(city?.state || "")}"
+            placeholder="Karnataka"
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Display Order</label>
+
+          <input
+            type="number"
+            name="display_order"
+            value="${city?.display_order ?? 0}"
+            min="0"
+          />
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label>Status</label>
+
+          <select name="is_active">
+            <option value="true" ${
+              city?.is_active !== false ? "selected" : ""
+            }>
+              Active
+            </option>
+
+            <option value="false" ${
+              city?.is_active === false ? "selected" : ""
+            }>
+              Inactive
+            </option>
+          </select>
+        </div>
+
+        <div class="thp-admin-modal-actions">
+          <button
+            type="button"
+            class="thp-admin-button thp-admin-button-secondary"
+            data-close-modal
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-button thp-admin-button-primary"
+          >
+            ${isEdit ? "Update City" : "Create City"}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeModal = () => modal.remove();
+
+  modal.querySelectorAll("[data-close-modal]").forEach((button) => {
+    button.addEventListener("click", closeModal);
+  });
+
+  modal.querySelector("#city-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+
+    const payload = {
+      name: String(formData.get("name") || "").trim(),
+      state: String(formData.get("state") || "").trim(),
+      display_order: Number(formData.get("display_order") || 0),
+      is_active: formData.get("is_active") === "true",
+    };
+
+    if (!payload.name) {
+      showToast("City name is required.", "error");
+      return;
+    }
+
+    try {
+      if (isEdit) {
+        await contentApi.updateContentCity(city.id, payload);
+        showToast("City updated successfully.", "success");
+      } else {
+        await contentApi.createContentCity(payload);
+        showToast("City created successfully.", "success");
+      }
+
+      closeModal();
+      await loadData();
+      render();
+    } catch (error) {
+      console.error(error);
+
+      showToast(
+        error?.message || "Failed to save city.",
+        "error"
+      );
+    }
+  });
+};
+
+
+  const bindEvents = () => {
+    const contentTabs = Array.from(
+      document.querySelectorAll("[data-content-tab]"),
+    );
+    const contentPanels = Array.from(
+      document.querySelectorAll("[data-content-panel]"),
+    );
+    const selectContentTab = (tab) => {
+      activeContentTab = tab.dataset.contentTab;
+      contentTabs.forEach((item) => {
+        const isSelected = item === tab;
+        item.classList.toggle("is-active", isSelected);
+        item.setAttribute("aria-selected", String(isSelected));
+        item.tabIndex = isSelected ? 0 : -1;
+      });
+      contentPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.contentPanel !== activeContentTab;
+      });
+    };
+
+    contentTabs.forEach((tab, index) => {
+      tab.tabIndex = tab.dataset.contentTab === activeContentTab ? 0 : -1;
+      tab.addEventListener("click", () => selectContentTab(tab));
+      tab.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const nextTab = contentTabs[(index + offset + contentTabs.length) % contentTabs.length];
+        nextTab.focus();
+        selectContentTab(nextTab);
+      });
+    });
+
+    document
+      .querySelector("#content-add-blog")
+      ?.addEventListener("click", () => openBlogForm());
+
+    document
+      .querySelector("#content-add-blog-empty")
+      ?.addEventListener("click", () => openBlogForm());
+
+    document
+      .querySelector("#content-retry")
+      ?.addEventListener("click", loadData);
+
+    document
+      .querySelector("#content-search")
+      ?.addEventListener("input", (event) => {
+        search = event.target.value;
+        page = 1;
+
+        window.clearTimeout(window.__contentSearchTimer);
+
+        window.__contentSearchTimer = window.setTimeout(() => {
+          loadData();
+        }, 350);
+      });
+
+    document
+      .querySelector("#content-status-filter")
+      ?.addEventListener("change", (event) => {
+        status = event.target.value;
+        page = 1;
+        loadData();
+      });
+
+    document
+      .querySelector("#content-category-filter")
+      ?.addEventListener("change", (event) => {
+        category = event.target.value;
+        page = 1;
+        loadData();
+      });
+
+    document
+      .querySelector("#content-prev")
+      ?.addEventListener("click", () => {
+        if (page > 1) {
+          page -= 1;
+          render();
+        }
+      });
+
+    document
+      .querySelector("#content-next")
+      ?.addEventListener("click", () => {
+        const totalPages = Math.max(1, Math.ceil(blogs.length / pageSize));
+
+        if (page < totalPages) {
+          page += 1;
+          render();
+        }
+      });
+
+    document.querySelectorAll("[data-blog-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const blog = blogs.find(
+          (item) => String(item.id) === String(button.dataset.blogEdit),
+        );
+
+        if (blog) {
+          openBlogForm(blog);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-blog-toggle]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const blog = blogs.find(
+          (item) => String(item.id) === String(button.dataset.blogToggle),
+        );
+
+        if (!blog) return;
+
+        try {
+          if (blog.status === "published") {
+            await contentApi.unpublishContentBlog(blog.id);
+            showToast("Blog unpublished.");
+          } else {
+            await contentApi.publishContentBlog(blog.id);
+            showToast("Blog published.");
+          }
+
+          await loadData();
+        } catch (error) {
+          console.error("Blog status change failed:", error);
+          showToast(
+            error?.message || "Unable to change blog status.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-blog-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const blog = blogs.find(
+          (item) => String(item.id) === String(button.dataset.blogDelete),
+        );
+
+        if (!blog) return;
+
+        if (
+          !window.confirm(
+            `Delete "${blog.title}"? This action cannot be undone.`,
+          )
+        ) {
+          return;
+        }
+
+        try {
+          await contentApi.deleteContentBlog(blog.id);
+          showToast("Blog deleted.");
+          await loadData();
+        } catch (error) {
+          console.error("Blog delete failed:", error);
+          showToast(
+            error?.message || "Unable to delete the blog.",
+            "error",
+          );
+        }
+      });
+    });
+
+            document
+      .querySelector("#content-add-category")
+      ?.addEventListener("click", () => {
+        window.openTaxonomyForm("category");
+      });
+
+    document
+      .querySelector("#content-add-tag")
+      ?.addEventListener("click", () => {
+        window.openTaxonomyForm("tag");
+      });
+
+    document.querySelectorAll("[data-category-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const item = categories.find(
+          (categoryItem) =>
+            String(categoryItem.id) === String(button.dataset.categoryEdit),
+        );
+
+        if (item) {
+          window.openTaxonomyForm("category", item);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-tag-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const item = tags.find(
+          (tagItem) =>
+            String(tagItem.id) === String(button.dataset.tagEdit),
+        );
+
+        if (item) {
+          window.openTaxonomyForm("tag", item);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-category-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const item = categories.find(
+          (categoryItem) =>
+            String(categoryItem.id) === String(button.dataset.categoryDelete),
+        );
+
+        if (!item) return;
+
+        if (!window.confirm(`Delete category "${item.name}"?`)) {
+          return;
+        }
+
+        try {
+          await contentApi.deleteContentBlogCategory(item.id);
+          showToast("Category deleted.");
+          await loadData();
+        } catch (error) {
+          console.error("Category delete failed:", error);
+          showToast(
+            error?.message || "Unable to delete category.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-tag-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const item = tags.find(
+          (tagItem) =>
+            String(tagItem.id) === String(button.dataset.tagDelete),
+        );
+
+        if (!item) return;
+
+        if (!window.confirm(`Delete tag "${item.name}"?`)) {
+          return;
+        }
+
+        try {
+          await contentApi.deleteContentBlogTag(item.id);
+          showToast("Tag deleted.");
+          await loadData();
+        } catch (error) {
+          console.error("Tag delete failed:", error);
+          showToast(
+            error?.message || "Unable to delete tag.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document
+      .querySelector("#content-add-banner")
+      ?.addEventListener("click", () => {
+        openBannerForm();
+      });
+
+    document.querySelectorAll("[data-banner-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const banner = banners.find(
+          (item) => String(item.id) === String(button.dataset.bannerEdit),
+        );
+
+        if (banner) {
+          openBannerForm(banner);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-banner-toggle]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await contentApi.toggleContentHomepageBannerStatus(
+            button.dataset.bannerToggle,
+          );
+
+          showToast("Banner status updated.");
+          await loadData();
+        } catch (error) {
+          console.error("Banner status update failed:", error);
+
+          showToast(
+            error?.message || "Unable to update banner status.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-banner-up]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await contentApi.moveContentHomepageBannerUp(
+            button.dataset.bannerUp,
+          );
+
+          showToast("Banner moved up.");
+          await loadData();
+        } catch (error) {
+          showToast(
+            error?.message || "Unable to move banner.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-banner-down]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await contentApi.moveContentHomepageBannerDown(
+            button.dataset.bannerDown,
+          );
+
+          showToast("Banner moved down.");
+          await loadData();
+        } catch (error) {
+          showToast(
+            error?.message || "Unable to move banner.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-banner-delete]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const banner = banners.find(
+          (item) =>
+            String(item.id) === String(button.dataset.bannerDelete),
+        );
+
+        if (!banner) return;
+
+        if (
+          !window.confirm(
+            `Delete "${banner.title}"? This action cannot be undone.`,
+          )
+        ) {
+          return;
+        }
+
+        try {
+          await contentApi.deleteContentHomepageBanner(banner.id);
+
+          showToast("Homepage banner deleted.");
+          await loadData();
+        } catch (error) {
+          console.error("Banner delete failed:", error);
+
+          showToast(
+            error?.message || "Unable to delete homepage banner.",
+            "error",
+          );
+        }
+      });
+    });
+
+    document
+      .querySelector("#content-add-announcement")
+      ?.addEventListener("click", () => {
+        openAnnouncementForm();
+      });
+
+    document
+      .querySelectorAll("[data-announcement-edit]")
+      .forEach((button) => {
+
+        button.addEventListener("click", () => {
+
+          const announcement =
+            announcements.find(
+              (item) =>
+                String(item.id) ===
+                String(
+                  button.dataset.announcementEdit,
+                ),
+            );
+
+          if (announcement) {
+            openAnnouncementForm(
+              announcement,
+            );
+          }
+        });
+      });
+
+    document
+      .querySelectorAll("[data-announcement-toggle]")
+      .forEach((button) => {
+
+        button.addEventListener(
+          "click",
+          async () => {
+
+            const announcement =
+              announcements.find(
+                (item) =>
+                  String(item.id) ===
+                  String(
+                    button.dataset.announcementToggle,
+                  ),
+              );
+
+            if (!announcement) return;
+
+            try {
+
+              await contentApi.updateContentAnnouncement(
+                announcement.id,
+                {
+                  is_active:
+                    !announcement.is_active,
+                },
+              );
+
+              showToast(
+                announcement.is_active
+                  ? "Announcement deactivated."
+                  : "Announcement activated.",
+              );
+
+              await loadData();
+
+            } catch (error) {
+
+              console.error(
+                "Announcement status update failed:",
+                error,
+              );
+
+              showToast(
+                error?.message ||
+                  "Unable to update announcement status.",
+                "error",
+              );
+            }
+          },
+        );
+      });
+
+    document
+      .querySelectorAll("[data-announcement-delete]")
+      .forEach((button) => {
+
+        button.addEventListener(
+          "click",
+          async () => {
+
+            const announcement =
+              announcements.find(
+                (item) =>
+                  String(item.id) ===
+                  String(
+                    button.dataset.announcementDelete,
+                  ),
+              );
+
+            if (!announcement) return;
+
+            if (
+              !window.confirm(
+                `Delete "${announcement.title}"? This action cannot be undone.`,
+              )
+            ) {
+              return;
+            }
+
+            try {
+
+              await contentApi.deleteContentAnnouncement(
+                announcement.id,
+              );
+
+              showToast(
+                "Announcement deleted.",
+              );
+
+              await loadData();
+
+            } catch (error) {
+
+              console.error(
+                "Announcement delete failed:",
+                error,
+              );
+
+              showToast(
+                error?.message ||
+                  "Unable to delete announcement.",
+                "error",
+              );
+            }
+          },
+        );
+      });
+
+      document
+        .querySelector("#content-add-featured-service")
+        ?.addEventListener("click", () => {
+          openFeaturedServiceForm();
+        });
+
+      document
+        .querySelectorAll("[data-featured-service-edit]")
+        .forEach((button) => {
+
+          button.addEventListener("click", () => {
+
+            const service =
+              featuredServices.find(
+                (item) =>
+                  String(item.id) ===
+                  String(
+                    button.dataset.featuredServiceEdit,
+                  ),
+              );
+
+            if (service) {
+              openFeaturedServiceForm(service);
+            }
+          });
+        });
+
+      document
+        .querySelectorAll("[data-featured-service-toggle]")
+        .forEach((button) => {
+
+          button.addEventListener(
+            "click",
+            async () => {
+
+              const service =
+                featuredServices.find(
+                  (item) =>
+                    String(item.id) ===
+                    String(
+                      button.dataset.featuredServiceToggle,
+                    ),
+                );
+
+              if (!service) return;
+
+              try {
+
+                await contentApi.updateContentFeaturedService(
+                  service.id,
+                  {
+                    is_active: !service.is_active,
+                  },
+                );
+
+                showToast(
+                  service.is_active
+                    ? "Featured service deactivated."
+                    : "Featured service activated.",
+                );
+
+                await loadData();
+
+              } catch (error) {
+
+                showToast(
+                  error?.message ||
+                    "Unable to update service status.",
+                  "error",
+                );
+              }
+            },
+          );
+        });
+
+      document
+        .querySelectorAll("[data-featured-service-delete]")
+        .forEach((button) => {
+
+          button.addEventListener(
+            "click",
+            async () => {
+
+              const service =
+                featuredServices.find(
+                  (item) =>
+                    String(item.id) ===
+                    String(
+                      button.dataset.featuredServiceDelete,
+                    ),
+                );
+
+              if (!service) return;
+
+              if (
+                !window.confirm(
+                  `Delete "${service.title}"? This action cannot be undone.`,
+                )
+              ) {
+                return;
+              }
+
+              try {
+
+                await contentApi.deleteContentFeaturedService(
+                  service.id,
+                );
+
+                showToast(
+                  "Featured service deleted.",
+                );
+
+                await loadData();
+
+              } catch (error) {
+
+                showToast(
+                  error?.message ||
+                    "Unable to delete featured service.",
+                  "error",
+                );
+              }
+            },
+          );
+        });
+
+        document
+          .querySelector("#content-add-faq")
+          ?.addEventListener("click", () => {
+            openFaqForm();
+          });
+
+        document
+          .querySelectorAll("[data-faq-edit]")
+          .forEach((button) => {
+
+            button.addEventListener("click", () => {
+
+              const faq = faqs.find(
+                (item) =>
+                  String(item.id) ===
+                  String(button.dataset.faqEdit),
+              );
+
+              if (faq) {
+                openFaqForm(faq);
+              }
+            });
+          });
+
+        document
+          .querySelectorAll("[data-faq-toggle]")
+          .forEach((button) => {
+
+            button.addEventListener(
+              "click",
+              async () => {
+
+                const faq = faqs.find(
+                  (item) =>
+                    String(item.id) ===
+                    String(button.dataset.faqToggle),
+                );
+
+                if (!faq) return;
+
+                try {
+
+                  await contentApi.updateContentFaq(
+                    faq.id,
+                    {
+                      is_active: !faq.is_active,
+                    },
+                  );
+
+                  showToast(
+                    faq.is_active
+                      ? "FAQ deactivated."
+                      : "FAQ activated.",
+                  );
+
+                  await loadData();
+
+                } catch (error) {
+
+                  showToast(
+                    error?.message ||
+                      "Unable to update FAQ status.",
+                    "error",
+                  );
+                }
+              },
+            );
+          });
+
+        document
+          .querySelectorAll("[data-faq-delete]")
+          .forEach((button) => {
+
+            button.addEventListener(
+              "click",
+              async () => {
+
+                const faq = faqs.find(
+                  (item) =>
+                    String(item.id) ===
+                    String(button.dataset.faqDelete),
+                );
+
+                if (!faq) return;
+
+                if (
+                  !window.confirm(
+                    `Delete this FAQ? This action cannot be undone.`,
+                  )
+                ) {
+                  return;
+                }
+
+                try {
+
+                  await contentApi.deleteContentFaq(
+                    faq.id,
+                  );
+
+                  showToast("FAQ deleted.");
+
+                  await loadData();
+
+                } catch (error) {
+
+                  showToast(
+                    error?.message ||
+                      "Unable to delete FAQ.",
+                    "error",
+                  );
+                }
+              },
+            );
+          });
+
+          document
+            .querySelector("#content-add-testimonial")
+            ?.addEventListener("click", () => {
+              openTestimonialForm();
+            });
+
+          document
+            .querySelectorAll("[data-testimonial-edit]")
+            .forEach((button) => {
+
+              button.addEventListener("click", () => {
+
+                const testimonial =
+                  testimonials.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(
+                        button.dataset.testimonialEdit,
+                      ),
+                  );
+
+                if (testimonial) {
+                  openTestimonialForm(testimonial);
+                }
+              });
+            });
+
+          document
+            .querySelectorAll("[data-testimonial-toggle]")
+            .forEach((button) => {
+
+              button.addEventListener(
+                "click",
+                async () => {
+
+                  const testimonial =
+                    testimonials.find(
+                      (item) =>
+                        String(item.id) ===
+                        String(
+                          button.dataset.testimonialToggle,
+                        ),
+                    );
+
+                  if (!testimonial) return;
+
+                  try {
+
+                    await contentApi.updateContentTestimonial(
+                      testimonial.id,
+                      {
+                        is_active:
+                          !testimonial.is_active,
+                      },
+                    );
+
+                    showToast(
+                      testimonial.is_active
+                        ? "Testimonial deactivated."
+                        : "Testimonial activated.",
+                    );
+
+                    await loadData();
+
+                  } catch (error) {
+
+                    showToast(
+                      error?.message ||
+                        "Unable to update testimonial status.",
+                      "error",
+                    );
+                  }
+                },
+              );
+            });
+
+          document
+            .querySelectorAll("[data-testimonial-delete]")
+            .forEach((button) => {
+
+              button.addEventListener(
+                "click",
+                async () => {
+
+                  const testimonial =
+                    testimonials.find(
+                      (item) =>
+                        String(item.id) ===
+                        String(
+                          button.dataset.testimonialDelete,
+                        ),
+                    );
+
+                  if (!testimonial) return;
+
+                  if (
+                    !window.confirm(
+                      `Delete testimonial from "${testimonial.name}"? This action cannot be undone.`,
+                    )
+                  ) {
+                    return;
+                  }
+
+                  try {
+
+                    await contentApi.deleteContentTestimonial(
+                      testimonial.id,
+                    );
+
+                    showToast(
+                      "Testimonial deleted.",
+                    );
+
+                    await loadData();
+
+                  } catch (error) {
+
+                    showToast(
+                      error?.message ||
+                        "Unable to delete testimonial.",
+                      "error",
+                    );
+                  }
+                },
+              );
+            });
+
+            document
+              .querySelector("#content-add-trust-stat")
+              ?.addEventListener("click", () => {
+                window.openTrustStatForm();
+              });
+
+            document.querySelectorAll("[data-trust-stat-edit]").forEach((button) => {
+              button.addEventListener("click", () => {
+                const stat = trustStats.find(
+                  (item) => String(item.id) === String(button.dataset.trustStatEdit)
+                );
+
+                if (stat) {
+                  window.openTrustStatForm(stat);
+                }
+              });
+            });
+
+            document.querySelectorAll("[data-trust-stat-toggle]").forEach((button) => {
+              button.addEventListener("click", async () => {
+                const stat = trustStats.find(
+                  (item) => String(item.id) === String(button.dataset.trustStatToggle)
+                );
+
+                if (!stat) return;
+
+                try {
+                  await contentApi.updateContentTrustStat(stat.id, {
+                    is_active: !stat.is_active,
+                  });
+
+                  showToast(
+                    `Trust stat ${stat.is_active ? "deactivated" : "activated"}.`,
+                    "success"
+                  );
+
+                  await loadData();
+                  render();
+                } catch (error) {
+                  console.error(error);
+                  showToast(
+                    error?.message || "Failed to update trust stat status.",
+                    "error"
+                  );
+                }
+              });
+            });
+
+            document.querySelectorAll("[data-trust-stat-delete]").forEach((button) => {
+              button.addEventListener("click", async () => {
+                const stat = trustStats.find(
+                  (item) => String(item.id) === String(button.dataset.trustStatDelete)
+                );
+
+                if (!stat) return;
+
+                if (
+                  !window.confirm(
+                    `Delete trust stat "${stat.value} ${stat.label}"?`
+                  )
+                ) {
+                  return;
+                }
+
+                try {
+                  await contentApi.deleteContentTrustStat(stat.id);
+
+                  showToast("Trust stat deleted successfully.", "success");
+
+                  await loadData();
+                  render();
+                } catch (error) {
+                  console.error(error);
+                  showToast(
+                    error?.message || "Failed to delete trust stat.",
+                    "error"
+                  );
+                }
+              });
+            });
+
+            document
+              .querySelector("#content-add-website-page")
+              ?.addEventListener("click", () => {
+                window.openWebsitePageForm();
+              });
+
+            document.querySelectorAll("[data-website-page-edit]").forEach((button) => {
+              button.addEventListener("click", () => {
+                const page = websitePages.find(
+                  (item) =>
+                    String(item.id) === String(button.dataset.websitePageEdit)
+                );
+
+                if (page) {
+                  window.openWebsitePageForm(page);
+                }
+              });
+            });
+
+            document.querySelectorAll("[data-website-page-toggle]").forEach((button) => {
+              button.addEventListener("click", async () => {
+                const page = websitePages.find(
+                  (item) =>
+                    String(item.id) === String(button.dataset.websitePageToggle)
+                );
+
+                if (!page) return;
+
+                try {
+                  await contentApi.toggleContentWebsitePagePublished(page.id);
+
+                  showToast(
+                    page.is_published
+                      ? "Website page unpublished."
+                      : "Website page published.",
+                    "success"
+                  );
+
+                  await loadData();
+                  render();
+                } catch (error) {
+                  console.error(error);
+
+                  showToast(
+                    error?.message || "Failed to update page status.",
+                    "error"
+                  );
+                }
+              });
+            });
+
+            document.querySelectorAll("[data-website-page-delete]").forEach((button) => {
+              button.addEventListener("click", async () => {
+                const page = websitePages.find(
+                  (item) =>
+                    String(item.id) === String(button.dataset.websitePageDelete)
+                );
+
+                if (!page) return;
+
+                if (
+                  !window.confirm(
+                    `Delete website page "${page.title}"?`
+                  )
+                ) {
+                  return;
+                }
+
+                try {
+                  await contentApi.deleteContentWebsitePage(page.id);
+
+                  showToast("Website page deleted successfully.", "success");
+
+                  await loadData();
+                  render();
+                } catch (error) {
+                  console.error(error);
+
+                  showToast(
+                    error?.message || "Failed to delete website page.",
+                    "error"
+                  );
+                }
+              });
+            });
+
+            document
+              .querySelector("#content-add-city")
+              ?.addEventListener("click", () => {
+                window.openCityForm();
+              });
+
+            document.querySelectorAll("[data-city-edit]").forEach((button) => {
+              button.addEventListener("click", () => {
+                const city = cities.find(
+                  (item) => String(item.id) === String(button.dataset.cityEdit)
+                );
+
+                if (city) {
+                  window.openCityForm(city);
+                }
+              });
+            });
+
+            document.querySelectorAll("[data-city-toggle]").forEach((button) => {
+              button.addEventListener("click", async () => {
+                const city = cities.find(
+                  (item) => String(item.id) === String(button.dataset.cityToggle)
+                );
+
+                if (!city) return;
+
+                try {
+                  await contentApi.updateContentCity(city.id, {
+                    is_active: !city.is_active,
+                  });
+
+                  showToast(
+                    city.is_active
+                      ? "City deactivated."
+                      : "City activated.",
+                    "success"
+                  );
+
+                  await loadData();
+                  render();
+                } catch (error) {
+                  console.error(error);
+
+                  showToast(
+                    error?.message || "Failed to update city status.",
+                    "error"
+                  );
+                }
+              });
+            });
+
+            document.querySelectorAll("[data-city-delete]").forEach((button) => {
+              button.addEventListener("click", async () => {
+                const city = cities.find(
+                  (item) => String(item.id) === String(button.dataset.cityDelete)
+                );
+
+                if (!city) return;
+
+                if (
+                  !window.confirm(
+                    `Delete city "${city.name}"?`
+                  )
+                ) {
+                  return;
+                }
+
+                try {
+                  await contentApi.deleteContentCity(city.id);
+
+                  showToast("City deleted successfully.", "success");
+
+                  await loadData();
+                  render();
+                } catch (error) {
+                  console.error(error);
+
+                  showToast(
+                    error?.message || "Failed to delete city.",
+                    "error"
+                  );
+                }
+              });
+            });
+
+
+  };
+
+  render();
+  await loadData();
+}
+
+
+
+
 
 export async function renderAdminStaff(app) {
   if (!isAdminAuthenticated()) {
@@ -3560,34 +8336,35 @@ export function renderAdminCouponsOffersMarketing(app) {
   }
 
   const content = `
-    <section class="thp-admin-module-page">
+    <section class="thp-admin-module-page thp-admin-marketing-page">
+      <nav class="thp-marketing-tabs" aria-label="Marketing sections" role="tablist">
+        <button type="button" class="thp-marketing-tab is-active" id="marketing-tab-coupons" role="tab" aria-selected="true" aria-controls="marketing-panel-coupons" data-marketing-tab="coupons">
+          Vouchers &amp; Coupons <span class="thp-marketing-tab-count" id="coupon-tab-count">0</span>
+        </button>
+        <button type="button" class="thp-marketing-tab" id="marketing-tab-campaigns" role="tab" aria-selected="false" aria-controls="marketing-panel-campaigns" data-marketing-tab="campaigns" tabindex="-1">
+          Featured Campaigns <span class="thp-marketing-tab-count" id="campaign-tab-count">0</span>
+        </button>
+        <button type="button" class="thp-marketing-tab" id="marketing-tab-promotional-content" role="tab" aria-selected="false" aria-controls="marketing-panel-promotional-content" data-marketing-tab="promotional-content" tabindex="-1">
+          Promotional Banners &amp; Offer Strips <span class="thp-marketing-tab-count" id="promotional-content-tab-count">0</span>
+        </button>
+      </nav>
 
-      <div class="thp-admin-module-intro">
-        <div>
-          <h2>Coupons, Offers & Marketing</h2>
-          <p>
-            Manage discount coupons, promotional offers and marketing campaigns.
-          </p>
-        </div>
-
-        ${hasPermission('coupons_offers_marketing', 'create') ? `
-          <button
-            type="button"
-            class="thp-admin-primary-button"
-            id="create-coupon-button"
-          >
-            + Create Coupon
-          </button>
-        ` : ''}
-      </div>
-
-      <div class="thp-admin-panel">
+      <div class="thp-admin-panel thp-marketing-panel" id="marketing-panel-coupons" role="tabpanel" aria-labelledby="marketing-tab-coupons" data-marketing-panel="coupons">
 
         <div class="thp-admin-panel-heading">
           <div>
-            <h3>Coupons</h3>
-            <p>Manage discount codes and usage limits.</p>
+            <h3>Active Voucher Codes</h3>
+            <p>Validated real-time during patient checkout across appointments, pharmacy, and lab services.</p>
           </div>
+          ${hasPermission('coupons_offers_marketing', 'create') ? `
+            <button
+              type="button"
+              class="thp-admin-primary-button"
+              id="create-coupon-button"
+            >
+              + Create Coupon
+            </button>
+          ` : ''}
         </div>
 
         <div id="coupons-content">
@@ -3599,11 +8376,11 @@ export function renderAdminCouponsOffersMarketing(app) {
       </div>
 
 
-      <div class="thp-admin-panel">
+      <div class="thp-admin-panel thp-marketing-panel" id="marketing-panel-campaigns" role="tabpanel" aria-labelledby="marketing-tab-campaigns" data-marketing-panel="campaigns" hidden>
         <div class="thp-admin-panel-heading">
           <div>
-            <h3>Featured Promotions</h3>
-            <p>Manage promotional cards shown on the Home page.</p>
+            <h3>Featured In-App Promotions</h3>
+            <p>Hero carousel and banner spotlights.</p>
           </div>
           ${hasPermission('coupons_offers_marketing', 'create') ? `
             <button
@@ -3623,10 +8400,10 @@ export function renderAdminCouponsOffersMarketing(app) {
         </div>
       </div>
 
-      <div class="thp-admin-panel">
+      <div class="thp-admin-panel thp-marketing-panel thp-marketing-content-panel" id="marketing-panel-promotional-content" role="tabpanel" aria-labelledby="marketing-tab-promotional-content" data-marketing-panel="promotional-content" hidden>
         <div class="thp-admin-panel-heading">
           <div>
-            <h3>Promotional Banners & Offer Strips</h3>
+            <h3>Promotional Banners &amp; Offer Strips</h3>
             <p>Manage Home and Pharmacy promotional content and ordering.</p>
           </div>
           ${hasPermission('coupons_offers_marketing', 'create') ? `
@@ -4182,6 +8959,35 @@ export function renderAdminCouponsOffersMarketing(app) {
     content
   )
 
+  const marketingTabs = Array.from(
+    app.querySelectorAll("[data-marketing-tab]"),
+  );
+  const marketingPanels = Array.from(
+    app.querySelectorAll("[data-marketing-panel]"),
+  );
+  marketingTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => {
+      marketingTabs.forEach((candidate) => {
+        const selected = candidate === tab;
+        candidate.classList.toggle("is-active", selected);
+        candidate.setAttribute("aria-selected", String(selected));
+        candidate.tabIndex = selected ? 0 : -1;
+      });
+      marketingPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.marketingPanel !== tab.dataset.marketingTab;
+      });
+    });
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const offset = event.key === "ArrowRight" ? 1 : -1;
+      const nextTab =
+        marketingTabs[(index + offset + marketingTabs.length) % marketingTabs.length];
+      nextTab.focus();
+      nextTab.click();
+    });
+  });
+
   setupCouponModalEvents()
   setupPromotionEvents()
   setupPromotionalContentEvents()
@@ -4233,6 +9039,8 @@ async function loadCoupons() {
     const coupons = await getCoupons()
 
     console.log('Coupons loaded from Django:', coupons)
+    const couponCount = document.querySelector('#coupon-tab-count')
+    if (couponCount) couponCount.textContent = String(coupons.length)
 
     if (!coupons.length) {
       container.innerHTML = `
@@ -4246,7 +9054,7 @@ async function loadCoupons() {
     }
 
     container.innerHTML = `
-      <div class="thp-admin-table-toolbar">
+      <div class="thp-admin-table-toolbar thp-coupon-toolbar">
 
         <div class="thp-admin-search-box">
           <input
@@ -4291,11 +9099,12 @@ async function loadCoupons() {
 
           <thead>
             <tr>
-              <th>Code</th>
+              <th>Promo Code</th>
               <th>Discount</th>
-              <th>Applies To</th>
-              <th>Validity</th>
-              <th>Usage</th>
+              <th>Min. Order</th>
+              <th>Module</th>
+              <th>Redemptions</th>
+              <th>Valid Until</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -4304,7 +9113,10 @@ async function loadCoupons() {
           <tbody id="coupon-table-body">
             ${coupons.map(coupon => `
               <tr
+                data-coupon-id="${coupon.id}"
                 data-coupon-code="${escapeHtml(coupon.code).toLowerCase()}"
+                data-coupon-discount="${Number(coupon.discount_value) || 0}"
+                data-coupon-usage="${Number(coupon.usage_count) || 0}"
                 data-coupon-status="${
                   coupon.is_currently_active ? 'active' : 'inactive'
                 }"
@@ -4314,15 +9126,11 @@ async function loadCoupons() {
                   <div class="thp-admin-coupon-code">
                     ${escapeHtml(coupon.code)}
                   </div>
-
-                  <small>
-                    Min. order ₹${formatMoney(coupon.minimum_order_amount)}
-                  </small>
                 </td>
 
                 <td>
-                  <strong>
-                    ${formatDiscount(coupon)}
+                  <strong class="thp-marketing-discount">
+                    ${formatCouponDiscount(coupon)}
                   </strong>
 
                   ${
@@ -4337,22 +9145,18 @@ async function loadCoupons() {
                 </td>
 
                 <td>
-                  ${formatAppliesTo(coupon.applies_to)}
+                  ₹${formatMoney(coupon.minimum_order_amount)}
                 </td>
 
                 <td>
-                  <div>
-                    ${formatDate(coupon.start_date)}
-                  </div>
-
-                  <small>
-                    to ${formatDate(coupon.expiry_date)}
-                  </small>
+                  <span class="thp-marketing-module-badge">
+                    ${formatAppliesTo(coupon.applies_to)}
+                  </span>
                 </td>
 
                 <td>
                   <strong>
-                    ${coupon.usage_count}
+                    ${(Number(coupon.usage_count) || 0).toLocaleString('en-IN')}
                   </strong>
 
                   ${
@@ -4363,69 +9167,53 @@ async function loadCoupons() {
                 </td>
 
                 <td>
-                  <span
+                  <div class="thp-marketing-expiry">
+                    <strong>${formatDate(coupon.expiry_date)}</strong>
+                    <small>Starts ${formatDate(coupon.start_date)}</small>
+                  </div>
+                </td>
+
+                <td>
+                  <button
+                    type="button"
                     class="thp-admin-status-badge ${
-                      coupon.is_currently_active
-                        ? 'is-active'
-                        : 'is-inactive'
+                    coupon.is_currently_active
+                      ? 'is-active'
+                      : 'is-inactive'
                     }"
+                    data-coupon-action="toggle"
+                    data-coupon-id="${coupon.id}"
+                    aria-label="${coupon.is_currently_active ? 'Deactivate' : 'Activate'} coupon ${escapeHtml(coupon.code)}"
                   >
                     ${
-                      coupon.is_currently_active
-                        ? 'Active'
-                        : 'Inactive'
+                    coupon.is_currently_active
+                      ? 'Active'
+                      : 'Inactive'
                     }
-                  </span>
+                  </button>
                 </td>
 
                 <td>
                   <div class="thp-admin-row-actions">
-
-                  ${hasPermission('coupons_offers_marketing', 'edit') ? `
+                    ${hasPermission('coupons_offers_marketing', 'edit') ? `
                     <button
+                      type="button"
                       class="thp-admin-row-button"
-                      data-promotion-action="up"
-                      data-id="${item.id}"
-                    >
-                      ↑
-                    </button>
-
+                      data-coupon-action="edit"
+                      data-coupon-id="${coupon.id}"
+                      aria-label="Edit coupon ${escapeHtml(coupon.code)}"
+                    >Edit</button>
+                    ` : ''}
+                    ${hasPermission('coupons_offers_marketing', 'delete') ? `
                     <button
-                      class="thp-admin-row-button"
-                      data-promotion-action="down"
-                      data-id="${item.id}"
-                    >
-                      ↓
-                    </button>
-
-                    <button
-                      class="thp-admin-row-button"
-                      data-promotion-action="edit"
-                      data-id="${item.id}"
-                    >
-                      Edit
-                    </button>
-
-                    <button
-                      class="thp-admin-row-button"
-                      data-promotion-action="toggle"
-                      data-id="${item.id}"
-                    >
-                      ${item.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
-                  ` : ''}
-
-                  ${hasPermission('coupons_offers_marketing', 'delete') ? `
-                    <button
+                      type="button"
                       class="thp-admin-row-button is-danger"
-                      data-promotion-action="delete"
-                      data-id="${item.id}"
-                    >
-                      Delete
-                    </button>
-                  ` : ''}
-
-                </div>
+                      data-coupon-action="delete"
+                      data-coupon-id="${coupon.id}"
+                      aria-label="Delete coupon ${escapeHtml(coupon.code)}"
+                    >Delete</button>
+                    ` : ''}
+                  </div>
                 </td>
 
               </tr>
@@ -4496,55 +9284,29 @@ async function loadCoupons() {
 
         visibleRows.sort((a, b) => {
 
-          const couponA =
-            coupons.find(
-              item =>
-                String(item.id) ===
-                a.querySelector(
-                  '[data-coupon-id]'
-                )?.dataset.couponId
-            )
-
-          const couponB =
-            coupons.find(
-              item =>
-                String(item.id) ===
-                b.querySelector(
-                  '[data-coupon-id]'
-                )?.dataset.couponId
-            )
-
-          if (!couponA || !couponB) {
-            return 0
-          }
-
           switch (sort) {
 
             case 'code-asc':
-              return couponA.code.localeCompare(
-                couponB.code
-              )
+              return a.dataset.couponCode.localeCompare(b.dataset.couponCode)
 
             case 'code-desc':
-              return couponB.code.localeCompare(
-                couponA.code
-              )
+              return b.dataset.couponCode.localeCompare(a.dataset.couponCode)
 
             case 'discount-high':
-              return Number(couponB.discount_value) -
-                Number(couponA.discount_value)
+              return Number(b.dataset.couponDiscount) -
+                Number(a.dataset.couponDiscount)
 
             case 'discount-low':
-              return Number(couponA.discount_value) -
-                Number(couponB.discount_value)
+              return Number(a.dataset.couponDiscount) -
+                Number(b.dataset.couponDiscount)
 
             case 'usage-high':
-              return Number(couponB.usage_count) -
-                Number(couponA.usage_count)
+              return Number(b.dataset.couponUsage) -
+                Number(a.dataset.couponUsage)
 
             case 'usage-low':
-              return Number(couponA.usage_count) -
-                Number(couponB.usage_count)
+              return Number(a.dataset.couponUsage) -
+                Number(b.dataset.couponUsage)
 
             default:
               return 0
@@ -4824,6 +9586,16 @@ function formatDiscount(coupon) {
     : `₹${value}`
 }
 
+function formatCouponDiscount(coupon) {
+  const value = Number(coupon.discount_value).toLocaleString('en-IN', {
+    maximumFractionDigits: 2,
+  })
+
+  return coupon.discount_type === 'percentage'
+    ? `${value}% OFF`
+    : `₹${value} FLAT OFF`
+}
+
 function formatAppliesTo(value) {
   const labels = {
     pharmacy: 'Pharmacy',
@@ -4855,117 +9627,60 @@ function formatDate(value) {
 }
 
 
-async function setupCouponTableEvents(coupons) {
-  document
-    .querySelectorAll('[data-coupon-action]')
-    .forEach(button => {
-
-      button.addEventListener('click', async () => {
-
-        const action = button.dataset.couponAction
-        const couponId = Number(button.dataset.couponId)
-
-        const coupon = coupons.find(
-          item => item.id === couponId
-        )
-
-        if (!coupon) {
-          return
-        }
-
-        if (action === 'delete') {
-          const confirmed = window.confirm(
-            `Delete coupon "${coupon.code}"? This action cannot be undone.`
-          )
-
-          if (!confirmed) {
-            return
-          }
-
-          button.disabled = true
-          button.textContent = 'Deleting...'
-
-          try {
-            await deleteCoupon(couponId)
-
-            showAdminToast('Coupon deleted successfully.')
-
-            await loadCoupons()
-
-          } catch (error) {
-            console.error(
-              'Failed to delete coupon:',
-            error
-          )
-
-          showAdminToast(
-            error.message || 'Unable to delete coupon.',
-            'error'
-          )
-
-          button.disabled = false
-          button.textContent = 'Delete'
-        }
-
-        return
-      }
+function setupCouponTableEvents(coupons) {
+  document.querySelectorAll('[data-coupon-action]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const action = button.dataset.couponAction
+      const couponId = Number(button.dataset.couponId)
+      const coupon = coupons.find(item => item.id === couponId)
+      if (!coupon) return
 
       if (action === 'edit') {
         openEditCouponModal(coupon)
         return
       }
 
-      if (action !== 'toggle') {
-        console.log(
-          'Coupon action not implemented yet:',
-          action,
-          coupon
-        )
-        return
-      }
-        const confirmed = window.confirm(
-          coupon.is_active
-            ? `Deactivate coupon "${coupon.code}"?`
-            : `Activate coupon "${coupon.code}"?`
-        )
+      if (action === 'delete' && !window.confirm(
+        `Delete coupon "${coupon.code}"? This action cannot be undone.`
+      )) return
 
-        if (!confirmed) {
-          return
-        }
+      if (action === 'toggle' && !window.confirm(
+        coupon.is_active
+          ? `Deactivate coupon "${coupon.code}"?`
+          : `Activate coupon "${coupon.code}"?`
+      )) return
 
-        button.disabled = true
-        button.textContent = 'Updating...'
+      const originalText = button.textContent
+      button.disabled = true
+      if (action === 'delete') button.textContent = 'Deleting...'
+      if (action === 'toggle') button.textContent = 'Updating...'
 
-        try {
+      try {
+        if (action === 'delete') {
+          await deleteCoupon(couponId)
+          showAdminToast('Coupon deleted successfully.')
+        } else if (action === 'toggle') {
           await toggleCouponStatus(couponId)
-
           showAdminToast(
             coupon.is_active
               ? 'Coupon deactivated successfully.'
               : 'Coupon activated successfully.'
           )
-
-          await loadCoupons()
-
-        } catch (error) {
-
-          console.error(
-            'Failed to toggle coupon status:',
-            error
-          )
-
-          showAdminToast(
-            error.message || 'Unable to update coupon status.',
-            'error'
-          )
-          button.disabled = false
-          button.textContent =
-            coupon.is_active
-              ? 'Deactivate'
-              : 'Activate'
+        } else {
+          return
         }
-      })
+        await loadCoupons()
+      } catch (error) {
+        console.error(`Failed to ${action} coupon:`, error)
+        showAdminToast(
+          error.message || `Unable to ${action} coupon.`,
+          'error'
+        )
+        button.disabled = false
+        button.textContent = originalText
+      }
     })
+  })
 }
 
 let couponModalMode = 'edit'
@@ -5277,6 +9992,8 @@ async function loadFeaturedPromotions() {
 
   try {
     const promotions = await getFeaturedPromotions()
+    const campaignCount = document.querySelector('#campaign-tab-count')
+    if (campaignCount) campaignCount.textContent = String(promotions.length)
 
     if (!promotions.length) {
       container.innerHTML = `
@@ -5289,7 +10006,7 @@ async function loadFeaturedPromotions() {
     }
 
       container.innerHTML = `
-        <div class="thp-admin-table-toolbar">
+        <div class="thp-admin-table-toolbar thp-promotion-toolbar">
 
           <div class="thp-admin-search-box">
             <input
@@ -6030,6 +10747,11 @@ async function loadPromotionalContent() {
 
     const items =
       await getPromotionalContent()
+    const contentCount =
+      document.querySelector('#promotional-content-tab-count')
+    if (contentCount) {
+      contentCount.textContent = String(items.length)
+    }
 
     if (!items.length) {
 
@@ -6049,7 +10771,7 @@ async function loadPromotionalContent() {
     }
 
     container.innerHTML = `
-          <div class="thp-admin-table-toolbar">
+          <div class="thp-admin-table-toolbar thp-promotional-content-toolbar">
 
             <div class="thp-admin-search-box">
               <input
@@ -6081,15 +10803,15 @@ async function loadPromotionalContent() {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-
-              <button
-                type="button"
-                class="thp-admin-secondary-button"
-                id="export-promotional-content-csv"
-              >
-                Export CSV
-              </button>
             </div>
+
+            <button
+              type="button"
+              class="thp-admin-secondary-button"
+              id="export-promotional-content-csv"
+            >
+              Export CSV
+            </button>
 
             <div class="thp-admin-filter-box">
               <select id="promotional-content-sort">

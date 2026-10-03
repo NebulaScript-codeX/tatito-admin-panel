@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "marketing",
     "providers",
     "care",
+    "content",
 ]
 
 MIDDLEWARE = [
@@ -107,6 +108,8 @@ else:
             "PORT": os.getenv("DJANGO_DB_PORT", "3307"),
         }
     }
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
 

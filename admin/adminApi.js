@@ -606,3 +606,398 @@ export function updatePromotion(id, data) {
 export function deletePromotion(id) {
   return adminApi(`/marketing/promotions/${id}/`, { method: "DELETE" });
 }
+
+// ============================================================
+// MODULE 12 — CONTENT APIs
+// MODULE 12 ΓÇö CONTENT APIs
+// ============================================================
+
+function contentQueryString(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+
+  const queryString = query.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+
+// --------------------
+// Blog Categories
+// --------------------
+
+export function getContentBlogCategories(params = {}) {
+  return adminApi(
+    `/content/blog-categories/${contentQueryString(params)}`
+  );
+}
+
+export function createContentBlogCategory(data) {
+  return adminApi("/content/blog-categories/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentBlogCategory(id, data) {
+  return adminApi(`/content/blog-categories/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentBlogCategory(id) {
+  return adminApi(`/content/blog-categories/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// Blog Tags
+// --------------------
+
+export function getContentBlogTags(params = {}) {
+  return adminApi(
+    `/content/blog-tags/${contentQueryString(params)}`
+  );
+}
+
+export function createContentBlogTag(data) {
+  return adminApi("/content/blog-tags/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentBlogTag(id, data) {
+  return adminApi(`/content/blog-tags/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentBlogTag(id) {
+  return adminApi(`/content/blog-tags/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// Blogs
+// --------------------
+
+export function getContentBlogs(params = {}) {
+  return adminApi(
+    `/content/blogs/${contentQueryString(params)}`
+  );
+}
+
+export function createContentBlog(data) {
+  return adminApi("/content/blogs/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentBlog(id, data) {
+  return adminApi(`/content/blogs/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentBlog(id) {
+  return adminApi(`/content/blogs/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function publishContentBlog(id) {
+  return adminApi(`/content/blogs/${id}/publish/`, {
+    method: "POST",
+  });
+}
+
+export function unpublishContentBlog(id) {
+  return adminApi(`/content/blogs/${id}/unpublish/`, {
+    method: "POST",
+  });
+}
+
+
+// --------------------
+// Homepage Banners
+// --------------------
+
+export function getContentHomepageBanners(params = {}) {
+  return adminApi(
+    `/content/homepage-banners/${contentQueryString(params)}`
+  );
+}
+
+export function createContentHomepageBanner(data) {
+  return adminApi("/content/homepage-banners/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentHomepageBanner(id, data) {
+  return adminApi(`/content/homepage-banners/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentHomepageBanner(id) {
+  return adminApi(`/content/homepage-banners/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function toggleContentHomepageBannerStatus(id) {
+  return adminApi(`/content/homepage-banners/${id}/toggle-status/`, {
+    method: "POST",
+  });
+}
+
+export function moveContentHomepageBannerUp(id) {
+  return adminApi(`/content/homepage-banners/${id}/move-up/`, {
+    method: "POST",
+  });
+}
+
+export function moveContentHomepageBannerDown(id) {
+  return adminApi(`/content/homepage-banners/${id}/move-down/`, {
+    method: "POST",
+  });
+}
+
+
+// --------------------
+// Announcements
+// --------------------
+
+export function getContentAnnouncements(params = {}) {
+  return adminApi(
+    `/content/announcements/${contentQueryString(params)}`
+  );
+}
+
+export function createContentAnnouncement(data) {
+  return adminApi("/content/announcements/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentAnnouncement(id, data) {
+  return adminApi(`/content/announcements/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentAnnouncement(id) {
+  return adminApi(`/content/announcements/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// Featured Services
+// --------------------
+
+export function getContentFeaturedServices(params = {}) {
+  return adminApi(
+    `/content/featured-services/${contentQueryString(params)}`
+  );
+}
+
+export function createContentFeaturedService(data) {
+  return adminApi("/content/featured-services/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentFeaturedService(id, data) {
+  return adminApi(`/content/featured-services/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentFeaturedService(id) {
+  return adminApi(`/content/featured-services/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// FAQs
+// --------------------
+
+export function getContentFaqs(params = {}) {
+  return adminApi(
+    `/content/faqs/${contentQueryString(params)}`
+  );
+}
+
+export function createContentFaq(data) {
+  return adminApi("/content/faqs/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentFaq(id, data) {
+  return adminApi(`/content/faqs/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentFaq(id) {
+  return adminApi(`/content/faqs/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// Testimonials
+// --------------------
+
+export function getContentTestimonials(params = {}) {
+  return adminApi(
+    `/content/testimonials/${contentQueryString(params)}`
+  );
+}
+
+export function createContentTestimonial(data) {
+  return adminApi("/content/testimonials/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentTestimonial(id, data) {
+  return adminApi(`/content/testimonials/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentTestimonial(id) {
+  return adminApi(`/content/testimonials/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// Trust Stats
+// --------------------
+
+export function getContentTrustStats(params = {}) {
+  return adminApi(
+    `/content/trust-stats/${contentQueryString(params)}`
+  );
+}
+
+export function createContentTrustStat(data) {
+  return adminApi("/content/trust-stats/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentTrustStat(id, data) {
+  return adminApi(`/content/trust-stats/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentTrustStat(id) {
+  return adminApi(`/content/trust-stats/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+// --------------------
+// Website Pages
+// --------------------
+
+export function getContentWebsitePages(params = {}) {
+  return adminApi(
+    `/content/website-pages/${contentQueryString(params)}`
+  );
+}
+
+export function createContentWebsitePage(data) {
+  return adminApi("/content/website-pages/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentWebsitePage(id, data) {
+  return adminApi(`/content/website-pages/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentWebsitePage(id) {
+  return adminApi(`/content/website-pages/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function toggleContentWebsitePagePublished(id) {
+  return adminApi(`/content/website-pages/${id}/toggle-published/`, {
+    method: "POST",
+  });
+}
+
+
+// --------------------
+// Cities
+// --------------------
+
+export function getContentCities(params = {}) {
+  return adminApi(
+    `/content/cities/${contentQueryString(params)}`
+  );
+}
+
+export function createContentCity(data) {
+  return adminApi("/content/cities/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContentCity(id, data) {
+  return adminApi(`/content/cities/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContentCity(id) {
+  return adminApi(`/content/cities/${id}/`, {
+    method: "DELETE",
+  });
+}

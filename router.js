@@ -1,6 +1,11 @@
 import { cart } from "./data.js";
 import { requireAuth, isAuthenticated, getAuthUser } from "./auth.js";
-import { hasPermission, isAdminAuthenticated } from "./admin/adminAuth.js";
+import {
+  hasPermission,
+  isAdminAuthenticated,
+  logoutAdmin,
+  logoutAdminRemote,
+} from "./admin/adminAuth.js";
 
 export const cartState = cart;
 export let currentPage = "home";
@@ -39,19 +44,6 @@ const rolePages = {
 
 function guardAdminPage(page) {
   if (!page.startsWith("admin/")) return page;
-
-  // Login page should be accessible only when not already logged in.
-  if (page === "admin/login" && isAdminAuthenticated()) {
-    const firstAllowedRoute = [
-      ["dashboard", "dashboard"],
-      ["users", "users"],
-      ["staff", "staff"],
-      ["coupons_offers_marketing", "coupons-offers-marketing"],
-    ].find(([module]) => hasPermission(module, "view"));
-    return firstAllowedRoute
-      ? `admin/${firstAllowedRoute[1]}`
-      : "admin/access-denied";
-  }
 
   // All admin pages require an authenticated admin.
   if (page !== "admin/login" && !isAdminAuthenticated()) {
@@ -106,12 +98,22 @@ function renderFromLocation() {
   const previousPage = currentPage;
   const { page, params } = urlToRoute();
 
+  // Admin sessions are scoped to the Admin Panel. Visiting the public site
+  // revokes the refresh token and clears the local JWT.
+  if (!page.startsWith("admin/") && isAdminAuthenticated()) {
+    void logoutAdminRemote();
+    logoutAdmin();
+  }
+
   // Admin routes have their own authentication guard.
   const adminTarget = guardAdminPage(page);
 
   if (adminTarget !== page) {
     currentPage = adminTarget;
     currentParams = {};
+    if (adminTarget === "admin/login") {
+      window.history.replaceState(null, "", routeToUrl(adminTarget));
+    }
   } else {
     const target = guardPage(page);
 

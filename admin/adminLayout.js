@@ -365,15 +365,22 @@ export function renderAdminLayout(
 
         <main class="thp-admin-content ${activePage === "users" ? "thp-admin-content-users" : ""} ${activePage === "staff" ? "thp-admin-content-staff" : ""}">
 
-          <div class="thp-admin-page-heading ${activePage === "users" ? "thp-admin-users-page-heading" : ""} ${activePage === "staff" ? "thp-admin-staff-page-heading" : ""}">
-            <div class="thp-admin-page-title">
-              <p class="thp-admin-eyebrow">TATITO HEALTH+</p>
-              <h1>${activePage === "users" ? '<span class="thp-admin-users-title-strong">Manage</span> <em>Users</em>' : activePage === "staff" ? '<span class="thp-admin-staff-title-strong">Staff &amp;</span> <em>Roles</em>' : pageTitles[activePage] || "Admin Panel"}</h1>
-              ${subtitle ? `<p class="thp-admin-subtitle" id="thp-admin-subtitle">${escapeHtml(subtitle)}</p>` : ""}
-            </div>
+          ${
+            activePage === "content" ||
+            activePage === "coupons_offers_marketing"
+              ? ""
+              : `
+                <div class="thp-admin-page-heading ${activePage === "users" ? "thp-admin-users-page-heading" : ""} ${activePage === "staff" ? "thp-admin-staff-page-heading" : ""}">
+                  <div class="thp-admin-page-title">
+                    <p class="thp-admin-eyebrow">TATITO HEALTH+</p>
+                    <h1>${activePage === "users" ? '<span class="thp-admin-users-title-strong">Manage</span> <em>Users</em>' : activePage === "staff" ? '<span class="thp-admin-staff-title-strong">Staff &amp;</span> <em>Roles</em>' : pageTitles[activePage] || "Admin Panel"}</h1>
+                    ${subtitle ? `<p class="thp-admin-subtitle" id="thp-admin-subtitle">${escapeHtml(subtitle)}</p>` : ""}
+                  </div>
 
-            <div class="thp-admin-page-actions">${actions}</div>
-          </div>
+                  <div class="thp-admin-page-actions">${actions}</div>
+                </div>
+              `
+          }
 
           ${content}
 

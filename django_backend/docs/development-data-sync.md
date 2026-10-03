@@ -38,6 +38,7 @@ other patient-specific content. Seed fictional records when needed with:
 python manage.py seed_care_development_data
 python manage.py seed_admin_development_data
 python manage.py seed_dashboard_development_data
+python manage.py seed_content_development_data
 ```
 
 The seed commands require `DEBUG=True` and update only their own stable
