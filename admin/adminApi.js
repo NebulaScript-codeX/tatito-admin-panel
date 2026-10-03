@@ -1093,3 +1093,170 @@ export function deleteContentCity(id) {
     method: "DELETE",
   });
 }
+
+// ============================================================
+// MODULE 13 — INTERNSHIPS APIs
+// ============================================================
+
+function internshipsQueryString(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+
+  const queryString = query.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+// --------------------
+// Internship Tracks
+// --------------------
+
+export function getInternshipTracks(params = {}) {
+  return adminApi(
+    `/internships/tracks/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipTrack(data) {
+  return adminApi("/internships/tracks/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipTrack(id, data) {
+  return adminApi(`/internships/tracks/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipTrack(id) {
+  return adminApi(`/internships/tracks/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function toggleInternshipTrackPublish(id) {
+  return adminApi(`/internships/tracks/${id}/toggle-publish/`, {
+    method: "POST",
+  });
+}
+
+export function toggleInternshipTrackStatus(id) {
+  return adminApi(`/internships/tracks/${id}/toggle-status/`, {
+    method: "POST",
+  });
+}
+
+// --------------------
+// Internship Applications
+// --------------------
+
+export function getInternshipApplications(params = {}) {
+  return adminApi(
+    `/internships/applications/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipApplication(data) {
+  return adminApi("/internships/applications/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipApplication(id, data) {
+  return adminApi(`/internships/applications/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipApplication(id) {
+  return adminApi(`/internships/applications/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function selectInternshipApplication(id) {
+  return adminApi(`/internships/applications/${id}/select/`, {
+    method: "POST",
+  });
+}
+
+export function revertInternshipSelection(id) {
+  return adminApi(`/internships/applications/${id}/revert-selection/`, {
+    method: "POST",
+  });
+}
+
+export function sendInternshipOffer(id) {
+  return adminApi(`/internships/applications/${id}/send-offer/`, {
+    method: "POST",
+  });
+}
+
+// --------------------
+// Internship Partners
+// --------------------
+
+export function getInternshipPartners(params = {}) {
+  return adminApi(
+    `/internships/partners/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipPartner(data) {
+  return adminApi("/internships/partners/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipPartner(id, data) {
+  return adminApi(`/internships/partners/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipPartner(id) {
+  return adminApi(`/internships/partners/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+// --------------------
+// Internship Alumni
+// --------------------
+
+export function getInternshipAlumni(params = {}) {
+  return adminApi(
+    `/internships/alumni/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipAlumni(data) {
+  return adminApi("/internships/alumni/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipAlumni(id, data) {
+  return adminApi(`/internships/alumni/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipAlumni(id) {
+  return adminApi(`/internships/alumni/${id}/`, {
+    method: "DELETE",
+  });
+}

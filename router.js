@@ -45,6 +45,21 @@ const rolePages = {
 function guardAdminPage(page) {
   if (!page.startsWith("admin/")) return page;
 
+  // Login page should be accessible only when not already logged in.
+  if (page === "admin/login" && isAdminAuthenticated()) {
+    const firstAllowedRoute = [
+      ["dashboard", "dashboard"],
+      ["users", "users"],
+      ["staff", "staff"],
+      ["coupons_offers_marketing", "coupons-offers-marketing"],
+      ["internships", "internships"],
+    ].find(([module]) => hasPermission(module, "view"));
+
+    return firstAllowedRoute
+      ? `admin/${firstAllowedRoute[1]}`
+      : "admin/access-denied";
+  }
+  
   // All admin pages require an authenticated admin.
   if (page !== "admin/login" && !isAdminAuthenticated()) {
     return "admin/login";

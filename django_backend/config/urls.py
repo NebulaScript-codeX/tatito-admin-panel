@@ -92,4 +92,6 @@ urlpatterns = [
     ),
 
     path("api/admin/content/", include("content.urls")),
+
+    path("api/admin/internships/", include("internships.urls")),
 ]

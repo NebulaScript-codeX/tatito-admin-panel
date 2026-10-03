@@ -70,6 +70,31 @@ import {
   deleteAdminRole,
   updateAdminRolePermissions,
   getAdminModules,
+
+  getInternshipTracks,
+  createInternshipTrack,
+  updateInternshipTrack,
+  deleteInternshipTrack,
+  toggleInternshipTrackPublish,
+  toggleInternshipTrackStatus,
+
+  getInternshipApplications,
+  createInternshipApplication,
+  updateInternshipApplication,
+  deleteInternshipApplication,
+  selectInternshipApplication,
+  revertInternshipSelection,
+  sendInternshipOffer,
+
+  getInternshipPartners,
+  createInternshipPartner,
+  updateInternshipPartner,
+  deleteInternshipPartner,
+
+  getInternshipAlumni,
+  createInternshipAlumni,
+  updateInternshipAlumni,
+  deleteInternshipAlumni,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -200,6 +225,7 @@ export function renderAdminLogin(app) {
         ["staff", "staff"],
         ["providers", "providers"],
         ["coupons_offers_marketing", "coupons-offers-marketing"],
+        ["internships", "internships"],
       ].find(([module]) => session.admin?.permissions?.[module]?.view);
       window.location.hash = accessibleRoute
         ? `#/admin/${accessibleRoute[1]}`
@@ -11698,4 +11724,2438 @@ async function savePromotionalContent(event) {
 
     button.disabled = false
   }
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIPS
+// ============================================================
+
+export function renderAdminInternships(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("internships", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-internships-page">
+
+      <nav
+        class="thp-marketing-tabs"
+        aria-label="Internship sections"
+        role="tablist"
+      >
+        <button
+          type="button"
+          class="thp-marketing-tab is-active"
+          id="internship-tab-tracks"
+          role="tab"
+          aria-selected="true"
+          aria-controls="internship-panel-tracks"
+          data-internship-tab="tracks"
+        >
+          Fellowship Tracks
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-track-tab-count"
+          >0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          id="internship-tab-applications"
+          role="tab"
+          aria-selected="false"
+          aria-controls="internship-panel-applications"
+          data-internship-tab="applications"
+          tabindex="-1"
+        >
+          Candidate Pipeline
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-application-tab-count"
+          >0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          id="internship-tab-partners"
+          role="tab"
+          aria-selected="false"
+          aria-controls="internship-panel-partners"
+          data-internship-tab="partners"
+          tabindex="-1"
+        >
+          University Affiliates
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-partner-tab-count"
+          >0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          id="internship-tab-alumni"
+          role="tab"
+          aria-selected="false"
+          aria-controls="internship-panel-alumni"
+          data-internship-tab="alumni"
+          tabindex="-1"
+        >
+          Fellowship Alumni
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-alumni-tab-count"
+          >0</span>
+        </button>
+      </nav>
+
+      <!-- FELLOWSHIP TRACKS -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-tracks"
+        role="tabpanel"
+        aria-labelledby="internship-tab-tracks"
+        data-internship-panel="tracks"
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Fellowship Tracks</h3>
+            <p>
+              Manage internship opportunities, openings,
+              eligibility and publishing status.
+            </p>
+          </div>
+
+          ${
+            hasPermission("internships", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="create-internship-track-button"
+                >
+                  + Add Track
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        <div id="internship-tracks-content">
+          <div class="thp-admin-loading-state">
+            Loading fellowship tracks...
+          </div>
+        </div>
+      </div>
+
+      <!-- CANDIDATE PIPELINE -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-applications"
+        role="tabpanel"
+        aria-labelledby="internship-tab-applications"
+        data-internship-panel="applications"
+        hidden
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Candidate Pipeline</h3>
+            <p>
+              Review applicants and manage the internship
+              selection pipeline.
+            </p>
+          </div>
+        </div>
+
+        <div id="internship-applications-content">
+          <div class="thp-admin-loading-state">
+            Loading candidate applications...
+          </div>
+        </div>
+      </div>
+
+      <!-- UNIVERSITY AFFILIATES -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-partners"
+        role="tabpanel"
+        aria-labelledby="internship-tab-partners"
+        data-internship-panel="partners"
+        hidden
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>University Affiliates</h3>
+            <p>
+              Manage partner universities and internship
+              organisations.
+            </p>
+          </div>
+
+          ${
+            hasPermission("internships", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="create-internship-partner-button"
+                >
+                  + Add Affiliate
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        <div id="internship-partners-content">
+          <div class="thp-admin-loading-state">
+            Loading university affiliates...
+          </div>
+        </div>
+      </div>
+
+      <!-- FELLOWSHIP ALUMNI -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-alumni"
+        role="tabpanel"
+        aria-labelledby="internship-tab-alumni"
+        data-internship-panel="alumni"
+        hidden
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Fellowship Alumni</h3>
+            <p>
+              Manage alumni profiles and fellowship testimonials.
+            </p>
+          </div>
+
+          ${
+            hasPermission("internships", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="create-internship-alumni-button"
+                >
+                  + Add Alumni
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        <div id="internship-alumni-content">
+          <div class="thp-admin-loading-state">
+            Loading fellowship alumni...
+          </div>
+        </div>
+      </div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "internships",
+    content,
+  );
+
+  /* ---------------------------------
+     INTERNSHIP TABS
+  --------------------------------- */
+
+  const internshipTabs = Array.from(
+    app.querySelectorAll("[data-internship-tab]"),
+  );
+
+  const internshipPanels = Array.from(
+    app.querySelectorAll("[data-internship-panel]"),
+  );
+
+  internshipTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => {
+      internshipTabs.forEach((candidate) => {
+        const selected = candidate === tab;
+
+        candidate.classList.toggle(
+          "is-active",
+          selected,
+        );
+
+        candidate.setAttribute(
+          "aria-selected",
+          String(selected),
+        );
+
+        candidate.tabIndex = selected ? 0 : -1;
+      });
+
+      internshipPanels.forEach((panel) => {
+        panel.hidden =
+          panel.dataset.internshipPanel !==
+          tab.dataset.internshipTab;
+      });
+    });
+
+    tab.addEventListener("keydown", (event) => {
+      if (
+        event.key !== "ArrowLeft" &&
+        event.key !== "ArrowRight"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const offset =
+        event.key === "ArrowRight" ? 1 : -1;
+
+      const nextTab =
+        internshipTabs[
+          (index + offset + internshipTabs.length) %
+            internshipTabs.length
+        ];
+
+      nextTab.focus();
+      nextTab.click();
+    });
+  });
+
+  /* ---------------------------------
+     CREATE BUTTONS
+  --------------------------------- */
+
+  document
+    .getElementById("create-internship-track-button")
+    ?.addEventListener("click", () => {
+      openInternshipTrackModal();
+    });
+
+  document
+    .getElementById("create-internship-partner-button")
+    ?.addEventListener("click", () => {
+      openInternshipPartnerModal();
+    });
+
+  document
+    .getElementById("create-internship-alumni-button")
+    ?.addEventListener("click", () => {
+      openInternshipAlumniModal();
+    });
+
+  /* ---------------------------------
+     INITIAL LOAD
+  --------------------------------- */
+
+  loadInternshipTracks();
+  loadInternshipApplications();
+  loadInternshipPartners();
+  loadInternshipAlumni();
+}
+
+
+// ============================================================
+// MODULE 13 — INTERNSHIP LOADERS
+// ============================================================
+
+async function loadInternshipTracks() {
+  const container = document.getElementById(
+    "internship-tracks-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipTracks();
+    const tracks = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!tracks.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No internship tracks found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Track</th>
+              <th>Type</th>
+              <th>Organisation</th>
+              <th>Positions</th>
+              <th>Status</th>
+              <th>Published</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${tracks
+              .map(
+                (track) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(track.title || "—")}
+                      </strong>
+
+                      <div class="thp-content-muted">
+                        ${escapeHtml(track.duration || "—")}
+                      </div>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        track.track_type || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        track.organisation || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        track.open_positions ?? 0,
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${escapeHtml(
+                          track.status || "—",
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${
+                          track.is_published
+                            ? "Published"
+                            : "Unpublished"
+                        }
+                      </span>
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+                        ${
+                          hasPermission(
+                            "internships",
+                            "edit",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-edit="${track.id}"
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-publish="${track.id}"
+                              >
+                                ${
+                                  track.is_published
+                                    ? "Unpublish"
+                                    : "Publish"
+                                }
+                              </button>
+
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-status="${track.id}"
+                              >
+                                ${
+                                  track.status === "open"
+                                    ? "Close"
+                                    : "Open"
+                                }
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "delete",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-delete="${track.id}"
+                              >
+                                Delete
+                              </button>
+                            `
+                            : ""
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-internship-publish]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await toggleInternshipTrackPublish(
+              button.dataset.internshipPublish,
+            );
+
+            showAdminToast("Track publication status updated.");
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to update track.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-internship-status]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await toggleInternshipTrackStatus(
+              button.dataset.internshipStatus,
+            );
+
+            showAdminToast("Track status updated.");
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to update track status.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-internship-delete]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          const confirmed = window.confirm(
+            "Delete this internship track?",
+          );
+
+          if (!confirmed) return;
+
+          try {
+            await deleteInternshipTrack(
+              button.dataset.internshipDelete,
+            );
+
+            showAdminToast("Internship track deleted.");
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to delete track.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-internship-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const track = tracks.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.internshipEdit),
+            );
+
+            if (track) {
+              openInternshipTrackModal(track);
+            }
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load internship tracks</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+
+async function loadInternshipApplications() {
+  const container = document.getElementById(
+    "internship-applications-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipApplications();
+
+    const applications = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!applications.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No internship applications found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Email</th>
+              <th>Track</th>
+              <th>Status</th>
+              <th>Case Review</th>
+              <th>CV</th>
+              <th>Statement</th>
+              <th>Offer</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${applications
+              .map(
+                (application) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(
+                          application.applicant_name ||
+                            "—",
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        application.applicant_email ||
+                          "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        application.track_title ||
+                          "—",
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${escapeHtml(
+                          application.status ||
+                            "applied",
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      ${application.case_review_schedule
+                        ? escapeHtml(
+                            new Date(
+                              application.case_review_schedule,
+                            ).toLocaleString(),
+                          )
+                        : "—"}
+                    </td>
+
+                    <td>
+                      ${application.offer_sent
+                        ? "Sent"
+                        : "Not Sent"}
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+
+                        ${
+                          application.status === "applied"
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-review="${application.id}"
+                              >
+                                Case Review
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          application.status === "case_review"
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-select="${application.id}"
+                              >
+                                Select
+                              </button>
+                            `
+                            : application.status === "selected"
+                              ? `
+                                <button
+                                  type="button"
+                                  class="thp-admin-button"
+                                  data-application-revert="${application.id}"
+                                >
+                                  Revert
+                                </button>
+                              `
+                              : ""
+                        }
+
+                        ${
+                          application.status !== "rejected"
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-reject="${application.id}"
+                              >
+                                Reject
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          application.status === "selected" &&
+                          !application.offer_sent
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-offer="${application.id}"
+                              >
+                                Send Offer
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    </td>
+
+                    <td>
+                      ${
+                        application.cv_url
+                          ? `
+                            <a
+                              href="${escapeHtml(application.cv_url)}"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              View CV
+                            </a>
+                          `
+                          : "—"
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        application.statement_of_intent
+                          ? `
+                            <button
+                              type="button"
+                              class="thp-admin-button"
+                              data-application-statement="${application.id}"
+                            >
+                              View Statement
+                            </button>
+                          `
+                          : "—"
+                      }
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-application-review]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          const applicationId =
+            button.dataset.applicationReview;
+
+          const schedule = window.prompt(
+            "Enter Case Review date and time (YYYY-MM-DDTHH:MM):",
+          );
+
+          if (!schedule) return;
+
+          try {
+            await updateInternshipApplication(
+              applicationId,
+              {
+                status: "case_review",
+                case_review_schedule: schedule,
+              },
+            );
+
+            showAdminToast(
+              "Application moved to Case Review.",
+            );
+
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to schedule Case Review.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-review]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          const applicationId =
+            button.dataset.applicationReview;
+
+          const schedule = window.prompt(
+            "Enter Case Review date and time (YYYY-MM-DDTHH:MM):",
+          );
+
+          if (!schedule) return;
+
+          try {
+            await updateInternshipApplication(
+              applicationId,
+              {
+                status: "case_review",
+                case_review_schedule: schedule,
+              },
+            );
+
+            showAdminToast(
+              "Application moved to Case Review.",
+            );
+
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to schedule Case Review.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-select]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await selectInternshipApplication(
+              button.dataset.applicationSelect,
+            );
+
+            showAdminToast(
+              "Applicant selected successfully.",
+            );
+
+            loadInternshipApplications();
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to select applicant.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-revert]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await revertInternshipSelection(
+              button.dataset.applicationRevert,
+            );
+
+            showAdminToast(
+              "Selection reverted successfully.",
+            );
+
+            loadInternshipApplications();
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to revert selection.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-reject]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await updateInternshipApplication(
+              button.dataset.applicationReject,
+              {
+                status: "rejected",
+              },
+            );
+
+            showAdminToast("Application rejected.");
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to reject application.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-offer]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await sendInternshipOffer(
+              button.dataset.applicationOffer,
+            );
+
+            showAdminToast("Offer sent successfully.");
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to send offer.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-application-statement]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const application = applications.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.applicationStatement),
+            );
+
+            if (!application?.statement_of_intent) {
+              showAdminToast(
+                "No statement of intent is available.",
+                "error",
+              );
+              return;
+            }
+
+            window.alert(
+              `Statement of Intent\n\n${application.statement_of_intent}`,
+            );
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load applications</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+
+async function loadInternshipPartners() {
+  const container = document.getElementById(
+    "internship-partners-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipPartners();
+
+    const partners = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!partners.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No partner organisations found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Organisation</th>
+              <th>Type</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${partners
+              .map(
+                (partner) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(
+                          partner.name || "—",
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        partner.organisation_type ||
+                          "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        partner.contact_name || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        partner.email || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${
+                          partner.is_active
+                            ? "Active"
+                            : "Inactive"
+                        }
+                      </span>
+                    </td>
+                    
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "edit",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-partner-edit="${partner.id}"
+                              >
+                                Edit
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "delete",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-partner-delete="${partner.id}"
+                              >
+                                Delete
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    </td>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-partner-delete]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (
+            !window.confirm(
+              "Delete this partner organisation?",
+            )
+          ) {
+            return;
+          }
+
+          try {
+            await deleteInternshipPartner(
+              button.dataset.partnerDelete,
+            );
+
+            showAdminToast("Partner deleted.");
+            loadInternshipPartners();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to delete partner.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-partner-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const partner = partners.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.partnerEdit),
+            );
+
+            if (partner) {
+              openInternshipPartnerModal(partner);
+            }
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load partners</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+
+async function loadInternshipAlumni() {
+  const container = document.getElementById(
+    "internship-alumni-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipAlumni();
+
+    const alumni = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!alumni.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No alumni testimonials found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Testimonial</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${alumni
+              .map(
+                (item) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(
+                          item.name || "—",
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        item.role || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        item.testimonial || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${
+                          item.is_active
+                            ? "Active"
+                            : "Inactive"
+                        }
+                      </span>
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "edit",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-alumni-edit="${item.id}"
+                              >
+                                Edit
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "delete",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-alumni-delete="${item.id}"
+                              >
+                                Delete
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-alumni-delete]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (
+            !window.confirm(
+              "Delete this alumni testimonial?",
+            )
+          ) {
+            return;
+          }
+
+          try {
+            await deleteInternshipAlumni(
+              button.dataset.alumniDelete,
+            );
+
+            showAdminToast("Alumni testimonial deleted.");
+            loadInternshipAlumni();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to delete alumni testimonial.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-alumni-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const alumniItem = alumni.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.alumniEdit),
+            );
+
+            if (alumniItem) {
+              openInternshipAlumniModal(alumniItem);
+            }
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load alumni</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIP TRACK FORM
+// ============================================================
+
+function openInternshipTrackModal(track = null) {
+  const existing = document.getElementById(
+    "internship-track-modal",
+  );
+
+  if (existing) existing.remove();
+
+  const isEdit = Boolean(track);
+
+  const skillsValue = Array.isArray(track?.skills)
+    ? track.skills.join(", ")
+    : "";
+
+  const deadlineValue = track?.application_deadline
+    ? new Date(track.application_deadline)
+        .toISOString()
+        .slice(0, 16)
+    : "";
+
+  const modal = document.createElement("div");
+
+  modal.className = "thp-admin-modal";
+
+  modal.id = "internship-track-modal";
+
+
+  modal.innerHTML = `
+    <div
+      class="thp-admin-modal-backdrop"
+      data-close-internship-track-modal
+    ></div>
+
+    <div
+      class="thp-admin-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="internship-track-modal-title"
+      style="
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, calc(100vw - 48px));
+        max-height: calc(100vh - 48px);
+        margin: 0;
+      "
+    >
+      <div class="thp-admin-modal-header">
+        <div>
+          <p class="thp-admin-eyebrow">INTERNSHIP TRACK</p>
+
+          <h2 id="internship-track-modal-title">
+            ${isEdit ? "Edit Internship Track" : "Add Internship Track"}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          id="close-internship-track-modal"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="internship-track-form">
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-title">
+              Title
+            </label>
+
+            <input
+              id="internship-track-title"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(track?.title || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-type">
+              Type
+            </label>
+
+            <select
+              id="internship-track-type"
+              required
+            >
+              <option value="fellowship"
+                ${track?.track_type === "fellowship" ? "selected" : ""}
+              >
+                Fellowship
+              </option>
+
+              <option value="clinical_rotation"
+                ${track?.track_type === "clinical_rotation" ? "selected" : ""}
+              >
+                Clinical Rotation
+              </option>
+
+              <option value="lab_pathology"
+                ${track?.track_type === "lab_pathology" ? "selected" : ""}
+              >
+                Lab Pathology
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-organisation">
+              Organisation
+            </label>
+
+            <input
+              id="internship-track-organisation"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(track?.organisation || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-duration">
+              Duration
+            </label>
+
+            <input
+              id="internship-track-duration"
+              type="text"
+              maxlength="100"
+              placeholder="e.g. 6 months"
+              value="${escapeHtml(track?.duration || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-weekly-hours">
+              Weekly Hours
+            </label>
+
+            <input
+              id="internship-track-weekly-hours"
+              type="number"
+              min="0"
+              step="1"
+              value="${track?.weekly_hours ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-stipend">
+              Monthly Stipend
+            </label>
+
+            <input
+              id="internship-track-stipend"
+              type="number"
+              min="0"
+              step="0.01"
+              value="${track?.monthly_stipend ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-positions">
+              Open Positions
+            </label>
+
+            <input
+              id="internship-track-positions"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value="${track?.open_positions ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-deadline">
+              Application Deadline
+            </label>
+
+            <input
+              id="internship-track-deadline"
+              type="datetime-local"
+              value="${deadlineValue}"
+            />
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-skills">
+              Skills Tags
+            </label>
+
+            <input
+              id="internship-track-skills"
+              type="text"
+              placeholder="Python, Django, SQL, Machine Learning"
+              value="${escapeHtml(skillsValue)}"
+            />
+
+            <small>
+              Separate skills using commas.
+            </small>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-description">
+              Description
+            </label>
+
+            <textarea
+              id="internship-track-description"
+              rows="4"
+            >${escapeHtml(track?.description || "")}</textarea>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-syllabus">
+              Syllabus
+            </label>
+
+            <textarea
+              id="internship-track-syllabus"
+              rows="5"
+            >${escapeHtml(track?.syllabus || "")}</textarea>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-eligibility">
+              Eligibility
+            </label>
+
+            <textarea
+              id="internship-track-eligibility"
+              rows="4"
+            >${escapeHtml(track?.eligibility || "")}</textarea>
+          </div>
+
+        </div>
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-status">
+              Status
+            </label>
+
+            <select id="internship-track-status">
+
+              <option
+                value="open"
+                ${track?.status !== "closed" ? "selected" : ""}
+              >
+                Open
+              </option>
+
+              <option
+                value="closed"
+                ${track?.status === "closed" ? "selected" : ""}
+              >
+                Closed
+              </option>
+
+            </select>
+          </div>
+
+          <div class="thp-admin-form-group">
+
+            <label class="thp-admin-checkbox">
+
+              <input
+                id="internship-track-published"
+                type="checkbox"
+                ${track?.is_published ? "checked" : ""}
+              />
+
+              <span>
+                Publish this internship track
+              </span>
+
+            </label>
+
+          </div>
+
+        </div>
+
+        <p
+          id="internship-track-form-error"
+          class="thp-admin-form-error"
+          hidden
+        ></p>
+
+        <div class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="cancel-internship-track"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-primary-button"
+          >
+            ${isEdit ? "Save Changes" : "Create Track"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  </div>
+`;
+
+  document.body.appendChild(modal);
+
+  modal.hidden = false;
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal
+    .querySelector("#close-internship-track-modal")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#cancel-internship-track")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("[data-close-internship-track-modal]")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#internship-track-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorElement = modal.querySelector(
+        "#internship-track-form-error",
+      );
+
+      errorElement.hidden = true;
+      errorElement.textContent = "";
+
+      const skills = document
+        .getElementById("internship-track-skills")
+        .value
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+
+      const data = {
+        title: document.getElementById(
+          "internship-track-title",
+        ).value.trim(),
+
+        track_type: document.getElementById(
+          "internship-track-type",
+        ).value,
+
+        organisation: document.getElementById(
+          "internship-track-organisation",
+        ).value.trim(),
+
+        description: document.getElementById(
+          "internship-track-description",
+        ).value.trim(),
+
+        duration: document.getElementById(
+          "internship-track-duration",
+        ).value.trim(),
+
+        weekly_hours: Number(
+          document.getElementById(
+            "internship-track-weekly-hours",
+          ).value,
+        ),
+
+        monthly_stipend: Number(
+          document.getElementById(
+            "internship-track-stipend",
+          ).value,
+        ),
+
+        skills,
+
+        open_positions: Number(
+          document.getElementById(
+            "internship-track-positions",
+          ).value,
+        ),
+
+        syllabus: document.getElementById(
+          "internship-track-syllabus",
+        ).value.trim(),
+
+        eligibility: document.getElementById(
+          "internship-track-eligibility",
+        ).value.trim(),
+
+        application_deadline:
+          document.getElementById(
+            "internship-track-deadline",
+          ).value || null,
+
+        status: document.getElementById(
+          "internship-track-status",
+        ).value,
+
+        is_published: document.getElementById(
+          "internship-track-published",
+        ).checked,
+      };
+
+      try {
+        if (isEdit) {
+          await updateInternshipTrack(
+            track.id,
+            data,
+          );
+
+          showAdminToast(
+            "Internship track updated successfully.",
+          );
+        } else {
+          await createInternshipTrack(data);
+
+          showAdminToast(
+            "Internship track created successfully.",
+          );
+        }
+
+        closeModal();
+
+        loadInternshipTracks();
+      } catch (error) {
+        errorElement.textContent =
+          error?.message ||
+          "Unable to save internship track.";
+
+        errorElement.hidden = false;
+      }
+    });
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIP PARTNER FORM
+// ============================================================
+
+function openInternshipPartnerModal(partner = null) {
+  const existing = document.getElementById(
+    "internship-partner-modal",
+  );
+
+  if (existing) existing.remove();
+
+  const isEdit = Boolean(partner);
+
+  const modal = document.createElement("div");
+
+  modal.className = "thp-admin-modal";
+  modal.id = "internship-partner-modal";
+
+  modal.innerHTML = `
+    <div
+      class="thp-admin-modal-backdrop"
+      data-close-internship-partner-modal
+    ></div>
+
+    <div
+      class="thp-admin-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="internship-track-modal-title"
+      style="
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, calc(100vw - 48px));
+        max-height: calc(100vh - 48px);
+        margin: 0;
+      "
+    >
+      <div class="thp-admin-modal-header">
+        <div>
+          <p class="thp-admin-eyebrow">PARTNER ORGANISATION</p>
+
+          <h2 id="internship-partner-modal-title">
+            ${isEdit ? "Edit Partner" : "Add Partner"}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          id="close-internship-partner-modal"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="internship-partner-form">
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-name">
+              Organisation Name
+            </label>
+
+            <input
+              id="internship-partner-name"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(partner?.name || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-type">
+              Organisation Type
+            </label>
+
+            <input
+              id="internship-partner-type"
+              type="text"
+              maxlength="100"
+              placeholder="Hospital, Laboratory, University..."
+              value="${escapeHtml(
+                partner?.organisation_type || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-contact">
+              Contact Person
+            </label>
+
+            <input
+              id="internship-partner-contact"
+              type="text"
+              maxlength="255"
+              value="${escapeHtml(
+                partner?.contact_name || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-email">
+              Email
+            </label>
+
+            <input
+              id="internship-partner-email"
+              type="email"
+              value="${escapeHtml(
+                partner?.email || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-phone">
+              Phone
+            </label>
+
+            <input
+              id="internship-partner-phone"
+              type="text"
+              maxlength="50"
+              value="${escapeHtml(
+                partner?.phone || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-status">
+              Status
+            </label>
+
+            <select id="internship-partner-status">
+
+              <option
+                value="true"
+                ${partner?.is_active !== false ? "selected" : ""}
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${partner?.is_active === false ? "selected" : ""}
+              >
+                Inactive
+              </option>
+
+            </select>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-partner-description">
+              Description
+            </label>
+
+            <textarea
+              id="internship-partner-description"
+              rows="4"
+            >${escapeHtml(
+              partner?.description || "",
+            )}</textarea>
+          </div>
+
+        </div>
+
+        <p
+          id="internship-partner-form-error"
+          class="thp-admin-form-error"
+          hidden
+        ></p>
+
+        <div class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="cancel-internship-partner"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-primary-button"
+          >
+            ${isEdit ? "Save Changes" : "Create Partner"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.hidden = false;
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal
+    .querySelector("#close-internship-partner-modal")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#cancel-internship-partner")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("[data-close-internship-partner-modal]")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#internship-partner-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorElement = modal.querySelector(
+        "#internship-partner-form-error",
+      );
+
+      errorElement.hidden = true;
+      errorElement.textContent = "";
+
+      const data = {
+        name: document.getElementById(
+          "internship-partner-name",
+        ).value.trim(),
+
+        organisation_type: document.getElementById(
+          "internship-partner-type",
+        ).value.trim(),
+
+        contact_name: document.getElementById(
+          "internship-partner-contact",
+        ).value.trim(),
+
+        email: document.getElementById(
+          "internship-partner-email",
+        ).value.trim(),
+
+        phone: document.getElementById(
+          "internship-partner-phone",
+        ).value.trim(),
+
+        description: document.getElementById(
+          "internship-partner-description",
+        ).value.trim(),
+
+        is_active:
+          document.getElementById(
+            "internship-partner-status",
+          ).value === "true",
+      };
+
+      try {
+        if (isEdit) {
+          await updateInternshipPartner(
+            partner.id,
+            data,
+          );
+
+          showAdminToast(
+            "Partner updated successfully.",
+          );
+        } else {
+          await createInternshipPartner(data);
+
+          showAdminToast(
+            "Partner created successfully.",
+          );
+        }
+
+        closeModal();
+
+        loadInternshipPartners();
+      } catch (error) {
+        errorElement.textContent =
+          error?.message ||
+          "Unable to save partner.";
+
+        errorElement.hidden = false;
+      }
+    });
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIP ALUMNI FORM
+// ============================================================
+
+function openInternshipAlumniModal(alumni = null) {
+  const existing = document.getElementById(
+    "internship-alumni-modal",
+  );
+
+  if (existing) existing.remove();
+
+  const isEdit = Boolean(alumni);
+
+  const modal = document.createElement("div");
+
+  modal.className = "thp-admin-modal";
+  modal.id = "internship-alumni-modal";
+
+  modal.innerHTML = `
+    <div
+      class="thp-admin-modal-backdrop"
+      data-close-internship-alumni-modal
+    ></div>
+
+    <div
+      class="thp-admin-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="internship-track-modal-title"
+      style="
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, calc(100vw - 48px));
+        max-height: calc(100vh - 48px);
+        margin: 0;
+      "
+    >
+      <div class="thp-admin-modal-header">
+        <div>
+          <p class="thp-admin-eyebrow">ALUMNI TESTIMONIAL</p>
+
+          <h2 id="internship-alumni-modal-title">
+            ${isEdit ? "Edit Alumni Testimonial" : "Add Alumni Testimonial"}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          id="close-internship-alumni-modal"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="internship-alumni-form">
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-name">
+              Name
+            </label>
+
+            <input
+              id="internship-alumni-name"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(alumni?.name || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-role">
+              Role
+            </label>
+
+            <input
+              id="internship-alumni-role"
+              type="text"
+              maxlength="255"
+              placeholder="Former Clinical Intern"
+              value="${escapeHtml(alumni?.role || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-photo">
+              Photo URL
+            </label>
+
+            <input
+              id="internship-alumni-photo"
+              type="url"
+              value="${escapeHtml(alumni?.photo_url || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-order">
+              Display Order
+            </label>
+
+            <input
+              id="internship-alumni-order"
+              type="number"
+              min="0"
+              step="1"
+              value="${alumni?.display_order ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+
+            <label for="internship-alumni-status">
+              Status
+            </label>
+
+            <select id="internship-alumni-status">
+
+              <option
+                value="true"
+                ${alumni?.is_active !== false ? "selected" : ""}
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${alumni?.is_active === false ? "selected" : ""}
+              >
+                Inactive
+              </option>
+
+            </select>
+
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-alumni-testimonial">
+              Testimonial
+            </label>
+
+            <textarea
+              id="internship-alumni-testimonial"
+              rows="6"
+              required
+            >${escapeHtml(
+              alumni?.testimonial || "",
+            )}</textarea>
+          </div>
+
+        </div>
+
+        <p
+          id="internship-alumni-form-error"
+          class="thp-admin-form-error"
+          hidden
+        ></p>
+
+        <div class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="cancel-internship-alumni"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-primary-button"
+          >
+            ${isEdit ? "Save Changes" : "Create Testimonial"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.hidden = false;
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal
+    .querySelector("#close-internship-alumni-modal")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#cancel-internship-alumni")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("[data-close-internship-alumni-modal]")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#internship-alumni-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorElement = modal.querySelector(
+        "#internship-alumni-form-error",
+      );
+
+      errorElement.hidden = true;
+      errorElement.textContent = "";
+
+      const data = {
+        name: document.getElementById(
+          "internship-alumni-name",
+        ).value.trim(),
+
+        role: document.getElementById(
+          "internship-alumni-role",
+        ).value.trim(),
+
+        testimonial: document.getElementById(
+          "internship-alumni-testimonial",
+        ).value.trim(),
+
+        photo_url: document.getElementById(
+          "internship-alumni-photo",
+        ).value.trim(),
+
+        is_active:
+          document.getElementById(
+            "internship-alumni-status",
+          ).value === "true",
+
+        display_order: Number(
+          document.getElementById(
+            "internship-alumni-order",
+          ).value,
+        ),
+      };
+
+      try {
+        if (isEdit) {
+          await updateInternshipAlumni(
+            alumni.id,
+            data,
+          );
+
+          showAdminToast(
+            "Alumni testimonial updated successfully.",
+          );
+        } else {
+          await createInternshipAlumni(data);
+
+          showAdminToast(
+            "Alumni testimonial created successfully.",
+          );
+        }
+
+        closeModal();
+
+        loadInternshipAlumni();
+      } catch (error) {
+        errorElement.textContent =
+          error?.message ||
+          "Unable to save alumni testimonial.";
+
+        errorElement.hidden = false;
+      }
+    });
 }

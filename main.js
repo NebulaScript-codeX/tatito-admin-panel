@@ -1,4 +1,5 @@
 import "./style.css";
+
 import {
   renderAdminLogin,
   renderAdminDashboard,
@@ -8,6 +9,7 @@ import {
   renderAdminProviders,
   renderAdminPromotions,
   renderAdminCouponsOffersMarketing,
+  renderAdminInternships,
   renderAdminModulePlaceholder,
 } from "./admin/adminPages.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
@@ -57,7 +59,6 @@ const adminPlaceholderRoutes = Object.fromEntries(
     "orders_payments",
     "health_plans",
     "content",
-    "internships",
     "support",
     "ai_assistant",
     "reports",
@@ -106,6 +107,7 @@ registerPages({
   "admin/health-records": renderAdminHealthRecords,
   "admin/promotions": renderAdminPromotions,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
+  "admin/internships": renderAdminInternships,
   ...adminPlaceholderRoutes,
 });
 
