@@ -378,7 +378,7 @@ export function renderAdminLayout(
 
           ${
             activePage === "content" ||
-            activePage === "coupons_offers_marketing"
+            activePage === "coupons_offers_marketing" || activePage === "promotions"
               ? ""
               : `
                 <div class="thp-admin-page-heading ${activePage === "users" ? "thp-admin-users-page-heading" : ""} ${activePage === "staff" ? "thp-admin-staff-page-heading" : ""}">
@@ -798,3 +798,5 @@ function setupAdminLayoutEvents(app) {
     signal: eventController.signal,
   });
 }
+
+

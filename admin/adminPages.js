@@ -8400,6 +8400,13 @@ export function renderAdminCouponsOffersMarketing(app) {
 
   const content = `
     <section class="thp-admin-module-page thp-admin-marketing-page">
+            <div class="thp-admin-page-heading">
+              <div class="thp-admin-page-title">
+                <p class="thp-admin-eyebrow">TATITO HEALTH+</p>
+                <h1>Coupons, Offers &amp; Marketing</h1>
+                <p class="thp-admin-subtitle">Manage coupons, campaigns, promotional banners and offer strips.</p>
+              </div>
+            </div>
       <nav class="thp-marketing-tabs" aria-label="Marketing sections" role="tablist">
         <button type="button" class="thp-marketing-tab is-active" id="marketing-tab-coupons" role="tab" aria-selected="true" aria-controls="marketing-panel-coupons" data-marketing-tab="coupons">
           Vouchers &amp; Coupons <span class="thp-marketing-tab-count" id="coupon-tab-count">0</span>
