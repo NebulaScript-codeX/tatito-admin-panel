@@ -12,6 +12,7 @@ import {
   renderAdminInternships,
   renderAdminSupport,
   renderAdminModulePlaceholder,
+  renderAdminContent,
 } from "./admin/adminPages.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import { renderAdminHealthRecords } from "./admin/healthRecordsPage.js";
@@ -107,6 +108,7 @@ registerPages({
   "admin/doctors": renderAdminDoctors,
   "admin/health-records": renderAdminHealthRecords,
   "admin/promotions": renderAdminPromotions,
+  "admin/content": renderAdminContent,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   "admin/internships": renderAdminInternships,
   "admin/support": renderAdminSupport,
