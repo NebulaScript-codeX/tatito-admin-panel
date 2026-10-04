@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "care",
     "content",
     "health_records",
+    "internships",
     "support",
 ]
 
