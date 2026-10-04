@@ -94,4 +94,6 @@ urlpatterns = [
     path("api/admin/content/", include("content.urls")),
 
     path("api/admin/internships/", include("internships.urls")),
+
+    path("api/admin/support/", include("support.urls")),
 ]

@@ -10,6 +10,7 @@ import {
   renderAdminPromotions,
   renderAdminCouponsOffersMarketing,
   renderAdminInternships,
+  renderAdminSupport,
   renderAdminModulePlaceholder,
 } from "./admin/adminPages.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
@@ -108,7 +109,7 @@ registerPages({
   "admin/promotions": renderAdminPromotions,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   "admin/internships": renderAdminInternships,
-  ...adminPlaceholderRoutes,
+  "admin/support": renderAdminSupport,
 });
 
 window.addEventListener("thp-auth-required", () =>

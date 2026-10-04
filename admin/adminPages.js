@@ -95,6 +95,43 @@ import {
   createInternshipAlumni,
   updateInternshipAlumni,
   deleteInternshipAlumni,
+
+  // Module 14 — Support & Communication
+  getSupportTickets,
+  getSupportTicket,
+  createSupportTicket,
+  updateSupportTicket,
+  deleteSupportTicket,
+  assignSupportTicket,
+  replySupportTicket,
+  addSupportTicketInternalNote,
+  closeSupportTicket,
+  reopenSupportTicket,
+
+  getContactQueries,
+  createContactQuery,
+  updateContactQuery,
+  deleteContactQuery,
+  markContactQueryRead,
+  replyContactQuery,
+
+  getEmergencyRequests,
+  createEmergencyRequest,
+  updateEmergencyRequest,
+  deleteEmergencyRequest,
+  assignEmergencyRequest,
+  markEmergencyRequestHandled,
+
+  getNotificationTemplates,
+  createNotificationTemplate,
+  updateNotificationTemplate,
+  deleteNotificationTemplate,
+  sendNotificationTemplateTest,
+
+  getAdminNotifications,
+  createAdminNotification,
+  updateAdminNotification,
+  deleteAdminNotification,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -14158,4 +14195,3336 @@ function openInternshipAlumniModal(alumni = null) {
         errorElement.hidden = false;
       }
     });
+}
+
+// ============================================================
+// MODULE 14 — SUPPORT & COMMUNICATION
+// ============================================================
+
+export function renderAdminSupport(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("support", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-support-page">
+
+
+      <nav
+        class="thp-marketing-tabs"
+        aria-label="Support sections"
+        role="tablist"
+      >
+        <button
+          type="button"
+          class="thp-marketing-tab is-active"
+          data-support-tab="tickets"
+          role="tab"
+          aria-selected="true"
+        >
+          Support Tickets
+          <span class="thp-admin-tab-count" id="support-ticket-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="queries"
+          role="tab"
+          aria-selected="false"
+        >
+          Contact Queries
+          <span class="thp-admin-tab-count" id="contact-query-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="emergency"
+          role="tab"
+          aria-selected="false"
+        >
+          Emergency Alerts
+          <span class="thp-admin-tab-count" id="emergency-request-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="templates"
+          role="tab"
+          aria-selected="false"
+        >
+          Notification Templates
+          <span class="thp-admin-tab-count" id="notification-template-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="notifications"
+          role="tab"
+          aria-selected="false"
+        >
+          Notifications
+          <span class="thp-admin-tab-count" id="notification-count">0</span>
+        </button>
+      </nav>
+
+      <div id="admin-support-workspace"></div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "support",
+    content,
+    {
+      subtitle: "Support tickets, communication and emergency requests",
+    },
+  );
+
+  const workspace = app.querySelector("#admin-support-workspace");
+  const tabs = Array.from(
+    app.querySelectorAll("[data-support-tab]")
+  );
+
+  let activeTab = "tickets";
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+
+    tabs.forEach((button) => {
+      const active = button.dataset.supportTab === tab;
+
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    renderActiveTab();
+  }
+
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.supportTab);
+    });
+  });
+
+  function loadingState(message = "Loading...") {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>${message}</strong>
+      </section>
+    `;
+  }
+
+  function errorState(message) {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Unable to load data</strong>
+        <p>${escapeHtml(message || "Please try again.")}</p>
+      </section>
+    `;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function getRows(response) {
+    if (Array.isArray(response)) return response;
+
+    if (Array.isArray(response?.results)) {
+      return response.results;
+    }
+
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+
+    return [];
+  }
+
+  function statusClass(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replaceAll("_", "-")
+      .replaceAll(" ", "-");
+  }
+
+  async function renderTickets() {
+    loadingState("Loading support tickets...");
+
+    try {
+      const response = await getSupportTickets();
+      const rows = getRows(response);
+
+      app.querySelector("#support-ticket-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Support Tickets</h2>
+              <p>Manage patient and platform support requests.</p>
+            </div>
+
+            ${
+              hasPermission("support", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    id="create-support-ticket-button"
+                  >
+                    Create Ticket
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-toolbar">
+            <input
+              type="search"
+              id="support-ticket-search"
+              class="thp-admin-search"
+              placeholder="Search tickets..."
+            />
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>Ticket ID</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Assignee</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody id="support-ticket-table-body">
+                ${
+                  rows.length
+                    ? rows.map((ticket) => `
+                      <tr>
+                        <td>${escapeHtml(ticket.ticket_id || ticket.id || "—")}</td>
+                        <td>${escapeHtml(ticket.subject || "—")}</td>
+                        <td>${escapeHtml(ticket.user_name || ticket.user || "—")}</td>
+                        <td>${escapeHtml(ticket.category || "—")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(ticket.priority)}">
+                            ${escapeHtml(ticket.priority || "—")}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(ticket.status)}">
+                            ${escapeHtml(ticket.status || "—")}
+                          </span>
+                        </td>
+                        <td>${escapeHtml(ticket.assignee_name || ticket.assignee || "Unassigned")}</td>
+                        <td>
+                          <div class="thp-admin-row-actions">
+
+                            <button
+                              type="button"
+                              class="thp-admin-row-button"
+                              data-ticket-manage="${escapeHtml(ticket.id)}"
+                            >
+                              Manage
+                            </button>
+
+                            ${
+                              hasPermission("support", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ticket-action="close"
+                                    data-ticket-id="${escapeHtml(ticket.id)}"
+                                  >
+                                    ${
+                                      String(ticket.status).toLowerCase() === "closed"
+                                        ? "Reopen"
+                                        : "Close"
+                                    }
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="8">
+                          <div class="thp-admin-empty-state">
+                            <strong>No support tickets found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelectorAll("[data-ticket-manage]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            const ticketId = button.dataset.ticketManage;
+
+            try {
+              button.disabled = true;
+              button.textContent = "Loading...";
+
+              const response = await getSupportTicket(ticketId);
+              const ticket = response?.data || response;
+
+              const staffResponse = await getAdminStaff();
+              const supportUsers = getRows(staffResponse);
+
+              const messages = Array.isArray(ticket?.messages)
+                ? ticket.messages
+                : [];
+
+              const drawer = document.createElement("div");
+
+              drawer.className = "thp-admin-modal";
+
+              drawer.innerHTML = `
+                <div class="thp-admin-modal-backdrop"></div>
+
+                <section
+                  class="thp-admin-modal-card"
+                  role="dialog"
+                  aria-modal="true"
+                >
+
+                  <header class="thp-admin-modal-header">
+                    <div>
+                      <p class="thp-admin-eyebrow">SUPPORT TICKET</p>
+
+                      <h2>
+                        ${escapeHtml(
+                          ticket.ticket_id ||
+                          ticket.id ||
+                          "Support Ticket"
+                        )}
+                      </h2>
+
+                      <p>
+                        ${escapeHtml(ticket.subject || "")}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="thp-admin-modal-close"
+                      data-ticket-drawer-close
+                    >
+                      ×
+                    </button>
+                  </header>
+
+                  <div style="padding: 24px;">
+
+                    <div class="thp-admin-form-row">
+
+                      <div class="thp-admin-form-group">
+                        <label for="ticket-assignee-${escapeHtml(ticket.id)}">
+                          Assignee
+                        </label>
+
+                        <select id="ticket-assignee-${escapeHtml(ticket.id)}">
+                          <option value="">Unassigned</option>
+
+                          ${(() => {
+
+                            return supportUsers.map((user) => `
+                              <option
+                                value="${escapeHtml(user.user_id ?? user.id)}"
+                                ${String(ticket.assignee || "") === String(user.id) ? "selected" : ""}
+                              >
+                                ${escapeHtml(
+                                  user.name ||
+                                  user.username ||
+                                  user.email ||
+                                  `User ${user.id}`
+                                )}
+                              </option>
+                            `).join("");
+                          })()}
+                        </select>
+                      </div>
+
+                      <div class="thp-admin-form-group">
+                        <label>Status</label>
+
+                        <select id="ticket-status-${escapeHtml(ticket.id)}">
+                          <option value="open"
+                            ${ticket.status === "open" ? "selected" : ""}>
+                            Open
+                          </option>
+
+                          <option value="in_progress"
+                            ${ticket.status === "in_progress" ? "selected" : ""}>
+                            In Progress
+                          </option>
+
+                          <option value="resolved"
+                            ${ticket.status === "resolved" ? "selected" : ""}>
+                            Resolved
+                          </option>
+
+                          <option value="closed"
+                            ${ticket.status === "closed" ? "selected" : ""}>
+                            Closed
+                          </option>
+                        </select>
+                      </div>
+
+                      <div class="thp-admin-form-group">
+                        <label>Priority</label>
+
+                        <select id="ticket-priority-${escapeHtml(ticket.id)}">
+                          <option value="low"
+                            ${ticket.priority === "low" ? "selected" : ""}>
+                            Low
+                          </option>
+
+                          <option value="medium"
+                            ${ticket.priority === "medium" ? "selected" : ""}>
+                            Medium
+                          </option>
+
+                          <option value="high"
+                            ${ticket.priority === "high" ? "selected" : ""}>
+                            High
+                          </option>
+                        </select>
+                      </div>
+
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label>Category</label>
+
+                      <input
+                        id="ticket-category-${escapeHtml(ticket.id)}"
+                        value="${escapeHtml(ticket.category || "")}"
+                      />
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label>Conversation &amp; Internal Notes</label>
+
+                      <div
+                        style="
+                          max-height: 260px;
+                          overflow-y: auto;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 12px;
+                          padding: 14px;
+                        "
+                      >
+                        ${
+                          messages.length
+                            ? messages.map((message) => `
+                                <div
+                                  style="
+                                    padding: 12px;
+                                    margin-bottom: 10px;
+                                    border-radius: 10px;
+                                    background: ${
+                                      message.message_type === "internal_note"
+                                        ? "#fff8e7"
+                                        : "#f5f8f7"
+                                    };
+                                  "
+                                >
+                                  <strong>
+                                    ${
+                                      message.message_type === "internal_note"
+                                        ? "Internal Note"
+                                        : "Reply"
+                                    }
+                                  </strong>
+
+                                  <p>
+                                    ${escapeHtml(message.message || "")}
+                                  </p>
+
+                                  <small>
+                                    ${escapeHtml(message.created_at || "")}
+                                  </small>
+                                </div>
+                              `).join("")
+                            : `
+                              <div class="thp-admin-empty-state">
+                                <strong>No messages yet</strong>
+                              </div>
+                            `
+                        }
+                      </div>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="ticket-reply-${escapeHtml(ticket.id)}">
+                        Reply
+                      </label>
+
+                      <textarea
+                        id="ticket-reply-${escapeHtml(ticket.id)}"
+                        rows="4"
+                        placeholder="Write a reply..."
+                      ></textarea>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="ticket-note-${escapeHtml(ticket.id)}">
+                        Internal Note
+                      </label>
+
+                      <textarea
+                        id="ticket-note-${escapeHtml(ticket.id)}"
+                        rows="3"
+                        placeholder="Add an internal note..."
+                      ></textarea>
+                    </div>
+
+                  </div>
+
+                  <footer class="thp-admin-modal-footer">
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-ticket-drawer-close
+                    >
+                      Close
+                    </button>
+
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button"
+                      id="ticket-save-${escapeHtml(ticket.id)}"
+                    >
+                      Save Changes
+                    </button>
+
+                  </footer>
+
+                </section>
+              `;
+
+              document.body.appendChild(drawer);
+
+              const saveButton = drawer.querySelector(
+                `#ticket-save-${CSS.escape(String(ticket.id))}`
+              );
+
+              saveButton?.addEventListener("click", async () => {
+                const assignee = drawer.querySelector(
+                  `#ticket-assignee-${CSS.escape(String(ticket.id))}`
+                )?.value;
+
+                const status = drawer.querySelector(
+                  `#ticket-status-${CSS.escape(String(ticket.id))}`
+                )?.value;
+
+                const priority = drawer.querySelector(
+                  `#ticket-priority-${CSS.escape(String(ticket.id))}`
+                )?.value;
+
+                const category = drawer.querySelector(
+                  `#ticket-category-${CSS.escape(String(ticket.id))}`
+                )?.value.trim();
+
+                const reply = drawer.querySelector(
+                  `#ticket-reply-${CSS.escape(String(ticket.id))}`
+                )?.value.trim();
+
+                const note = drawer.querySelector(
+                  `#ticket-note-${CSS.escape(String(ticket.id))}`
+                )?.value.trim();
+
+                try {
+                  saveButton.disabled = true;
+                  saveButton.textContent = "Saving...";
+
+                  await updateSupportTicket(ticket.id, {
+                    status,
+                    priority,
+                    category,
+                  });
+
+                  if (assignee) {
+                    await assignSupportTicket(ticket.id, assignee);
+                  }
+
+                  if (reply) {
+                    await replySupportTicket(ticket.id, reply);
+                  }
+
+                  if (note) {
+                    await addSupportTicketInternalNote(ticket.id, note);
+                  }
+
+                  drawer.remove();
+
+                  await renderTickets();
+
+                } catch (error) {
+                  console.error("Failed to update support ticket:", error);
+
+                  saveButton.disabled = false;
+                  saveButton.textContent = "Save Changes";
+
+                  alert(
+                    error?.message ||
+                    "Failed to update the support ticket."
+                  );
+                }
+              });
+
+              drawer
+                .querySelectorAll("[data-ticket-drawer-close]")
+                .forEach((closeButton) => {
+                  closeButton.addEventListener("click", () => {
+                    drawer.remove();
+                  });
+                });
+
+              document.body.appendChild(drawer);
+
+              const closeDrawer = () => {
+                drawer.remove();
+              };
+
+              drawer
+                .querySelectorAll("[data-ticket-drawer-close]")
+                .forEach((element) => {
+                  element.addEventListener("click", closeDrawer);
+                });
+
+              drawer
+                .querySelector(".thp-admin-modal-backdrop")
+                ?.addEventListener("click", closeDrawer);
+
+              drawer
+                .querySelector(`#ticket-save-${CSS.escape(String(ticket.id))}`)
+                ?.addEventListener("click", async () => {
+                  const saveButton = drawer.querySelector(
+                    `#ticket-save-${CSS.escape(String(ticket.id))}`
+                  );
+
+                  try {
+                    saveButton.disabled = true;
+                    saveButton.textContent = "Saving...";
+
+                    const status = drawer.querySelector(
+                      `#ticket-status-${CSS.escape(String(ticket.id))}`
+                    ).value;
+
+                    const priority = drawer.querySelector(
+                      `#ticket-priority-${CSS.escape(String(ticket.id))}`
+                    ).value;
+
+                    const category = drawer.querySelector(
+                      `#ticket-category-${CSS.escape(String(ticket.id))}`
+                    ).value.trim();
+
+                    const assignee = drawer.querySelector(
+                      `#ticket-assignee-${CSS.escape(String(ticket.id))}`
+                    ).value;
+
+                    const reply = drawer.querySelector(
+                      `#ticket-reply-${CSS.escape(String(ticket.id))}`
+                    ).value.trim();
+
+                    const note = drawer.querySelector(
+                      `#ticket-note-${CSS.escape(String(ticket.id))}`
+                    ).value.trim();
+
+                    await updateSupportTicket(ticket.id, {
+                      status,
+                      priority,
+                      category,
+                    });
+
+                    if (assignee) {
+                      await assignSupportTicket(ticket.id, assignee);
+                    }
+
+                    if (reply) {
+                      await replySupportTicket(ticket.id, reply);
+                    }
+
+                    if (note) {
+                      await addSupportTicketInternalNote(
+                        ticket.id,
+                        note
+                      );
+                    }
+
+                    showAdminToast("Ticket updated successfully.");
+
+                    closeDrawer();
+
+                    await renderTickets();
+
+                  } catch (error) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = "Save Changes";
+
+                    showAdminToast(
+                      error?.message || "Unable to update ticket.",
+                      "error"
+                    );
+                  }
+                });
+
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to load ticket.",
+                "error"
+              );
+            } finally {
+              button.disabled = false;
+              button.textContent = "Manage";
+            }
+          });
+        });
+
+      app
+        .querySelector("#create-support-ticket-button")
+        ?.addEventListener("click", async () => {
+          try {
+            const usersResponse = await getAdminUsers();
+            const users = getRows(usersResponse);
+
+            const modal = document.createElement("div");
+
+            modal.className = "thp-admin-modal";
+
+            modal.innerHTML = `
+              <div class="thp-admin-modal-backdrop"></div>
+
+              <section
+                class="thp-admin-modal-card"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="support-ticket-create-title"
+              >
+                <header class="thp-admin-modal-header">
+                  <div>
+                    <p class="thp-admin-eyebrow">SUPPORT</p>
+                    <h2 id="support-ticket-create-title">Create Support Ticket</h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="thp-admin-modal-close"
+                    data-support-modal-close
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <form id="support-ticket-create-form">
+
+                  <div class="thp-admin-form-group">
+                    <label for="support-ticket-subject">
+                      Subject <b>*</b>
+                    </label>
+
+                    <input
+                      id="support-ticket-subject"
+                      name="subject"
+                      type="text"
+                      required
+                      maxlength="255"
+                      placeholder="Enter ticket subject"
+                    />
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="support-ticket-user">
+                      User
+                    </label>
+
+                    <select
+                      id="support-ticket-user"
+                      name="user"
+                    >
+                      <option value="">Select user</option>
+
+                      ${users.map((user) => `
+                        <option value="${escapeHtml(user.id)}">
+                          ${escapeHtml(
+                            user.name ||
+                            user.username ||
+                            user.email ||
+                            `User ${user.id}`
+                          )}
+                        </option>
+                      `).join("")}
+                    </select>
+                  </div>
+
+                  <div class="thp-admin-form-row">
+
+                    <div class="thp-admin-form-group">
+                      <label for="support-ticket-category">
+                        Category <b>*</b>
+                      </label>
+
+                      <input
+                        id="support-ticket-category"
+                        name="category"
+                        type="text"
+                        required
+                        maxlength="100"
+                        placeholder="e.g. Pharmacy"
+                      />
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="support-ticket-priority">
+                        Priority <b>*</b>
+                      </label>
+
+                      <select
+                        id="support-ticket-priority"
+                        name="priority"
+                        required
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="support-ticket-description">
+                      Description
+                    </label>
+
+                    <textarea
+                      id="support-ticket-description"
+                      name="description"
+                      rows="5"
+                      placeholder="Describe the user's issue..."
+                    ></textarea>
+                  </div>
+
+                  <footer class="thp-admin-modal-footer">
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-support-modal-close
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      class="thp-admin-primary-button"
+                    >
+                      Create Ticket
+                    </button>
+
+                  </footer>
+
+                </form>
+              </section>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => {
+              modal.remove();
+            };
+
+            modal
+              .querySelectorAll("[data-support-modal-close]")
+              .forEach((button) => {
+                button.addEventListener("click", closeModal);
+              });
+
+            modal
+              .querySelector(".thp-admin-modal-backdrop")
+              ?.addEventListener("click", closeModal);
+
+            modal
+              .querySelector("#support-ticket-create-form")
+              ?.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const form = event.currentTarget;
+                const formData = new FormData(form);
+
+                const payload = {
+                  subject: String(formData.get("subject") || "").trim(),
+                  category: String(formData.get("category") || "").trim(),
+                  priority: String(formData.get("priority") || "medium"),
+                  description: String(formData.get("description") || "").trim(),
+                };
+
+                const userId = String(formData.get("user") || "").trim();
+
+                if (userId) {
+                  payload.user = userId;
+                }
+
+                const submitButton = form.querySelector(
+                  'button[type="submit"]'
+                );
+
+                submitButton.disabled = true;
+                submitButton.textContent = "Creating...";
+
+                try {
+                  await createSupportTicket(payload);
+
+                  closeModal();
+
+                  showAdminToast("Support ticket created successfully.");
+
+                  await renderTickets();
+                } catch (error) {
+                  submitButton.disabled = false;
+                  submitButton.textContent = "Create Ticket";
+
+                  showAdminToast(
+                    error?.message || "Unable to create support ticket.",
+                    "error"
+                  );
+                }
+              });
+
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to load users.",
+              "error"
+            );
+          }
+        });
+
+      app
+        .querySelectorAll("[data-ticket-action='close']")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              const id = button.dataset.ticketId;
+              const row = rows.find((item) => String(item.id) === String(id));
+
+              if (String(row?.status).toLowerCase() === "closed") {
+                await reopenSupportTicket(id);
+              } else {
+                await closeSupportTicket(id);
+              }
+
+              showAdminToast("Ticket status updated.");
+              await renderTickets();
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to update ticket.",
+                "error"
+              );
+            }
+          });
+        });
+
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  const queryState = {
+    search: "",
+    status: "",
+  };
+
+  const emergencyState = {
+    search: "",
+    priority: "",
+    status: "",
+    searchTimer: null,
+  };
+
+  const templateState = {
+    search: "",
+    channel: "",
+    searchTimer: null,
+  };
+
+  const notificationState = {
+    search: "",
+    channel: "",
+    audience: "",
+    searchTimer: null,
+  };
+
+
+  async function renderQueries() {
+    loadingState("Loading contact queries...");
+
+    try {
+      const response = await getContactQueries({
+        search: queryState.search,
+        status: queryState.status,
+      });
+      const rows = getRows(response);
+
+
+      app.querySelector("#contact-query-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Contact Queries</h2>
+              <p>Review and respond to messages submitted through the platform.</p>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 18px;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="search"
+              class="thp-admin-search-input"
+              data-query-search
+              placeholder="Search name, email or subject..."
+              value="${escapeHtml(queryState.search)}"
+              style="flex: 1; min-width: 240px;"
+            />
+
+            <select
+              class="thp-admin-select"
+              data-query-status-filter
+              style="min-width: 160px;"
+            >
+              <option value="">All Statuses</option>
+              <option
+                value="unread"
+                ${queryState.status === "unread" ? "selected" : ""}
+              >
+                Unread
+              </option>
+              <option
+                value="read"
+                ${queryState.status === "read" ? "selected" : ""}
+              >
+                Read
+              </option>
+              <option
+                value="replied"
+                ${queryState.status === "replied" ? "selected" : ""}
+              >
+                Replied
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Subject</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rows.length
+                    ? rows.map((query) => `
+                      <tr>
+                        <td>${escapeHtml(query.name || "—")}</td>
+                        <td>${escapeHtml(query.email || "—")}</td>
+                        <td>${escapeHtml(query.subject || "—")}</td>
+                        <td>${escapeHtml(query.created_at || query.date || "—")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(query.status)}">
+                            ${escapeHtml(query.status || "—")}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="thp-admin-row-actions">
+                            <button
+                              type="button"
+                              class="thp-admin-row-button"
+                              data-query-manage="${escapeHtml(query.id)}"
+                            >
+                              Manage
+                            </button>
+
+                            ${
+                              hasPermission("support", "edit") &&
+                              String(query.status).toLowerCase() === "unread"
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-query-read="${escapeHtml(query.id)}"
+                                  >
+                                    Mark Read
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="6">
+                          <div class="thp-admin-empty-state">
+                            <strong>No contact queries found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelectorAll("[data-query-read]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await markContactQueryRead(button.dataset.queryRead);
+              showAdminToast("Query marked as read.");
+              await renderQueries();
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to update query.",
+                "error"
+              );
+            }
+          });
+        });
+
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderEmergency() {
+    loadingState("Loading emergency requests...");
+
+    try {
+      const response = await getEmergencyRequests({
+        search: emergencyState.search,
+        priority: emergencyState.priority,
+        status: emergencyState.status,
+      });
+      const rows = getRows(response);
+
+      app.querySelector("#emergency-request-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Emergency Alerts</h2>
+              <p>Prioritise, assign and handle emergency support requests.</p>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 18px;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="search"
+              class="thp-admin-search-input"
+              data-emergency-search
+              placeholder="Search type or location..."
+              value="${escapeHtml(emergencyState.search)}"
+              style="flex: 1; min-width: 240px;"
+            />
+
+            <select
+              class="thp-admin-select"
+              data-emergency-priority-filter
+              style="min-width: 150px;"
+            >
+              <option value="">All Priorities</option>
+
+              <option
+                value="low"
+                ${emergencyState.priority === "low" ? "selected" : ""}
+              >
+                Low
+              </option>
+
+              <option
+                value="medium"
+                ${emergencyState.priority === "medium" ? "selected" : ""}
+              >
+                Medium
+              </option>
+
+              <option
+                value="high"
+                ${emergencyState.priority === "high" ? "selected" : ""}
+              >
+                High
+              </option>
+
+              <option
+                value="urgent"
+                ${emergencyState.priority === "urgent" ? "selected" : ""}
+              >
+                Urgent
+              </option>
+            </select>
+
+            <select
+              class="thp-admin-select"
+              data-emergency-status-filter
+              style="min-width: 150px;"
+            >
+              <option value="">All Statuses</option>
+
+              <option
+                value="pending"
+                ${emergencyState.status === "pending" ? "selected" : ""}
+              >
+                Pending
+              </option>
+
+              <option
+                value="assigned"
+                ${emergencyState.status === "assigned" ? "selected" : ""}
+              >
+                Assigned
+              </option>
+
+              <option
+                value="handled"
+                ${emergencyState.status === "handled" ? "selected" : ""}
+              >
+                Handled
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Type</th>
+                  <th>Priority</th>
+                  <th>Location</th>
+                  <th>Assigned Staff</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rows.length
+                    ? rows.map((request) => `
+                        <tr class="${
+                          String(request.priority).toLowerCase() === "urgent"
+                            ? "thp-admin-emergency-urgent"
+                            : ""
+                        }">
+                        <td>${escapeHtml(request.user_name || request.user || "—")}</td>
+                        <td>${escapeHtml(request.type || "—")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(request.priority)}">
+                            ${escapeHtml(request.priority || "—")}
+                          </span>
+                        </td>
+                        <td>${escapeHtml(request.location || "—")}</td>
+                        <td>${escapeHtml(request.assigned_staff_name || request.assigned_staff || "Unassigned")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(request.status)}">
+                            ${escapeHtml(request.status || "—")}
+                          </span>
+                        </td>
+                        <td>
+                          ${
+                            hasPermission("support", "edit")
+                              ? `
+                                <div class="thp-admin-row-actions">
+
+                                  ${
+                                    String(request.status).toLowerCase() !== "handled"
+                                      ? `
+                                        <button
+                                          type="button"
+                                          class="thp-admin-row-button"
+                                          data-emergency-assign="${escapeHtml(request.id)}"
+                                        >
+                                          Assign Staff
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          class="thp-admin-row-button"
+                                          data-emergency-handled="${escapeHtml(request.id)}"
+                                        >
+                                          Mark Handled
+                                        </button>
+                                      `
+                                      : ""
+                                  }
+
+                                </div>
+                              `
+                              : ""
+                          }
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="7">
+                          <div class="thp-admin-empty-state">
+                            <strong>No emergency requests found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelectorAll("[data-query-manage]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            const queryId = button.dataset.queryManage;
+
+            try {
+              button.disabled = true;
+              button.textContent = "Loading...";
+
+              const response = await getContactQueries();
+              const rows = getRows(response);
+
+              const query = rows.find(
+                (item) => String(item.id) === String(queryId)
+              );
+
+              if (!query) {
+                throw new Error("Contact query not found.");
+              }
+
+              const modal = document.createElement("div");
+
+              modal.className = "thp-admin-modal";
+
+              modal.innerHTML = `
+                <div class="thp-admin-modal-backdrop"></div>
+
+                <section
+                  class="thp-admin-modal-card"
+                  role="dialog"
+                  aria-modal="true"
+                >
+
+                  <header class="thp-admin-modal-header">
+                    <div>
+                      <p class="thp-admin-eyebrow">CONTACT QUERY</p>
+
+                      <h2>${escapeHtml(query.subject || "Contact Query")}</h2>
+
+                      <p>
+                        ${escapeHtml(query.name || "Unknown")}
+                        ·
+                        ${escapeHtml(query.email || "")}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="thp-admin-modal-close"
+                      data-query-modal-close
+                    >
+                      ×
+                    </button>
+                  </header>
+
+                  <div style="padding: 24px;">
+
+                    <div class="thp-admin-form-group">
+                      <label>Message</label>
+
+                      <div
+                        style="
+                          padding: 16px;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 12px;
+                          background: #f8faf9;
+                          white-space: pre-wrap;
+                        "
+                      >
+                        ${escapeHtml(query.message || "No message")}
+                      </div>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label>Status</label>
+
+                      <select id="contact-query-status-${escapeHtml(query.id)}">
+                        <option value="unread"
+                          ${query.status === "unread" ? "selected" : ""}>
+                          Unread
+                        </option>
+
+                        <option value="read"
+                          ${query.status === "read" ? "selected" : ""}>
+                          Read
+                        </option>
+
+                        <option value="replied"
+                          ${query.status === "replied" ? "selected" : ""}>
+                          Replied
+                        </option>
+                      </select>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="contact-query-reply-${escapeHtml(query.id)}">
+                        Reply
+                      </label>
+
+                      <textarea
+                        id="contact-query-reply-${escapeHtml(query.id)}"
+                        rows="5"
+                        placeholder="Write your reply..."
+                      ></textarea>
+                    </div>
+
+                  </div>
+
+                  <footer class="thp-admin-modal-footer">
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-query-resolve
+                    >
+                      Resolve
+                    </button>
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-query-modal-close
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button"
+                      data-query-save
+                    >
+                      Save Changes
+                    </button>
+
+                  </footer>
+
+                </section>
+              `;
+
+              document.body.appendChild(modal);
+
+              modal
+                .querySelectorAll("[data-query-modal-close]")
+                .forEach((closeButton) => {
+                  closeButton.addEventListener("click", () => {
+                    modal.remove();
+                  });
+                });
+
+              modal
+                .querySelector("[data-query-save]")
+                ?.addEventListener("click", async () => {
+                  const status = modal.querySelector(
+                    `#contact-query-status-${CSS.escape(String(query.id))}`
+                  ).value;
+
+                  const reply = modal.querySelector(
+                    `#contact-query-reply-${CSS.escape(String(query.id))}`
+                  ).value.trim();
+
+                  const saveButton = modal.querySelector("[data-query-save]");
+
+                  try {
+                    saveButton.disabled = true;
+                    saveButton.textContent = "Saving...";
+
+                    await updateContactQuery(query.id, {
+                      status,
+                    });
+
+                    if (reply) {
+                      await replyContactQuery(query.id);
+                    }
+
+                    modal.remove();
+
+                    await renderQueries();
+
+                  } catch (error) {
+                    console.error(
+                      "Contact query update failed:",
+                      error
+                    );
+
+                    saveButton.disabled = false;
+                    saveButton.textContent = "Save Changes";
+
+                    alert(
+                      error?.message ||
+                      "Failed to update contact query."
+                    );
+                  }
+                });
+
+              modal
+                .querySelector("[data-query-resolve]")
+                ?.addEventListener("click", async () => {
+                  const resolveButton = modal.querySelector(
+                    "[data-query-resolve]"
+                  );
+
+                  try {
+                    resolveButton.disabled = true;
+                    resolveButton.textContent = "Resolving...";
+
+                    await updateContactQuery(query.id, {
+                      status: "replied",
+                    });
+
+                    modal.remove();
+
+                    await renderQueries();
+
+                  } catch (error) {
+                    console.error(
+                      "Contact query resolve failed:",
+                      error
+                    );
+
+                    resolveButton.disabled = false;
+                    resolveButton.textContent = "Resolve";
+
+                    alert(
+                      error?.message ||
+                      "Failed to resolve contact query."
+                    );
+                  }
+                });
+            } catch (error) {
+              console.error(
+                "Contact query loading failed:",
+                error
+              );
+
+              alert(
+                error?.message ||
+                "Failed to load contact query."
+              );
+
+              button.disabled = false;
+              button.textContent = "Manage";
+            }
+          });
+        });
+
+        async function renderQueries() {
+          loadingState("Loading contact queries...");
+
+          try {
+            // API call
+            // workspace.innerHTML = ...
+
+            // Mark Read handler
+            app
+              .querySelectorAll("[data-query-read]")
+              .forEach((button) => {
+                // existing code
+              });
+
+            // Manage handler
+            app
+              .querySelectorAll("[data-query-manage]")
+              .forEach((button) => {
+                // existing code
+              });
+
+            // 👇 STEP 1D GOES HERE
+            const querySearchInput = app.querySelector("[data-query-search]");
+            const queryStatusFilter = app.querySelector(
+              "[data-query-status-filter]"
+            );
+
+            querySearchInput?.addEventListener("input", (event) => {
+              queryState.search = event.target.value.trim();
+
+              clearTimeout(queryState.searchTimer);
+
+              queryState.searchTimer = setTimeout(() => {
+                renderQueries();
+              }, 300);
+            });
+
+            queryStatusFilter?.addEventListener("change", (event) => {
+              queryState.status = event.target.value;
+
+              renderQueries();
+            });
+
+          } catch (error) {
+            // existing catch
+          }
+        }
+
+      app
+        .querySelectorAll("[data-emergency-handled]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await markEmergencyRequestHandled(
+                button.dataset.emergencyHandled
+              );
+
+              showAdminToast("Emergency request marked as handled.");
+              await renderEmergency();
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to update emergency request.",
+                "error"
+              );
+            }
+          });
+        });
+
+        const emergencySearchInput = app.querySelector(
+          "[data-emergency-search]"
+        );
+
+        const emergencyPriorityFilter = app.querySelector(
+          "[data-emergency-priority-filter]"
+        );
+
+        const emergencyStatusFilter = app.querySelector(
+          "[data-emergency-status-filter]"
+        );
+
+        emergencySearchInput?.addEventListener("input", (event) => {
+          emergencyState.search = event.target.value.trim();
+
+          clearTimeout(emergencyState.searchTimer);
+
+          emergencyState.searchTimer = setTimeout(() => {
+            renderEmergency();
+          }, 300);
+        });
+
+        emergencyPriorityFilter?.addEventListener("change", (event) => {
+          emergencyState.priority = event.target.value;
+
+          renderEmergency();
+        });
+
+        emergencyStatusFilter?.addEventListener("change", (event) => {
+          emergencyState.status = event.target.value;
+
+          renderEmergency();
+        });
+
+        app
+          .querySelectorAll("[data-emergency-assign]")
+          .forEach((button) => {
+            button.addEventListener("click", async () => {
+              const requestId = button.dataset.emergencyAssign;
+
+              try {
+                button.disabled = true;
+                button.textContent = "Loading...";
+
+                const staffResponse = await getAdminStaff();
+                const staffRows = getRows(staffResponse);
+
+                const modal = document.createElement("div");
+                modal.className = "thp-admin-modal";
+
+                modal.innerHTML = `
+                  <div class="thp-admin-modal-backdrop"></div>
+
+                  <section
+                    class="thp-admin-modal-card"
+                    role="dialog"
+                    aria-modal="true"
+                  >
+                    <header class="thp-admin-modal-header">
+                      <div>
+                        <p class="thp-admin-eyebrow">EMERGENCY REQUEST</p>
+                        <h2>Assign Staff</h2>
+                        <p>Select a staff member to handle this request.</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="thp-admin-modal-close"
+                        data-emergency-assign-close
+                      >
+                        ×
+                      </button>
+                    </header>
+
+                    <div style="padding: 24px;">
+                      <div class="thp-admin-form-group">
+                        <label for="emergency-staff-${escapeHtml(requestId)}">
+                          Staff Member
+                        </label>
+
+                        <select
+                          id="emergency-staff-${escapeHtml(requestId)}"
+                        >
+                          <option value="">Select staff member</option>
+
+                          ${
+                            staffRows.length
+                              ? staffRows.map((staff) => `
+                                  <option value="${escapeHtml(staff.id)}">
+                                    ${escapeHtml(
+                                      staff.name ||
+                                      staff.username ||
+                                      staff.email ||
+                                      `Staff ${staff.id}`
+                                    )}
+                                  </option>
+                                `).join("")
+                              : `
+                                  <option value="" disabled>
+                                    No staff members available
+                                  </option>
+                                `
+                          }
+                        </select>
+                      </div>
+                    </div>
+
+                    <footer class="thp-admin-modal-footer">
+                      <button
+                        type="button"
+                        class="thp-admin-secondary-button"
+                        data-emergency-assign-close
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        class="thp-admin-primary-button"
+                        data-emergency-assign-save
+                      >
+                        Assign Staff
+                      </button>
+                    </footer>
+                  </section>
+                `;
+
+                document.body.appendChild(modal);
+
+                modal
+                  .querySelectorAll("[data-emergency-assign-close]")
+                  .forEach((closeButton) => {
+                    closeButton.addEventListener("click", () => {
+                      modal.remove();
+                    });
+                  });
+
+                modal
+                  .querySelector("[data-emergency-assign-save]")
+                  ?.addEventListener("click", async () => {
+                    const staffSelect = modal.querySelector(
+                      `#emergency-staff-${CSS.escape(String(requestId))}`
+                    );
+
+                    const assignedStaff = staffSelect?.value;
+
+                    if (!assignedStaff) {
+                      alert("Please select a staff member.");
+                      return;
+                    }
+
+                    const saveButton = modal.querySelector(
+                      "[data-emergency-assign-save]"
+                    );
+
+                    try {
+                      saveButton.disabled = true;
+                      saveButton.textContent = "Assigning...";
+
+                      await assignEmergencyRequest(
+                        requestId,
+                        assignedStaff
+                      );
+
+                      modal.remove();
+
+                      await renderEmergency();
+
+                    } catch (error) {
+                      console.error(
+                        "Emergency assignment failed:",
+                        error
+                      );
+
+                      saveButton.disabled = false;
+                      saveButton.textContent = "Assign Staff";
+
+                      alert(
+                        error?.message ||
+                        "Failed to assign emergency request."
+                      );
+                    }
+                  });
+
+              } catch (error) {
+                console.error(
+                  "Failed to load staff:",
+                  error
+                );
+
+                alert(
+                  error?.message ||
+                  "Failed to load staff members."
+                );
+
+                button.disabled = false;
+                button.textContent = "Assign Staff";
+              }
+            });
+          });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderTemplates() {
+    loadingState("Loading notification templates...");
+
+    try {
+      const response = await getNotificationTemplates({
+        search: templateState.search,
+        channel: templateState.channel,
+      });
+      const rows = getRows(response);
+
+      app.querySelector("#notification-template-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Notification Templates</h2>
+              <p>Manage reusable SMS, Email and Push notification templates.</p>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 18px;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="search"
+              class="thp-admin-search-input"
+              data-template-search
+              placeholder="Search template name, subject or body..."
+              value="${escapeHtml(templateState.search)}"
+              style="flex: 1; min-width: 240px;"
+            />
+
+            <select
+              class="thp-admin-select"
+              data-template-channel-filter
+              style="min-width: 150px;"
+            >
+              <option value="">All Channels</option>
+
+              <option
+                value="sms"
+                ${templateState.channel === "sms" ? "selected" : ""}
+              >
+                SMS
+              </option>
+
+              <option
+                value="email"
+                ${templateState.channel === "email" ? "selected" : ""}
+              >
+                Email
+              </option>
+
+              <option
+                value="push"
+                ${templateState.channel === "push" ? "selected" : ""}
+              >
+                Push
+              </option>
+            </select>
+
+            ${
+              hasPermission("support", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-template-create
+                  >
+                    Create Template
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Channel</th>
+                  <th>Subject</th>
+                  <th>Body</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rows.length
+                    ? rows.map((template) => `
+                      <tr>
+                        <td>${escapeHtml(template.name || "—")}</td>
+                        <td>${escapeHtml(template.channel || "—")}</td>
+                        <td>${escapeHtml(template.subject || "—")}</td>
+                        <td>${escapeHtml(template.body || "—")}</td>
+                        <td>
+                          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            ${
+                              hasPermission("support", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-template-edit="${escapeHtml(template.id)}"
+                                  >
+                                    Edit
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-template-test="${escapeHtml(template.id)}"
+                                  >
+                                    Send Test
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("support", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-template-delete="${escapeHtml(template.id)}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="5">
+                          <div class="thp-admin-empty-state">
+                            <strong>No notification templates found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelector("[data-template-create]")
+        ?.addEventListener("click", () => {
+          const modal = document.createElement("div");
+
+          modal.className = "thp-admin-modal";
+
+          modal.innerHTML = `
+            <div class="thp-admin-modal-backdrop"></div>
+
+            <section
+              class="thp-admin-modal-card"
+              role="dialog"
+              aria-modal="true"
+            >
+              <header class="thp-admin-modal-header">
+                <div>
+                  <p class="thp-admin-eyebrow">NOTIFICATION TEMPLATE</p>
+                  <h2>Create Template</h2>
+                  <p>Create a reusable SMS, Email or Push notification.</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="thp-admin-modal-close"
+                  data-template-modal-close
+                >
+                  ×
+                </button>
+              </header>
+
+              <div style="padding: 24px;">
+
+                <div class="thp-admin-form-row">
+
+                  <div class="thp-admin-form-group">
+                    <label for="template-name">Name</label>
+
+                    <input
+                      id="template-name"
+                      type="text"
+                      placeholder="e.g. Order Confirmation"
+                    />
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="template-channel">Channel</label>
+
+                    <select id="template-channel">
+                      <option value="sms">SMS</option>
+                      <option value="email">Email</option>
+                      <option value="push">Push</option>
+                    </select>
+                  </div>
+
+                </div>
+
+                <div class="thp-admin-form-group">
+                  <label for="template-subject">Subject</label>
+
+                  <input
+                    id="template-subject"
+                    type="text"
+                    placeholder="Notification subject"
+                  />
+                </div>
+
+                <div class="thp-admin-form-group">
+                  <label for="template-body">Body</label>
+
+                  <textarea
+                    id="template-body"
+                    rows="7"
+                    placeholder="Hello {{name}}, your order {{orderId}} has been confirmed."
+                  ></textarea>
+
+                  <small>
+                    Supported variables can be written like
+                    <code>{{name}}</code>,
+                    <code>{{orderId}}</code>.
+                  </small>
+                </div>
+
+                <div class="thp-admin-form-group">
+                  <label>Live Preview</label>
+
+                  <div
+                    data-template-preview
+                    style="
+                      padding: 16px;
+                      border: 1px solid #e5e7eb;
+                      border-radius: 12px;
+                      background: #f8faf9;
+                      white-space: pre-wrap;
+                      min-height: 80px;
+                    "
+                  >
+                    Start typing to preview the notification...
+                  </div>
+                </div>
+
+              </div>
+
+              <footer class="thp-admin-modal-footer">
+
+                <button
+                  type="button"
+                  class="thp-admin-secondary-button"
+                  data-template-modal-close
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  data-template-save
+                >
+                  Create Template
+                </button>
+
+              </footer>
+            </section>
+          `;
+
+          document.body.appendChild(modal);
+
+          modal
+            .querySelectorAll("[data-template-modal-close]")
+            .forEach((button) => {
+              button.addEventListener("click", () => {
+                modal.remove();
+              });
+            });
+
+          const bodyInput = modal.querySelector("#template-body");
+          const preview = modal.querySelector("[data-template-preview]");
+
+          bodyInput?.addEventListener("input", () => {
+            const value = bodyInput.value.trim();
+
+            const previewText = value
+              .replace(/\{\{name\}\}/g, "Sample User")
+              .replace(/\{\{orderId\}\}/g, "ORD-10025")
+              .replace(/\{\{email\}\}/g, "user@example.com");
+
+            preview.textContent =
+              previewText ||
+              "Start typing to preview the notification...";
+          });
+
+          modal
+            .querySelector("[data-template-save]")
+            ?.addEventListener("click", async () => {
+              const name = modal
+                .querySelector("#template-name")
+                ?.value.trim();
+
+              const channel = modal
+                .querySelector("#template-channel")
+                ?.value;
+
+              const subject = modal
+                .querySelector("#template-subject")
+                ?.value.trim();
+
+              const body = modal
+                .querySelector("#template-body")
+                ?.value.trim();
+
+              if (!name) {
+                alert("Please enter a template name.");
+                return;
+              }
+
+              if (!body) {
+                alert("Please enter the notification body.");
+                return;
+              }
+
+              const saveButton = modal.querySelector(
+                "[data-template-save]"
+              );
+
+              try {
+                saveButton.disabled = true;
+                saveButton.textContent = "Creating...";
+
+                await createNotificationTemplate({
+                  name,
+                  channel,
+                  subject,
+                  body,
+                });
+
+                modal.remove();
+
+                await renderTemplates();
+
+              } catch (error) {
+                console.error(
+                  "Notification template creation failed:",
+                  error
+                );
+
+                saveButton.disabled = false;
+                saveButton.textContent = "Create Template";
+
+                alert(
+                  error?.message ||
+                  "Failed to create notification template."
+                );
+              }
+            });
+        });
+
+      app
+        .querySelectorAll("[data-template-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const templateId = button.dataset.templateEdit;
+
+            const template = rows.find(
+              (item) => String(item.id) === String(templateId)
+            );
+
+            if (!template) {
+              showAdminToast(
+                "Notification template could not be found.",
+                "error"
+              );
+              return;
+            }
+
+            const modal = document.createElement("div");
+
+            modal.className = "thp-admin-modal";
+
+            modal.innerHTML = `
+              <div class="thp-admin-modal-backdrop"></div>
+
+              <section
+                class="thp-admin-modal-card"
+                role="dialog"
+                aria-modal="true"
+              >
+                <header class="thp-admin-modal-header">
+                  <div>
+                    <p class="thp-admin-eyebrow">NOTIFICATION TEMPLATE</p>
+
+                    <h2>Edit Template</h2>
+
+                    <p>
+                      Update this reusable SMS, Email or Push notification.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="thp-admin-modal-close"
+                    data-template-edit-close
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <div style="padding:24px;">
+
+                  <div class="thp-admin-form-row">
+
+                    <div class="thp-admin-form-group">
+                      <label for="edit-template-name">
+                        Name
+                      </label>
+
+                      <input
+                        id="edit-template-name"
+                        type="text"
+                        value="${escapeHtml(template.name || "")}"
+                      />
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="edit-template-channel">
+                        Channel
+                      </label>
+
+                      <select id="edit-template-channel">
+                        <option
+                          value="sms"
+                          ${template.channel === "sms" ? "selected" : ""}
+                        >
+                          SMS
+                        </option>
+
+                        <option
+                          value="email"
+                          ${template.channel === "email" ? "selected" : ""}
+                        >
+                          Email
+                        </option>
+
+                        <option
+                          value="push"
+                          ${template.channel === "push" ? "selected" : ""}
+                        >
+                          Push
+                        </option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="edit-template-subject">
+                      Subject
+                    </label>
+
+                    <input
+                      id="edit-template-subject"
+                      type="text"
+                      value="${escapeHtml(template.subject || "")}"
+                      placeholder="Notification subject"
+                    />
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="edit-template-body">
+                      Body
+                    </label>
+
+                    <textarea
+                      id="edit-template-body"
+                      rows="7"
+                      placeholder="Hello {{name}}, your order {{orderId}} has been confirmed."
+                    >${escapeHtml(template.body || "")}</textarea>
+
+                    <small>
+                      Supported variables:
+                      <code>{{name}}</code>,
+                      <code>{{orderId}}</code>,
+                      <code>{{email}}</code>
+                    </small>
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label>Live Preview</label>
+
+                    <div
+                      data-template-edit-preview
+                      style="
+                        padding:16px;
+                        border:1px solid #e5e7eb;
+                        border-radius:12px;
+                        background:#f8faf9;
+                        white-space:pre-wrap;
+                        min-height:80px;
+                      "
+                    ></div>
+                  </div>
+
+                </div>
+
+                <footer class="thp-admin-modal-footer">
+
+                  <button
+                    type="button"
+                    class="thp-admin-secondary-button"
+                    data-template-edit-close
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-template-edit-save
+                  >
+                    Save Changes
+                  </button>
+
+                </footer>
+              </section>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => {
+              modal.remove();
+            };
+
+            modal
+              .querySelectorAll("[data-template-edit-close]")
+              .forEach((closeButton) => {
+                closeButton.addEventListener("click", closeModal);
+              });
+
+            const bodyInput = modal.querySelector(
+              "#edit-template-body"
+            );
+
+            const preview = modal.querySelector(
+              "[data-template-edit-preview]"
+            );
+
+            const updatePreview = () => {
+              const value = bodyInput?.value.trim() || "";
+
+              const previewText = value
+                .replace(/\{\{name\}\}/g, "Sample User")
+                .replace(/\{\{orderId\}\}/g, "ORD-10025")
+                .replace(/\{\{email\}\}/g, "user@example.com");
+
+              preview.textContent =
+                previewText ||
+                "Start typing to preview the notification...";
+            };
+
+            bodyInput?.addEventListener(
+              "input",
+              updatePreview
+            );
+
+            updatePreview();
+
+            modal
+              .querySelector("[data-template-edit-save]")
+              ?.addEventListener("click", async () => {
+                const name = modal
+                  .querySelector("#edit-template-name")
+                  ?.value.trim();
+
+                const channel = modal
+                  .querySelector("#edit-template-channel")
+                  ?.value;
+
+                const subject = modal
+                  .querySelector("#edit-template-subject")
+                  ?.value.trim();
+
+                const body = modal
+                  .querySelector("#edit-template-body")
+                  ?.value.trim();
+
+                if (!name) {
+                  alert("Please enter a template name.");
+                  return;
+                }
+
+                if (!body) {
+                  alert("Please enter the notification body.");
+                  return;
+                }
+
+                const saveButton = modal.querySelector(
+                  "[data-template-edit-save]"
+                );
+
+                try {
+                  saveButton.disabled = true;
+                  saveButton.textContent = "Saving...";
+
+                  await updateNotificationTemplate(
+                    template.id,
+                    {
+                      name,
+                      channel,
+                      subject,
+                      body,
+                    }
+                  );
+
+                  closeModal();
+
+                  showAdminToast(
+                    "Notification template updated."
+                  );
+
+                  await renderTemplates();
+
+                } catch (error) {
+                  console.error(
+                    "Notification template update failed:",
+                    error
+                  );
+
+                  saveButton.disabled = false;
+                  saveButton.textContent = "Save Changes";
+
+                  showAdminToast(
+                    error?.message ||
+                      "Failed to update notification template.",
+                    "error"
+                  );
+                }
+              });
+          });
+        });
+
+      app
+        .querySelectorAll("[data-template-delete]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            const templateId = button.dataset.templateDelete;
+
+            const template = rows.find(
+              (item) => String(item.id) === String(templateId)
+            );
+
+            if (!template) {
+              showAdminToast(
+                "Notification template could not be found.",
+                "error"
+              );
+              return;
+            }
+
+            const confirmed = window.confirm(
+              `Delete notification template "${template.name}"?`
+            );
+
+            if (!confirmed) {
+              return;
+            }
+
+            try {
+              button.disabled = true;
+              button.textContent = "Deleting...";
+
+              await deleteNotificationTemplate(
+                template.id
+              );
+
+              showAdminToast(
+                "Notification template deleted."
+              );
+
+              await renderTemplates();
+
+            } catch (error) {
+              console.error(
+                "Notification template deletion failed:",
+                error
+              );
+
+              button.disabled = false;
+              button.textContent = "Delete";
+
+              showAdminToast(
+                error?.message ||
+                  "Failed to delete notification template.",
+                "error"
+              );
+            }
+          });
+        });
+
+      app
+        .querySelectorAll("[data-template-test]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await sendNotificationTemplateTest(
+                button.dataset.templateTest,
+                {}
+              );
+
+              showAdminToast("Test notification sent.");
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to send test notification.",
+                "error"
+              );
+            }
+          });
+        });
+
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+    async function renderNotifications() {
+      loadingState("Loading notifications...");
+
+      try {
+        const response = await getAdminNotifications({
+          search: notificationState.search,
+          channel: notificationState.channel,
+          audience: notificationState.audience,
+        });
+
+        const rows = getRows(response);
+
+        app.querySelector("#notification-count").textContent = rows.length;
+
+        workspace.innerHTML = `
+          <section class="thp-admin-card">
+
+            <div class="thp-admin-card-header">
+              <div>
+                <h2>Notifications</h2>
+                <p>
+                  Send notifications to users and provider groups and review
+                  notification history.
+                </p>
+              </div>
+
+              ${
+                hasPermission("support", "create")
+                  ? `
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button"
+                      data-notification-create
+                    >
+                      Send Notification
+                    </button>
+                  `
+                  : ""
+              }
+            </div>
+
+            <div
+              style="
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                margin-bottom: 18px;
+                flex-wrap: wrap;
+              "
+            >
+
+              <input
+                type="search"
+                class="thp-admin-search-input"
+                data-notification-search
+                placeholder="Search notifications..."
+                value="${escapeHtml(notificationState.search)}"
+                style="flex: 1; min-width: 240px;"
+              />
+
+              <select
+                class="thp-admin-select"
+                data-notification-channel-filter
+              >
+                <option value="">All Channels</option>
+                <option value="sms" ${
+                  notificationState.channel === "sms" ? "selected" : ""
+                }>SMS</option>
+                <option value="email" ${
+                  notificationState.channel === "email" ? "selected" : ""
+                }>Email</option>
+                <option value="push" ${
+                  notificationState.channel === "push" ? "selected" : ""
+                }>Push</option>
+              </select>
+
+              <select
+                class="thp-admin-select"
+                data-notification-audience-filter
+              >
+                <option value="">All Audiences</option>
+                <option value="individual" ${
+                  notificationState.audience === "individual"
+                    ? "selected"
+                    : ""
+                }>Individual</option>
+                <option value="all_users" ${
+                  notificationState.audience === "all_users"
+                    ? "selected"
+                    : ""
+                }>All Users</option>
+                <option value="provider_group" ${
+                  notificationState.audience === "provider_group"
+                    ? "selected"
+                    : ""
+                }>Provider Group</option>
+              </select>
+
+            </div>
+
+            <div class="thp-admin-table-wrap">
+
+              <table class="thp-admin-table">
+
+                <thead>
+                  <tr>
+                    <th>Audience</th>
+                    <th>Channel</th>
+                    <th>Message</th>
+                    <th>Sender</th>
+                    <th>Time</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+
+                  ${
+                    rows.length
+                      ? rows.map((notification) => `
+                        <tr>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.audience || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.channel || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.message || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.sender_name ||
+                              notification.sender ||
+                              "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.created_at ||
+                              notification.time ||
+                              "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${
+                              hasPermission("support", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-notification-edit="${escapeHtml(
+                                      notification.id
+                                    )}"
+                                  >
+                                    Edit
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("support", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-notification-delete="${escapeHtml(
+                                      notification.id
+                                    )}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </td>
+
+                        </tr>
+                      `).join("")
+                      : `
+                        <tr>
+                          <td colspan="6">
+                            <div class="thp-admin-empty-state">
+                              <strong>No notifications found</strong>
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                  }
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </section>
+        `;
+
+        /* CREATE */
+
+        app
+          .querySelector("[data-notification-create]")
+          ?.addEventListener("click", async () => {
+
+            let users = [];
+            let providerGroups = [
+              "doctors",
+              "hospitals",
+              "clinics",
+              "diagnostic_centres",
+              "pharmacies",
+            ];
+
+            try {
+              const usersResponse = await getAdminUsers();
+              users = getRows(usersResponse);
+            } catch (error) {
+              console.error("Unable to load users:", error);
+            }
+
+            const modal = document.createElement("div");
+
+            modal.className = "thp-admin-modal";
+
+            modal.innerHTML = `
+              <div class="thp-admin-modal-backdrop"></div>
+
+              <section
+                class="thp-admin-modal-card"
+                role="dialog"
+                aria-modal="true"
+              >
+
+                <header class="thp-admin-modal-header">
+
+                  <div>
+                    <p class="thp-admin-eyebrow">
+                      NOTIFICATION
+                    </p>
+
+                    <h2>Send Notification</h2>
+
+                    <p>
+                      Send a notification to users or provider groups.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="thp-admin-modal-close"
+                    data-notification-close
+                  >
+                    ×
+                  </button>
+
+                </header>
+
+                <div style="padding: 24px;">
+
+                  <div class="thp-admin-form-row">
+
+                    <div class="thp-admin-form-group">
+
+                      <label for="notification-audience">
+                        Audience
+                      </label>
+
+                      <select id="notification-audience">
+
+                        <option value="individual">
+                          Individual User
+                        </option>
+
+                        <option value="all_users">
+                          All Users
+                        </option>
+
+                        <option value="provider_group">
+                          Provider Group
+                        </option>
+
+                      </select>
+
+                    </div>
+
+                    <div class="thp-admin-form-group">
+
+                      <label for="notification-channel">
+                        Channel
+                      </label>
+
+                      <select id="notification-channel">
+
+                        <option value="sms">SMS</option>
+                        <option value="email">Email</option>
+                        <option value="push">Push</option>
+
+                      </select>
+
+                    </div>
+
+                  </div>
+
+                  <div
+                    class="thp-admin-form-group"
+                    id="notification-recipient-group"
+                  >
+
+                    <label for="notification-recipient">
+                      Recipient
+                    </label>
+
+                    <select id="notification-recipient">
+
+                      <option value="">
+                        Select user
+                      </option>
+
+                      ${users.map((user) => `
+                        <option value="${escapeHtml(user.id)}">
+                          ${escapeHtml(
+                            user.name ||
+                            user.username ||
+                            user.email ||
+                            `User ${user.id}`
+                          )}
+                        </option>
+                      `).join("")}
+
+                    </select>
+
+                  </div>
+
+                  <div
+                    class="thp-admin-form-group"
+                    id="notification-provider-group"
+                    style="display:none;"
+                  >
+
+                    <label for="notification-provider">
+                      Provider Group
+                    </label>
+
+                    <select id="notification-provider">
+
+                      ${providerGroups.map((group) => `
+                        <option value="${group}">
+                          ${group
+                            .replaceAll("_", " ")
+                            .replace(/\b\w/g, (char) =>
+                              char.toUpperCase()
+                            )}
+                        </option>
+                      `).join("")}
+
+                    </select>
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+
+                    <label for="notification-subject">
+                      Subject
+                    </label>
+
+                    <input
+                      id="notification-subject"
+                      type="text"
+                      placeholder="Notification subject"
+                    />
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+
+                    <label for="notification-message">
+                      Message
+                    </label>
+
+                    <textarea
+                      id="notification-message"
+                      rows="6"
+                      placeholder="Write your notification..."
+                    ></textarea>
+
+                  </div>
+
+                </div>
+
+                <footer class="thp-admin-modal-footer">
+
+                  <button
+                    type="button"
+                    class="thp-admin-secondary-button"
+                    data-notification-close
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-notification-save
+                  >
+                    Send Notification
+                  </button>
+
+                </footer>
+
+              </section>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => modal.remove();
+
+            modal
+              .querySelectorAll("[data-notification-close]")
+              .forEach((button) => {
+                button.addEventListener("click", closeModal);
+              });
+
+            const audienceSelect = modal.querySelector(
+              "#notification-audience"
+            );
+
+            const recipientGroup = modal.querySelector(
+              "#notification-recipient-group"
+            );
+
+            const providerGroup = modal.querySelector(
+              "#notification-provider-group"
+            );
+
+            audienceSelect?.addEventListener("change", () => {
+
+              if (audienceSelect.value === "individual") {
+
+                recipientGroup.style.display = "";
+
+                providerGroup.style.display = "none";
+
+              } else if (
+                audienceSelect.value === "provider_group"
+              ) {
+
+                recipientGroup.style.display = "none";
+
+                providerGroup.style.display = "";
+
+              } else {
+
+                recipientGroup.style.display = "none";
+
+                providerGroup.style.display = "none";
+
+              }
+
+            });
+
+            modal
+              .querySelector("[data-notification-save]")
+              ?.addEventListener("click", async () => {
+
+                const audience =
+                  modal.querySelector(
+                    "#notification-audience"
+                  ).value;
+
+                const channel =
+                  modal.querySelector(
+                    "#notification-channel"
+                  ).value;
+
+                const recipient =
+                  modal.querySelector(
+                    "#notification-recipient"
+                  ).value;
+
+                const provider_group =
+                  modal.querySelector(
+                    "#notification-provider"
+                  ).value;
+
+                const subject =
+                  modal.querySelector(
+                    "#notification-subject"
+                  ).value.trim();
+
+                const message =
+                  modal.querySelector(
+                    "#notification-message"
+                  ).value.trim();
+
+                if (!message) {
+                  alert("Please enter the notification message.");
+                  return;
+                }
+
+                if (
+                  audience === "individual" &&
+                  !recipient
+                ) {
+                  alert("Please select a user.");
+                  return;
+                }
+
+                const saveButton = modal.querySelector(
+                  "[data-notification-save]"
+                );
+
+                try {
+
+                  saveButton.disabled = true;
+                  saveButton.textContent = "Sending...";
+
+                  await createAdminNotification({
+                    audience,
+                    channel,
+                    recipient:
+                      audience === "individual"
+                        ? recipient
+                        : "",
+                    provider_group:
+                      audience === "provider_group"
+                        ? provider_group
+                        : "",
+                    subject,
+                    message,
+                  });
+
+                  closeModal();
+
+                  showAdminToast(
+                    "Notification sent successfully."
+                  );
+
+                  await renderNotifications();
+
+                } catch (error) {
+
+                  console.error(
+                    "Notification creation failed:",
+                    error
+                  );
+
+                  saveButton.disabled = false;
+                  saveButton.textContent =
+                    "Send Notification";
+
+                  showAdminToast(
+                    error?.message ||
+                      "Unable to send notification.",
+                    "error"
+                  );
+
+                }
+
+              });
+
+          });
+
+        /* DELETE */
+
+        app
+          .querySelectorAll("[data-notification-delete]")
+          .forEach((button) => {
+
+            button.addEventListener("click", async () => {
+
+              const notification = rows.find(
+                (item) =>
+                  String(item.id) ===
+                  String(button.dataset.notificationDelete)
+              );
+
+              if (!notification) return;
+
+              if (
+                !window.confirm(
+                  "Delete this notification record?"
+                )
+              ) {
+                return;
+              }
+
+              try {
+
+                await deleteAdminNotification(
+                  notification.id
+                );
+
+                showAdminToast(
+                  "Notification deleted."
+                );
+
+                await renderNotifications();
+
+              } catch (error) {
+
+                showAdminToast(
+                  error?.message ||
+                    "Unable to delete notification.",
+                  "error"
+                );
+
+              }
+
+            });
+
+          });
+
+        /* SEARCH */
+
+        const searchInput = app.querySelector(
+          "[data-notification-search]"
+        );
+
+        searchInput?.addEventListener(
+          "input",
+          (event) => {
+
+            notificationState.search =
+              event.target.value.trim();
+
+            clearTimeout(
+              notificationState.searchTimer
+            );
+
+            notificationState.searchTimer =
+              setTimeout(() => {
+                renderNotifications();
+              }, 300);
+
+          }
+        );
+
+        /* FILTERS */
+
+        app
+          .querySelector(
+            "[data-notification-channel-filter]"
+          )
+          ?.addEventListener("change", (event) => {
+
+            notificationState.channel =
+              event.target.value;
+
+            renderNotifications();
+
+          });
+
+        app
+          .querySelector(
+            "[data-notification-audience-filter]"
+          )
+          ?.addEventListener("change", (event) => {
+
+            notificationState.audience =
+              event.target.value;
+
+            renderNotifications();
+
+          });
+
+      } catch (error) {
+
+        errorState(error?.message);
+
+      }
+    }
+
+  async function renderActiveTab() {
+    if (activeTab === "queries") {
+      await renderQueries();
+      return;
+    }
+
+    if (activeTab === "emergency") {
+      await renderEmergency();
+      return;
+    }
+
+    if (activeTab === "templates") {
+      await renderTemplates();
+      return;
+    }
+
+    if (activeTab === "notifications") {
+      await renderNotifications();
+      return;
+    }
+
+    await renderTickets();
+  }
+
+  renderActiveTab();
 }

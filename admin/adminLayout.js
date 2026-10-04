@@ -1,10 +1,13 @@
 import {
   getAdminSession,
   hasPermission,
+  logoutAdmin,
   logoutAdminRemote,
   updateAdminSessionProfile,
 } from "./adminAuth.js";
+
 import { escapeHtml } from "./adminChart.js";
+
 import {
   adminApi,
   getAdminDashboardOverview,
@@ -23,6 +26,7 @@ const BUILT_MODULES = new Set([
   "promotions",
   "health_records",
   "coupons_offers_marketing",
+  "support",
 ]);
 
 export function isModuleAvailable(key) {
@@ -486,9 +490,10 @@ function setupAdminLayoutEvents(app) {
     { signal: eventController.signal },
   );
 
-  logoutButton?.addEventListener("click", async () => {
+  logoutButton?.addEventListener("click", () => {
     setProfileMenuOpen(false);
-    await logoutAdminRemote();
+    logoutAdmin();
+    void logoutAdminRemote();
     window.location.hash = "#/admin/login";
   });
 
