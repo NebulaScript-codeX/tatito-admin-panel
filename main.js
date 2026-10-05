@@ -16,6 +16,7 @@ import {
   renderAdminAIAssistant,
   renderAdminReports,
   renderAdminUploadedFiles,
+  renderAdminAuditLogs,
 } from "./admin/adminPages.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import { renderAdminHealthRecords } from "./admin/healthRecordsPage.js";
@@ -112,12 +113,17 @@ registerPages({
   "admin/health-records": renderAdminHealthRecords,
   "admin/promotions": renderAdminPromotions,
   "admin/content": renderAdminContent,
+
+  ...adminPlaceholderRoutes,
+
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   "admin/internships": renderAdminInternships,
   "admin/support": renderAdminSupport,
   "admin/ai-assistant": renderAdminAIAssistant,
+  "admin/audit-logs": renderAdminAuditLogs,
   "admin/reports": renderAdminReports,
   "admin/uploaded-files": renderAdminUploadedFiles,
+
 });
 
 window.addEventListener("thp-auth-required", () =>

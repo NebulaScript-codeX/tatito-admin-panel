@@ -3,26 +3,36 @@ from django.db import models
 
 
 class AssistantSettings(models.Model):
+    ASSISTANT_TYPE_CHOICES = [
+        ("tatito_ai", "Tatito AI"),
+        ("aria", "Aria"),
+    ]
+
+    assistant_type = models.CharField(
+        max_length=30,
+        choices=ASSISTANT_TYPE_CHOICES,
+        default="tatito_ai",
+        unique=True,
+    )
+
     assistant_name = models.CharField(
         max_length=150,
         default="Tatito AI Assistant",
     )
+
     is_enabled = models.BooleanField(default=True)
+
     disclaimer_text = models.TextField(
         default=(
             "This AI assistant provides general health information and "
             "is not a substitute for professional medical advice."
         )
     )
-    updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        self.pk = 1
-        super().save(*args, **kwargs)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.assistant_name
-
 
 class SuggestedChip(models.Model):
     text = models.CharField(max_length=150, unique=True)

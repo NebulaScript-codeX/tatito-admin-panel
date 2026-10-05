@@ -56,6 +56,10 @@ INSTALLED_APPS = [
     "health_records",
     "internships",
     "support",
+    "ai_assistant",
+    "reports",
+    "uploaded_files",
+    "system_settings",
 ]
 
 MIDDLEWARE = [
@@ -106,9 +110,9 @@ else:
             "ENGINE": DATABASE_ENGINE,
             "NAME": os.getenv("DJANGO_DB_NAME", "tatito_admin"),
             "USER": os.getenv("DJANGO_DB_USER", "root"),
-            "PASSWORD": os.getenv("DJANGO_DB_PASSWORD", "root"),
+            "PASSWORD": os.getenv("DJANGO_DB_PASSWORD", "Shivam@123"),
             "HOST": os.getenv("DJANGO_DB_HOST", "127.0.0.1"),
-            "PORT": os.getenv("DJANGO_DB_PORT", "3307"),
+            "PORT": os.getenv("DJANGO_DB_PORT", "3306"),
         }
     }
 

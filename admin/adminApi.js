@@ -1340,16 +1340,15 @@ export function closeSupportTicket(id) {
   });
 }
 
-export function reopenSupportTicket(id) {
-  return adminApi(`/support/tickets/${id}/reopen/`, {
-    method: "POST",
-  });
+export function getAIAssistantSettings(assistantType = "") {
+  const query = assistantType
+    ? `?assistant_type=${encodeURIComponent(assistantType)}`
+    : "";
+
+  return adminApi(`/ai-assistant/settings/${query}`);
 }
 
 // AI Assistant
-export function getAIAssistantSettings() {
-  return adminApi("/ai-assistant/settings/");
-}
 
 export function updateAIAssistantSettings(id, data) {
   return adminApi(`/ai-assistant/settings/${id}/`, {
@@ -1602,6 +1601,20 @@ export async function getAdminReports(params = {}) {
   return adminApi(`/reports/${suffix}`);
 }
 
+export async function getAuditLogs(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+
+  return adminApi(`/audit-logs/${suffix}`);
+}
+
 export async function getAdminUploadedDocuments(params = {}) {
   const query = new URLSearchParams();
 
@@ -1677,5 +1690,43 @@ export async function renameAdminMediaFile(mediaId, originalName) {
 export async function deleteAdminMediaFile(mediaId) {
   return adminApi(`/uploaded-files/media/${mediaId}/`, {
     method: "DELETE",
+  });
+}
+
+// Module 18 — Settings & Security
+
+export function getAdminSettings() {
+  return adminApi("/settings/");
+}
+
+export function updateAdminSettings(data) {
+  return adminApi("/settings/", {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function updateSystemNotificationSetting(id, data) {
+  return adminApi(`/settings/notifications/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function updateAddonSetting(id, data) {
+  return adminApi(`/settings/addons/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function exportSettingsBackup() {
+  return adminApi("/settings/backup/export/");
+}
+
+export function importSettingsBackup(data) {
+  return adminApi("/settings/backup/import/", {
+    method: "POST",
+    body: data,
   });
 }

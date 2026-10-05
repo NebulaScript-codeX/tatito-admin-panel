@@ -106,7 +106,6 @@ import {
   replySupportTicket,
   addSupportTicketInternalNote,
   closeSupportTicket,
-  reopenSupportTicket,
 
   getContactQueries,
   createContactQuery,
@@ -147,6 +146,7 @@ import {
   deleteAISafetyRule,
   testAIAssistantQuery,
   getAdminReports,
+  getAuditLogs,
 
   getAdminUploadedDocuments,
   reviewAdminUploadedDocument,
@@ -154,6 +154,14 @@ import {
   uploadAdminMediaFile,
   renameAdminMediaFile,
   deleteAdminMediaFile,
+
+  getAdminSettings,
+  updateAdminSettings,
+  updateSystemNotificationSetting,
+  updateAddonSetting,
+
+  exportSettingsBackup,
+  importSettingsBackup,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -323,6 +331,10 @@ export function renderAdminModulePlaceholder(app, moduleKey) {
     return renderAdminContent(app);
   }
 
+  if (moduleKey === "settings") {
+    return renderAdminSettings(app);
+  }
+
   renderAdminLayout(
     app,
     moduleKey,
@@ -334,6 +346,872 @@ export function renderAdminModulePlaceholder(app, moduleKey) {
     `,
   );
 }
+
+  export async function renderAdminSettings(app) {
+    if (!isAdminAuthenticated()) {
+      window.location.hash = "#/admin/login";
+      return;
+    }
+
+    try {
+      await refreshAdminSession();
+    } catch {
+      window.location.hash = "#/admin/login";
+      return;
+    }
+
+    if (!hasPermission("settings", "view")) {
+      window.location.hash = "#/admin/access-denied";
+      return;
+    }
+
+    const adminSession = getAdminSession();
+    const isSuperAdmin =
+      adminSession?.admin?.role?.toLowerCase() === "super admin";
+
+    let state = {
+      settings: null,
+      notifications: [],
+      addons: [],
+    };
+
+    const render = () => {
+      if (!state.settings) {
+        renderAdminLayout(
+          app,
+          "settings",
+          `
+            <section class="thp-admin-empty-state" role="status">
+              <strong>Loading settings...</strong>
+            </section>
+          `,
+        );
+        return;
+      }
+
+      const settings = state.settings;
+
+      renderAdminLayout(
+        app,
+        "settings",
+        `
+
+          <nav class="thp-settings-tabs" aria-label="Settings sections" role="tablist">
+            <button
+              type="button"
+              class="thp-settings-tab is-active"
+              role="tab"
+              aria-selected="true"
+              data-settings-tab="general"
+            >
+              General &amp; Website
+            </button>
+
+            <button
+              type="button"
+              class="thp-settings-tab"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="localization"
+            >
+              Localization
+            </button>
+
+            <button
+              type="button"
+              class="thp-settings-tab"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="payments"
+            >
+              Payments
+            </button>
+
+            <button
+              type="button"
+              class="thp-settings-tab"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="security"
+            >
+              OTP &amp; Security
+            </button>
+
+            <button
+              type="button"
+              class="thp-settings-tab"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="notifications"
+            >
+              Notifications
+            </button>
+
+            <button
+              type="button"
+              class="thp-settings-tab"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="addons"
+            >
+              Addons
+            </button>
+
+            <button
+              type="button"
+              class="thp-settings-tab"
+              data-settings-tab="backup"
+              role="tab"
+              aria-selected="false"
+            >
+              Backup & Restore
+            </button>
+
+          </nav>
+
+          <div class="thp-admin-grid">
+              <section
+                class="thp-admin-card thp-settings-panel is-active"
+                data-settings-panel="general"
+              >
+                <div class="thp-admin-card-header">
+                  <div>
+                    <h2>General & Website Setup</h2>
+                    <p>Manage the public website identity and communication details.</p>
+                  </div>
+                </div>
+
+                <form id="settings-general-form" class="thp-admin-form">
+                  <label>
+                    <span>Site Name</span>
+                    <input
+                      name="site_name"
+                      value="${escapeHtml(settings.site_name || "")}"
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    <span>Logo URL</span>
+                    <input
+                      name="logo_url"
+                      value="${escapeHtml(settings.logo_url || "")}"
+                      placeholder="https://..."
+                    />
+                  </label>
+
+                  <label>
+                    <span>Favicon URL</span>
+                    <input
+                      name="favicon_url"
+                      value="${escapeHtml(settings.favicon_url || "")}"
+                      placeholder="https://..."
+                    />
+                  </label>
+
+                  <label>
+                    <span>Support Email</span>
+                    <input
+                      type="email"
+                      name="support_email"
+                      value="${escapeHtml(settings.support_email || "")}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Support Phone</span>
+                    <input
+                      name="support_phone"
+                      value="${escapeHtml(settings.support_phone || "")}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Contact Address</span>
+                    <textarea name="contact_address">${escapeHtml(settings.contact_address || "")}</textarea>
+                  </label>
+
+                  <label>
+                    <span>Facebook URL</span>
+                    <input
+                      type="url"
+                      name="social_facebook"
+                      value="${escapeHtml(settings.social_facebook || "")}"
+                      placeholder="https://facebook.com/..."
+                    />
+                  </label>
+
+                  <label>
+                    <span>Instagram URL</span>
+                    <input
+                      type="url"
+                      name="social_instagram"
+                      value="${escapeHtml(settings.social_instagram || "")}"
+                      placeholder="https://instagram.com/..."
+                    />
+                  </label>
+
+                  <label>
+                    <span>Twitter URL</span>
+                    <input
+                      type="url"
+                      name="social_twitter"
+                      value="${escapeHtml(settings.social_twitter || "")}"
+                      placeholder="https://twitter.com/..."
+                    />
+                  </label>
+
+                  <label>
+                    <span>LinkedIn URL</span>
+                    <input
+                      type="url"
+                      name="social_linkedin"
+                      value="${escapeHtml(settings.social_linkedin || "")}"
+                      placeholder="https://linkedin.com/..."
+                    />
+                  </label>
+
+                  <label>
+                    <span>Footer Text</span>
+                    <textarea name="footer_text">${escapeHtml(settings.footer_text || "")}</textarea>
+                  </label>
+
+                  <label class="thp-admin-checkbox">
+                    <input
+                      type="checkbox"
+                      name="announcement_enabled"
+                      ${settings.announcement_enabled ? "checked" : ""}
+                    />
+                    <span>Enable announcement</span>
+                  </label>
+
+                  <label>
+                    <span>Announcement Text</span>
+                    <textarea name="announcement_text">${escapeHtml(settings.announcement_text || "")}</textarea>
+                  </label>
+
+                  <label class="thp-admin-checkbox">
+                    <input
+                      type="checkbox"
+                      name="maintenance_mode"
+                      ${settings.maintenance_mode ? "checked" : ""}
+                    />
+                    <span>Maintenance mode</span>
+                  </label>
+
+                  <button type="submit" class="thp-admin-button thp-admin-button-primary">
+                    Save Website Settings
+                  </button>
+                </form>
+              </section>
+
+              <section
+                class="thp-admin-card thp-settings-panel"
+                data-settings-panel="localization"
+                hidden
+              >
+                <div class="thp-admin-card-header">
+                  <div>
+                    <h2>Localization</h2>
+                    <p>Control currency, date format and timezone.</p>
+                  </div>
+                </div>
+
+                <form id="settings-localization-form" class="thp-admin-form">
+                  <label>
+                    <span>Currency</span>
+                    <input
+                      name="currency"
+                      value="${escapeHtml(settings.currency || "")}"
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    <span>Currency Symbol</span>
+                    <input
+                      name="currency_symbol"
+                      value="${escapeHtml(settings.currency_symbol || "")}"
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    <span>Date Format</span>
+                    <input
+                      name="date_format"
+                      value="${escapeHtml(settings.date_format || "")}"
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    <span>Timezone</span>
+                    <input
+                      name="timezone"
+                      value="${escapeHtml(settings.timezone || "")}"
+                      required
+                    />
+                  </label>
+
+                  <button type="submit" class="thp-admin-button thp-admin-button-primary">
+                    Save Localization
+                  </button>
+                </form>
+              </section>
+
+              <section
+                class="thp-admin-card thp-settings-panel"
+                data-settings-panel="payments"
+                hidden
+              >
+                <div class="thp-admin-card-header">
+                  <div>
+                    <h2>Payments</h2>
+                    <p>Configure platform-wide payment values.</p>
+                  </div>
+                </div>
+
+                <form id="settings-payment-form" class="thp-admin-form">
+                  <label>
+                    <span>Tax Percentage</span>
+                    <input
+                      type="number"
+                      name="tax_percentage"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value="${escapeHtml(settings.tax_percentage ?? 0)}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Doctor Commission Percentage</span>
+                    <input
+                      type="number"
+                      name="doctor_commission_percentage"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value="${escapeHtml(settings.doctor_commission_percentage ?? 0)}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Delivery Fee Rule</span>
+                    <input
+                      name="delivery_fee_rule"
+                      value="${escapeHtml(settings.delivery_fee_rule || "")}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Delivery Fee Amount</span>
+                    <input
+                      type="number"
+                      name="delivery_fee_amount"
+                      min="0"
+                      step="0.01"
+                      value="${escapeHtml(settings.delivery_fee_amount ?? 0)}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Payment Gateway Name</span>
+                    <input
+                      name="payment_gateway_name"
+                      value="${escapeHtml(settings.payment_gateway_name || "")}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Payment Gateway Mode</span>
+                    <select name="payment_gateway_mode">
+                      <option value="test" ${settings.payment_gateway_mode === "test" ? "selected" : ""}>Test</option>
+                      <option value="live" ${settings.payment_gateway_mode === "live" ? "selected" : ""}>Live</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Payment Gateway Public Key</span>
+                    <input
+                      name="payment_gateway_public_key"
+                      value="${escapeHtml(settings.payment_gateway_public_key || "")}"
+                    />
+                  </label>
+
+                  <button type="submit" class="thp-admin-button thp-admin-button-primary">
+                    Save Payment Settings
+                  </button>
+                </form>
+              </section>
+
+              <section
+                class="thp-admin-card thp-settings-panel"
+                data-settings-panel="security"
+                hidden
+              >
+                <div class="thp-admin-card-header">
+                  <div>
+                    <h2>OTP & Security</h2>
+                    <p>Configure OTP behaviour and admin session timeout.</p>
+                  </div>
+                </div>
+
+                <form id="settings-security-form" class="thp-admin-form">
+                  <label class="thp-admin-checkbox">
+                    <input
+                      type="checkbox"
+                      name="otp_enabled"
+                      ${settings.otp_enabled ? "checked" : ""}
+                    />
+                    <span>Enable OTP</span>
+                  </label>
+
+                  <label>
+                    <span>OTP Expiry (minutes)</span>
+                    <input
+                      type="number"
+                      name="otp_expiry_minutes"
+                      min="1"
+                      value="${escapeHtml(settings.otp_expiry_minutes ?? 5)}"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Session Timeout (minutes)</span>
+                    <input
+                      type="number"
+                      name="session_timeout_minutes"
+                      min="1"
+                      value="${escapeHtml(settings.session_timeout_minutes ?? 30)}"
+                    />
+                  </label>
+
+                  <button type="submit" class="thp-admin-button thp-admin-button-primary">
+                    Save Security Settings
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            <section
+              class="thp-admin-card thp-settings-panel"
+              data-settings-panel="notifications"
+              hidden
+            >
+              <div class="thp-admin-card-header">
+                <div>
+                  <h2>System Notifications</h2>
+                  <p>Enable or disable configured system notification events.</p>
+                </div>
+              </div>
+
+              ${
+                state.notifications.length
+                  ? state.notifications
+                      .map(
+                        (item) => `
+                          <div class="thp-admin-list-row">
+                            <div>
+                              <strong>${escapeHtml(item.event_name)}</strong>
+                              <small>${escapeHtml(item.event_key)}</small>
+                            </div>
+                            <label class="thp-admin-checkbox">
+                              <input
+                                type="checkbox"
+                                data-notification-setting="${item.id}"
+                                ${item.enabled ? "checked" : ""}
+                              />
+                              <span>${item.enabled ? "Enabled" : "Disabled"}</span>
+                            </label>
+                          </div>
+                        `,
+                      )
+                      .join("")
+                  : `
+                      <section class="thp-admin-empty-state" role="status">
+                        <strong>No system notification events configured</strong>
+                        <span>No notification event definitions currently exist.</span>
+                      </section>
+                    `
+              }
+            </section>
+
+            <section
+              class="thp-admin-card thp-settings-panel"
+              data-settings-panel="addons"
+              hidden
+            >
+              <div class="thp-admin-card-header">
+                <div>
+                  <h2>Addons</h2>
+                  <p>Enable or disable configured optional platform features.</p>
+                </div>
+              </div>
+
+              ${
+                state.addons.length
+                  ? state.addons
+                      .map(
+                        (item) => `
+                          <div class="thp-admin-list-row">
+                            <div>
+                              <strong>${escapeHtml(item.addon_name)}</strong>
+                              <small>${escapeHtml(item.addon_key)}</small>
+                            </div>
+                            <label class="thp-admin-checkbox">
+                              <input
+                                type="checkbox"
+                                data-addon-setting="${item.id}"
+                                ${item.enabled ? "checked" : ""}
+                              />
+                              <span>${item.enabled ? "Enabled" : "Disabled"}</span>
+                            </label>
+                          </div>
+                        `,
+                      )
+                      .join("")
+                  : `
+                      <section class="thp-admin-empty-state" role="status">
+                        <strong>No addons configured</strong>
+                        <span>No optional addon definitions currently exist.</span>
+                      </section>
+                    `
+              }
+            </section>
+
+            <section
+              class="thp-admin-card thp-settings-panel"
+              data-settings-panel="backup"
+              hidden
+            >
+              <div class="thp-admin-card-header">
+                <div>
+                  <h2>Backup & Restore</h2>
+                  <p>Export and restore platform settings as a JSON backup.</p>
+                </div>
+              </div>
+
+              <div class="thp-admin-list-row">
+                <div>
+                  <strong>Export Settings Backup</strong>
+                  <small>
+                    Download platform settings, notification settings and addon settings as JSON.
+                  </small>
+                </div>
+
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="settings-backup-export"
+                >
+                  Export Backup
+                </button>
+              </div>
+
+              <div class="thp-admin-list-row">
+                <div>
+                  <strong>Restore Settings Backup</strong>
+                  <small>
+                    Restore platform settings from a previously exported JSON backup.
+                  </small>
+                </div>
+
+                <div>
+                  <input
+                    type="file"
+                    id="settings-backup-file"
+                    accept=".json,application/json"
+                    hidden
+                  />
+
+                  <button
+                    type="button"
+                    class="thp-admin-secondary-button"
+                    id="settings-backup-import"
+                  >
+                    Choose Backup
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div
+              id="admin-toast"
+              class="thp-admin-toast"
+              role="status"
+              aria-live="polite"
+            >
+              <span id="admin-toast-message"></span>
+            </div>
+          </div>
+        `,
+      );
+
+      const settingsTabs = app.querySelectorAll("[data-settings-tab]");
+      const settingsPanels = app.querySelectorAll("[data-settings-panel]");
+
+      const savedSettingsTab =
+        sessionStorage.getItem("tatito-settings-tab") || "general";
+
+      const activateSettingsTab = (target) => {
+        settingsTabs.forEach((item) => {
+          const isActive = item.dataset.settingsTab === target;
+
+          item.classList.toggle("is-active", isActive);
+          item.setAttribute("aria-selected", String(isActive));
+        });
+
+        settingsPanels.forEach((panel) => {
+          panel.hidden = panel.dataset.settingsPanel !== target;
+        });
+      };
+
+      settingsTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const target = tab.dataset.settingsTab;
+
+          sessionStorage.setItem("tatito-settings-tab", target);
+          activateSettingsTab(target);
+        });
+      });
+
+      activateSettingsTab(savedSettingsTab);
+
+
+      const saveForm = async (formId, fields) => {
+        const form = app.querySelector(`#${formId}`);
+        if (!form) return;
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          const formData = new FormData(form);
+          const payload = {};
+
+          fields.forEach((field) => {
+            const element = form.elements[field];
+
+            if (element.type === "checkbox") {
+              payload[field] = element.checked;
+            } else {
+              payload[field] = formData.get(field);
+            }
+          });
+
+          try {
+            const activeTab = app.querySelector(
+              ".thp-settings-tab.is-active",
+            )?.dataset.settingsTab;
+
+            const response = await updateAdminSettings(payload);
+            state.settings = response.settings;
+
+            render();
+
+            if (activeTab) {
+              app
+                .querySelector(`[data-settings-tab="${activeTab}"]`)
+                ?.click();
+            }
+
+            showAdminToast("Settings updated successfully.");
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to update settings.",
+              "error",
+            );
+          }
+        });
+      };
+
+      void saveForm("settings-general-form", [
+        "site_name",
+        "logo_url",
+        "favicon_url",
+        "support_email",
+        "support_phone",
+        "contact_address",
+        "social_facebook",
+        "social_instagram",
+        "social_twitter",
+        "social_linkedin",
+        "footer_text",
+        "announcement_enabled",
+        "announcement_text",
+        "maintenance_mode",
+      ]);
+      void saveForm("settings-localization-form", [
+        "currency",
+        "currency_symbol",
+        "date_format",
+        "timezone",
+      ]);
+
+      void saveForm("settings-payment-form", [
+        "tax_percentage",
+        "doctor_commission_percentage",
+        "delivery_fee_rule",
+        "delivery_fee_amount",
+        "payment_gateway_name",
+        "payment_gateway_mode",
+        "payment_gateway_public_key",
+      ]);
+
+            void saveForm("settings-security-form", [
+              "otp_enabled",
+              "otp_expiry_minutes",
+              "session_timeout_minutes",
+            ]);
+
+            app
+              .querySelectorAll("[data-notification-setting]")
+              .forEach((checkbox) => {
+                checkbox.addEventListener("change", async () => {
+                  try {
+                    await updateSystemNotificationSetting(
+                      checkbox.dataset.notificationSetting,
+                      { enabled: checkbox.checked },
+                    );
+
+                    showAdminToast("Notification setting updated.");
+                    void loadSettings();
+                  } catch (error) {
+                    checkbox.checked = !checkbox.checked;
+
+                    showAdminToast(
+                      error?.message ||
+                        "Unable to update notification setting.",
+                      "error",
+                    );
+                  }
+                });
+              });
+
+            app
+              .querySelectorAll("[data-addon-setting]")
+              .forEach((checkbox) => {
+                checkbox.addEventListener("change", async () => {
+                  try {
+                    await updateAddonSetting(
+                      checkbox.dataset.addonSetting,
+                      { enabled: checkbox.checked },
+                    );
+
+                    showAdminToast("Addon setting updated.");
+                    void loadSettings();
+                  } catch (error) {
+                    checkbox.checked = !checkbox.checked;
+
+                    showAdminToast(
+                      error?.message || "Unable to update addon setting.",
+                      "error",
+                    );
+                  }
+                });
+              });
+
+            const backupExportButton = app.querySelector(
+              "#settings-backup-export",
+            );
+
+            backupExportButton?.addEventListener("click", async () => {
+              try {
+                const response = await exportSettingsBackup();
+
+                const blob = new Blob(
+                  [JSON.stringify(response.backup, null, 2)],
+                  { type: "application/json" },
+                );
+
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+
+                link.href = url;
+                link.download = "tatito-settings-backup.json";
+
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+
+                URL.revokeObjectURL(url);
+
+                showAdminToast("Backup exported successfully.");
+              } catch (error) {
+                showAdminToast(
+                  error?.message || "Failed to export backup.",
+                  "error",
+                );
+              }
+            });
+
+            const backupFileInput = app.querySelector(
+              "#settings-backup-file",
+            );
+
+            const backupImportButton = app.querySelector(
+              "#settings-backup-import",
+            );
+
+            backupImportButton?.addEventListener("click", () => {
+              backupFileInput?.click();
+            });
+
+            backupFileInput?.addEventListener("change", async () => {
+              const file = backupFileInput.files?.[0];
+
+              if (!file) return;
+
+              try {
+                const text = await file.text();
+                const backup = JSON.parse(text);
+
+                await importSettingsBackup({ backup });
+
+                showAdminToast("Backup restored successfully.");
+
+                backupFileInput.value = "";
+
+                await loadSettings();
+              } catch (error) {
+                backupFileInput.value = "";
+
+                showAdminToast(
+                  error?.message || "Failed to restore backup.",
+                  "error",
+                );
+              }
+            });
+          };
+
+          const loadSettings = async () => {
+            try {
+              const response = await getAdminSettings();
+
+              state.settings = response.settings;
+              state.notifications = response.notifications || [];
+              state.addons = response.addons || [];
+
+              render();
+            } catch (error) {
+              renderAdminLayout(
+                app,
+                "settings",
+                `
+                  <section class="thp-admin-empty-state" role="alert">
+                    <strong>Unable to load settings</strong>
+                    <span>${escapeHtml(
+                      error?.message || "Please try again.",
+                    )}</span>
+                  </section>
+                `,
+              );
+            }
+          };
+
+          void loadSettings();
+        }
 
 export async function renderAdminContent(app) {
   if (!isAdminAuthenticated()) {
@@ -599,11 +1477,11 @@ export async function renderAdminContent(app) {
                       </td>
 
                       <td>
-                        ${escapeHtml(blog.category_name || "—")}
+                        ${escapeHtml(blog.category_name || "G��")}
                       </td>
 
                       <td>
-                        ${escapeHtml(blog.author_name || "—")}
+                        ${escapeHtml(blog.author_name || "G��")}
                       </td>
 
                       <td>
@@ -613,7 +1491,7 @@ export async function renderAdminContent(app) {
                               (tag) =>
                                 `<span class="thp-content-tag">${escapeHtml(tag)}</span>`,
                             )
-                            .join("") || "—"}
+                            .join("") || "G��"}
                         </div>
                       </td>
 
@@ -680,7 +1558,7 @@ export async function renderAdminContent(app) {
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
           <span style="font-size:13px;opacity:.7;">
-            Showing ${start + 1}–${Math.min(
+            Showing ${start + 1}G��${Math.min(
               start + visibleBlogs.length,
               blogs.length,
             )} of ${blogs.length}
@@ -1048,7 +1926,7 @@ export async function renderAdminContent(app) {
                               (banner) => `
                                 <tr>
                                   <td>
-                                    <strong>${escapeHtml(banner.title || "—")}</strong>
+                                    <strong>${escapeHtml(banner.title || "G��")}</strong>
                                     ${
                                       banner.description
                                         ? `<div class="thp-content-muted">${escapeHtml(
@@ -1062,7 +1940,7 @@ export async function renderAdminContent(app) {
                                     ${
                                       banner.link_url
                                         ? `<a href="${escapeHtml(banner.link_url)}" target="_blank" rel="noreferrer">${escapeHtml(banner.link_url)}</a>`
-                                        : "—"
+                                        : "G��"
                                     }
                                   </td>
 
@@ -1103,7 +1981,7 @@ export async function renderAdminContent(app) {
                                             class="thp-admin-button"
                                             data-banner-up="${banner.id}"
                                           >
-                                            ↑
+                                            G��
                                           </button>
 
                                           <button
@@ -1111,7 +1989,7 @@ export async function renderAdminContent(app) {
                                             class="thp-admin-button"
                                             data-banner-down="${banner.id}"
                                           >
-                                            ↓
+                                            G��
                                           </button>
                                         `
                                         : ""
@@ -1193,7 +2071,7 @@ export async function renderAdminContent(app) {
 
                                   <td>
                                     <strong>
-                                      ${escapeHtml(item.title || "—")}
+                                      ${escapeHtml(item.title || "G��")}
                                     </strong>
 
                                     ${
@@ -1332,7 +2210,7 @@ export async function renderAdminContent(app) {
 
                                   <td>
                                     <strong>
-                                      ${escapeHtml(item.title || "—")}
+                                      ${escapeHtml(item.title || "G��")}
                                     </strong>
 
                                     ${
@@ -1472,13 +2350,13 @@ export async function renderAdminContent(app) {
                                   <td>
                                     <strong>
                                       ${escapeHtml(
-                                        faq.question || "—",
+                                        faq.question || "G��",
                                       )}
                                     </strong>
                                   </td>
 
                                   <td>
-                                    ${escapeHtml(faq.answer || "—")}
+                                    ${escapeHtml(faq.answer || "G��")}
                                   </td>
 
                                   <td>
@@ -1627,16 +2505,16 @@ export async function renderAdminContent(app) {
 
                                   <td>
                                     <strong>
-                                      ${escapeHtml(item.name || "—")}
+                                      ${escapeHtml(item.name || "G��")}
                                     </strong>
                                     <div class="thp-content-muted">
-                                      ${escapeHtml(item.section || "—")}
+                                      ${escapeHtml(item.section || "G��")}
                                     </div>
                                   </td>
 
                                   <td>
                                     <em class="thp-content-testimonial-quote">
-                                      ${escapeHtml(item.text || "—")}
+                                      ${escapeHtml(item.text || "G��")}
                                     </em>
                                   </td>
 
@@ -2021,7 +2899,7 @@ export async function renderAdminContent(app) {
             </div>
 
             <button type="button" class="thp-admin-button" id="taxonomy-close">
-              ×
+              +�
             </button>
           </div>
 
@@ -2156,7 +3034,7 @@ export async function renderAdminContent(app) {
           </div>
 
           <button type="button" class="thp-admin-button" id="content-form-close">
-            ×
+            +�
           </button>
         </div>
 
@@ -2327,7 +3205,7 @@ export async function renderAdminContent(app) {
             class="thp-admin-button"
             id="banner-form-close"
           >
-            ×
+            +�
           </button>
         </div>
 
@@ -2514,7 +3392,7 @@ export async function renderAdminContent(app) {
           class="thp-admin-button"
           id="announcement-form-close"
         >
-          ×
+          +�
         </button>
 
       </div>
@@ -2753,7 +3631,7 @@ const openFeaturedServiceForm = (service = null) => {
           class="thp-admin-button"
           id="featured-service-form-close"
         >
-          ×
+          +�
         </button>
 
       </div>
@@ -3011,7 +3889,7 @@ const openFaqForm = (faq = null) => {
           class="thp-admin-button"
           id="faq-form-close"
         >
-          ×
+          +�
         </button>
 
       </div>
@@ -3292,7 +4170,7 @@ const openTestimonialForm = (testimonial = null) => {
           class="thp-admin-button"
           id="testimonial-form-close"
         >
-          ×
+          +�
         </button>
 
       </div>
@@ -3540,7 +4418,7 @@ window.openTrustStatForm = async (stat = null) => {
           class="thp-admin-modal-close"
           data-close-modal
         >
-          ×
+          +�
         </button>
       </div>
 
@@ -3678,7 +4556,7 @@ window.openWebsitePageForm = (page = null) => {
           class="thp-admin-modal-close"
           data-close-modal
         >
-          ×
+          +�
         </button>
       </div>
 
@@ -3842,7 +4720,7 @@ window.openCityForm = (city = null) => {
           class="thp-admin-modal-close"
           data-close-modal
         >
-          ×
+          +�
         </button>
       </div>
 
@@ -17646,6 +18524,7 @@ export function renderAdminAIAssistant(app) {
   );
 
   let activeTab = "settings";
+  let selectedAssistantType = "tatito_ai";
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -17720,7 +18599,9 @@ export function renderAdminAIAssistant(app) {
     loadingState("Loading AI assistant settings...");
 
     try {
-      const response = await getAIAssistantSettings();
+      const response = await getAIAssistantSettings(
+        selectedAssistantType,
+      );
       const settings = response?.data || response;
 
       workspace.innerHTML = `
@@ -17737,6 +18618,28 @@ export function renderAdminAIAssistant(app) {
           </div>
 
           <form id="ai-settings-form">
+
+            <div class="thp-admin-form-group">
+              <label for="ai-assistant-type">
+                Assistant
+              </label>
+
+              <select id="ai-assistant-type">
+                <option
+                  value="tatito_ai"
+                  ${selectedAssistantType === "tatito_ai" ? "selected" : ""}
+                >
+                  Tatito AI
+                </option>
+
+                <option
+                  value="aria"
+                  ${selectedAssistantType === "aria" ? "selected" : ""}
+                >
+                  Aria — Health+ AI
+                </option>
+              </select>
+            </div>
 
             <div class="thp-admin-form-row">
 
@@ -17861,6 +18764,13 @@ export function renderAdminAIAssistant(app) {
               button.textContent = "Save Settings";
             }
           }
+        });
+
+      workspace
+        .querySelector("#ai-assistant-type")
+        ?.addEventListener("change", async (event) => {
+          selectedAssistantType = event.target.value;
+          await renderSettings();
         });
     } catch (error) {
       errorState(error?.message);
@@ -20515,4 +21425,458 @@ export async function renderAdminUploadedFiles(app) {
   bindWorkspaceEvents();
 
   await loadDocuments();
+}
+
+export async function renderAdminAuditLogs(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("audit_logs", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  if (!window.location.hash.startsWith("#/admin/audit-logs")) {
+    return;
+  }
+
+  const state = {
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    rows: [],
+    loading: false,
+    error: "",
+  };
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-audit-logs-page">
+      <div class="thp-admin-panel">
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Audit Logs</h3>
+            <p>
+              Review administrator actions and configuration changes across
+              the platform.
+            </p>
+          </div>
+        </div>
+
+        <div class="thp-admin-reports-filters">
+          <label>
+            <span>Search</span>
+            <input
+              id="audit-search-filter"
+              type="search"
+              placeholder="Search audit logs"
+            />
+          </label>
+
+          <label>
+            <span>Admin</span>
+            <input
+              id="audit-admin-filter"
+              type="text"
+              placeholder="Search admin"
+            />
+          </label>
+
+          <label>
+            <span>Module</span>
+            <input
+              id="audit-module-filter"
+              type="text"
+              placeholder="e.g. settings"
+            />
+          </label>
+
+          <label>
+            <span>Action</span>
+            <input
+              id="audit-action-filter"
+              type="text"
+              placeholder="e.g. update"
+            />
+          </label>
+
+          <label>
+            <span>From</span>
+            <input id="audit-from-filter" type="date" />
+          </label>
+
+          <label>
+            <span>To</span>
+            <input id="audit-to-filter" type="date" />
+          </label>
+
+          <div class="thp-admin-reports-actions">
+            <button
+              type="button"
+              class="thp-admin-primary-button"
+              id="audit-load-btn"
+            >
+              Apply Filters
+            </button>
+
+            <button
+              type="button"
+              class="thp-admin-secondary-button"
+              id="audit-export-btn"
+            >
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div id="audit-logs-content">
+          <section class="thp-admin-empty-state">
+            <strong>Loading audit logs...</strong>
+          </section>
+        </div>
+
+        <div
+          id="audit-pagination"
+          class="thp-admin-pagination"
+        ></div>
+      </div>
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "audit_logs",
+    content,
+    {
+      subtitle:
+        "Track administrator actions, configuration changes and system activity.",
+    },
+  );
+
+  const searchFilter = app.querySelector("#audit-search-filter");
+  const adminFilter = app.querySelector("#audit-admin-filter");
+  const moduleFilter = app.querySelector("#audit-module-filter");
+  const actionFilter = app.querySelector("#audit-action-filter");
+  const fromFilter = app.querySelector("#audit-from-filter");
+  const toFilter = app.querySelector("#audit-to-filter");
+  const loadButton = app.querySelector("#audit-load-btn");
+  const exportButton = app.querySelector("#audit-export-btn");
+  const contentArea = app.querySelector("#audit-logs-content");
+  const paginationArea = app.querySelector("#audit-pagination");
+
+  const escapeHtml = (value = "") =>
+    String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const formatDateTime = (value) => {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleString();
+  };
+
+  const renderPagination = () => {
+    if (!paginationArea) return;
+
+    const totalPages = Math.max(
+      Math.ceil(state.total / state.pageSize),
+      1,
+    );
+
+    if (!state.total) {
+      paginationArea.innerHTML = "";
+      return;
+    }
+
+    paginationArea.innerHTML = `
+      <div class="thp-admin-pagination-inner">
+        <span>
+          Page ${state.page} of ${totalPages}
+          · ${state.total} total entries
+        </span>
+
+        <div class="thp-admin-pagination-actions">
+          <button
+            type="button"
+            class="thp-admin-secondary-button"
+            id="audit-prev-page"
+            ${state.page <= 1 ? "disabled" : ""}
+          >
+            Previous
+          </button>
+
+          <button
+            type="button"
+            class="thp-admin-secondary-button"
+            id="audit-next-page"
+            ${state.page >= totalPages ? "disabled" : ""}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    `;
+
+    const previousButton =
+      paginationArea.querySelector("#audit-prev-page");
+
+    const nextButton =
+      paginationArea.querySelector("#audit-next-page");
+
+    previousButton?.addEventListener("click", async () => {
+      if (state.page <= 1) return;
+
+      state.page -= 1;
+      await loadAuditLogs();
+    });
+
+    nextButton?.addEventListener("click", async () => {
+      if (state.page >= totalPages) return;
+
+      state.page += 1;
+      await loadAuditLogs();
+    });
+  };
+
+  const renderRows = () => {
+    if (!state.rows.length) {
+      contentArea.innerHTML = `
+        <section class="thp-admin-empty-state">
+          <strong>No audit logs found</strong>
+          <span>
+            Try changing the filters or date range.
+          </span>
+        </section>
+      `;
+
+      renderPagination();
+      return;
+    }
+
+    contentArea.innerHTML = `
+      <div class="thp-admin-table-wrapper">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Admin</th>
+              <th>Action</th>
+              <th>Module</th>
+              <th>Target</th>
+              <th>Description</th>
+              <th>IP Address</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${state.rows
+              .map(
+                (row) => `
+                  <tr>
+                    <td>${escapeHtml(
+                      formatDateTime(row.created_at),
+                    )}</td>
+
+                    <td>
+                      <strong>
+                        ${escapeHtml(row.actor || "system")}
+                      </strong>
+
+                      ${
+                        row.role
+                          ? `
+                            <div class="thp-admin-table-muted">
+                              ${escapeHtml(row.role)}
+                            </div>
+                          `
+                          : ""
+                      }
+                    </td>
+
+                    <td>
+                      ${escapeHtml(row.action || "—")}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(row.module || "—")}
+                    </td>
+
+                    <td>
+                      ${
+                        row.target_type || row.target_id
+                          ? `
+                            ${escapeHtml(
+                              row.target_type || "Target",
+                            )}
+                            ${
+                              row.target_id
+                                ? ` #${escapeHtml(row.target_id)}`
+                                : ""
+                            }
+                          `
+                          : "—"
+                      }
+                    </td>
+
+                    <td>
+                      ${escapeHtml(row.description || "—")}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(row.ip_address || "—")}
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    renderPagination();
+  };
+
+  const loadAuditLogs = async () => {
+    state.loading = true;
+
+    contentArea.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Loading audit logs...</strong>
+      </section>
+    `;
+
+    try {
+      const response = await getAuditLogs({
+        search: searchFilter.value.trim(),
+        actor: adminFilter.value.trim(),
+        module: moduleFilter.value.trim(),
+        action: actionFilter.value.trim(),
+        from: fromFilter.value,
+        to: toFilter.value,
+        page: state.page,
+        page_size: state.pageSize,
+      });
+
+      state.rows = Array.isArray(response?.results)
+        ? response.results
+        : [];
+
+      state.total = Number(response?.total || 0);
+
+      renderRows();
+    } catch (error) {
+      console.error("Audit logs load failed:", error);
+
+      state.rows = [];
+      state.total = 0;
+
+      contentArea.innerHTML = `
+        <section class="thp-admin-empty-state">
+          <strong>Unable to load audit logs</strong>
+          <span>
+            ${escapeHtml(
+              error?.message || "Please try again.",
+            )}
+          </span>
+        </section>
+      `;
+
+      renderPagination();
+    } finally {
+      state.loading = false;
+    }
+  };
+
+  const exportAuditLogs = async () => {
+    try {
+      const response = await getAuditLogs({
+        search: searchFilter.value.trim(),
+        actor: adminFilter.value.trim(),
+        module: moduleFilter.value.trim(),
+        action: actionFilter.value.trim(),
+        from: fromFilter.value,
+        to: toFilter.value,
+        page: 1,
+        page_size: 100,
+      });
+
+      const rows = Array.isArray(response?.results)
+        ? response.results
+        : [];
+
+      if (!rows.length) {
+        return;
+      }
+
+      const columns = [
+        "created_at",
+        "actor",
+        "role",
+        "action",
+        "module",
+        "target_type",
+        "target_id",
+        "description",
+        "ip_address",
+      ];
+
+      const csv = [
+        columns.join(","),
+        ...rows.map((row) =>
+          columns
+            .map((column) => {
+              const value = row[column] ?? "";
+
+              return `"${String(value).replaceAll('"', '""')}"`;
+            })
+            .join(","),
+        ),
+      ].join("\n");
+
+      const blob = new Blob([csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `audit-logs-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Audit logs export failed:", error);
+    }
+  };
+
+  loadButton?.addEventListener("click", async () => {
+    state.page = 1;
+    await loadAuditLogs();
+  });
+
+  exportButton?.addEventListener("click", exportAuditLogs);
+
+  await loadAuditLogs();
 }

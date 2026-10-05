@@ -104,6 +104,8 @@ urlpatterns = [
     path("api/admin/reports/", include("reports.urls")),
 
     path("api/admin/uploaded-files/", include("uploaded_files.urls")),
+
+    path("api/admin/settings/", include("system_settings.urls")),
 ]
 
 if settings.DEBUG:

@@ -24,6 +24,21 @@ class AuditLogListView(APIView):
         if p.get("actor"):
             qs = qs.filter(actor_username__icontains=p["actor"])
         d_from, d_to = parse_date(p.get("from") or ""), parse_date(p.get("to") or "")
+        if p.get("search"):
+            search = p["search"].strip()
+
+            from django.db.models import Q
+
+            qs = qs.filter(
+                Q(actor_username__icontains=search)
+                | Q(actor_role__icontains=search)
+                | Q(action__icontains=search)
+                | Q(module__icontains=search)
+                | Q(target_type__icontains=search)
+                | Q(target_id__icontains=search)
+                | Q(description__icontains=search)
+                | Q(ip_address__icontains=search)
+            )
         if d_from:
             qs = qs.filter(created_at__date__gte=d_from)
         if d_to:

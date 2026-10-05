@@ -23,18 +23,15 @@ class AssistantSettingsViewSet(viewsets.ModelViewSet):
     serializer_class = AssistantSettingsSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        settings = AssistantSettings.objects.first()
+    def get_queryset(self):
+        queryset = super().get_queryset()
 
-        if not settings:
-            settings = AssistantSettings.objects.create()
+        assistant_type = self.request.query_params.get("assistant_type")
 
-        return settings
+        if assistant_type:
+            queryset = queryset.filter(assistant_type=assistant_type)
 
-    def list(self, request, *args, **kwargs):
-        settings = self.get_object()
-        serializer = self.get_serializer(settings)
-        return Response(serializer.data)
+        return queryset.order_by("id")
 
 
 class SuggestedChipViewSet(viewsets.ModelViewSet):
