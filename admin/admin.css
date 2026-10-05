@@ -7248,3 +7248,178 @@ button.thp-admin-notification-item:hover {
 .thp-admin-secondary-button:hover {
   background: #eef8f5;
 }
+
+/* =========================================================
+   MODULE 17 — UPLOADED FILES & DOCUMENTS
+   ========================================================= */
+
+.thp-admin-uploaded-files-page {
+  width: 100%;
+}
+
+.thp-admin-uploaded-files-page .thp-marketing-tabs {
+  margin-bottom: 20px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card {
+  width: 100%;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card-header h2 {
+  margin: 0 0 6px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card-header p {
+  margin: 0;
+}
+
+/* Filters */
+
+.thp-admin-uploaded-files-page .thp-admin-table-toolbar {
+  margin-bottom: 20px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-search-box input,
+.thp-admin-uploaded-files-page .thp-admin-filter-box select {
+  min-height: 42px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-filter-box select {
+  min-width: 170px;
+}
+
+/* Table */
+
+.thp-admin-uploaded-files-page .thp-admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table th,
+.thp-admin-uploaded-files-page .thp-admin-table td {
+  vertical-align: middle;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table td strong {
+  display: block;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table td small {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* Row actions */
+
+.thp-admin-uploaded-files-page .thp-admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-row-button {
+  white-space: nowrap;
+}
+
+/* Status badges */
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge.pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge.verified {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge.rejected {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+/* Empty/loading states */
+
+.thp-admin-uploaded-files-page .thp-admin-empty-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-loading-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* Modal */
+
+#uploaded-files-modal-root .thp-admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+#uploaded-files-modal-root .thp-admin-modal-card {
+  max-width: 560px;
+  width: calc(100% - 32px);
+}
+
+#uploaded-files-modal-root textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+  .thp-admin-uploaded-files-page .thp-admin-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-table {
+    min-width: 760px;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-table-toolbar {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-search-box,
+  .thp-admin-uploaded-files-page .thp-admin-filter-box {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-filter-box select {
+    width: 100%;
+  }
+}

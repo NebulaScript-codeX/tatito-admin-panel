@@ -1601,3 +1601,81 @@ export async function getAdminReports(params = {}) {
 
   return adminApi(`/reports/${suffix}`);
 }
+
+export async function getAdminUploadedDocuments(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const queryString = query.toString();
+
+  return adminApi(
+    `/uploaded-files/documents/${
+      queryString ? `?${queryString}` : ""
+    }`
+  );
+}
+
+export async function reviewAdminUploadedDocument(
+  documentId,
+  status,
+  rejectionReason = ""
+) {
+  return adminApi(
+    `/uploaded-files/documents/${documentId}/review/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        status,
+        rejection_reason: rejectionReason,
+      }),
+    }
+  );
+}
+
+export async function getAdminMediaFiles(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const queryString = query.toString();
+
+  return adminApi(
+    `/uploaded-files/media/${
+      queryString ? `?${queryString}` : ""
+    }`
+  );
+}
+
+export async function uploadAdminMediaFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return adminApi("/uploaded-files/media/", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function renameAdminMediaFile(mediaId, originalName) {
+  return adminApi(`/uploaded-files/media/${mediaId}/`, {
+    method: "PATCH",
+    body: {
+      original_name: originalName,
+    },
+  });
+}
+
+export async function deleteAdminMediaFile(mediaId) {
+  return adminApi(`/uploaded-files/media/${mediaId}/`, {
+    method: "DELETE",
+  });
+}

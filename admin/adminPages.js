@@ -147,6 +147,13 @@ import {
   deleteAISafetyRule,
   testAIAssistantQuery,
   getAdminReports,
+
+  getAdminUploadedDocuments,
+  reviewAdminUploadedDocument,
+  getAdminMediaFiles,
+  uploadAdminMediaFile,
+  renameAdminMediaFile,
+  deleteAdminMediaFile,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -19272,4 +19279,1240 @@ export async function renderAdminReports(app) {
   loadButton.addEventListener("click", loadReports);
 
   await loadReports();
+}
+
+export async function renderAdminUploadedFiles(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("uploaded_files", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const state = {
+    activeTab: "documents",
+    documents: [],
+    media: [],
+    loading: false,
+    error: "",
+    search: "",
+    owner: "",
+    documentType: "",
+    status: "",
+    mediaSearch: "",
+  };
+
+  renderAdminLayout(
+    app,
+    "uploaded_files",
+    `
+      <section class="thp-admin-module-page thp-admin-uploaded-files-page">
+        <nav
+          class="thp-marketing-tabs"
+          role="tablist"
+          aria-label="Uploaded files sections"
+        >
+          <button
+            type="button"
+            class="thp-marketing-tab is-active"
+            role="tab"
+            aria-selected="true"
+            data-uploaded-files-tab="documents"
+          >
+            Document Verification
+          </button>
+
+          <button
+            type="button"
+            class="thp-marketing-tab"
+            role="tab"
+            aria-selected="false"
+            data-uploaded-files-tab="media"
+          >
+            Media Manager
+          </button>
+        </nav>
+
+        <div id="uploaded-files-workspace"></div>
+      </section>
+
+      <div id="uploaded-files-modal-root"></div>
+
+      <div
+        id="admin-toast"
+        class="thp-admin-toast"
+        role="status"
+        aria-live="polite"
+      >
+        <span id="admin-toast-message"></span>
+      </div>
+    `,
+    {
+      subtitle:
+        "Verify submitted documents and manage platform media files.",
+    },
+  );
+
+  const workspace = app.querySelector("#uploaded-files-workspace");
+  const modalRoot = app.querySelector("#uploaded-files-modal-root");
+
+  function showToast(message, type = "success") {
+    const toast = app.querySelector("#admin-toast");
+    const messageElement = app.querySelector("#admin-toast-message");
+
+    if (!toast || !messageElement) return;
+
+    messageElement.textContent = message;
+    toast.classList.remove("is-visible", "is-error");
+
+    if (type === "error") {
+      toast.classList.add("is-error");
+    }
+
+    toast.classList.add("is-visible");
+
+    window.clearTimeout(showToast.timeout);
+
+    showToast.timeout = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+    }, 3000);
+  }
+
+  function getRows(response) {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.results)) return response.results;
+    return [];
+  }
+
+  function normalizeProviderDocuments(providers) {
+    return providers.flatMap((provider) => {
+      const documents = Array.isArray(provider?.documents)
+        ? provider.documents
+        : [];
+
+      return documents.map((document) => ({
+        id: document.id,
+        source: "provider",
+        sourceId: provider.id,
+        ownerId: provider.id,
+        ownerName:
+          provider.name ||
+          provider.legal_name ||
+          provider.email ||
+          "Healthcare Provider",
+        ownerType:
+          provider.provider_type ||
+          provider.type ||
+          "Provider",
+        documentType:
+          document.kind === "licence"
+            ? "medical_license"
+            : document.kind === "registration_certificate"
+              ? "registration_certificate"
+              : "other",
+        documentTypeLabel:
+          document.kind === "licence"
+            ? "Licence"
+            : document.kind === "registration_certificate"
+              ? "Registration Certificate"
+              : "Other",
+        originalName: document.original_name || "Document",
+        status: document.status || "pending",
+        rejectionReason: document.rejection_reason || "",
+        uploadedAt: document.uploaded_at,
+        reviewedAt: document.reviewed_at,
+        raw: document,
+      }));
+    });
+  }
+
+  function normalizeUserDocuments(rows) {
+    return rows.map((document) => ({
+      id: document.id,
+      source: "user",
+      sourceId: document.owner,
+      ownerId: document.owner,
+      ownerName: document.owner_name || "User",
+      ownerType: "User",
+      documentType: document.document_type,
+      documentTypeLabel:
+        document.document_type_label || document.document_type,
+      originalName: document.original_name || "Document",
+      status: document.status || "pending",
+      rejectionReason: document.rejection_reason || "",
+      uploadedAt: document.uploaded_at,
+      reviewedAt: document.reviewed_at,
+      fileUrl: document.file_url || "",
+      raw: document,
+    }));
+  }
+
+  async function loadDocuments() {
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+        <div class="thp-admin-loading-state">
+          Loading documents...
+        </div>
+      </section>
+    `;
+
+    try {
+      const [userResponse, providerResponse] = await Promise.all([
+        getAdminUploadedDocuments(),
+        getHealthcareProviders({}),
+      ]);
+
+      const userDocuments = normalizeUserDocuments(
+        getRows(userResponse),
+      );
+
+      const providers = getRows(providerResponse);
+
+      const providerDetails = await Promise.all(
+        providers.map(async (provider) => {
+          try {
+            return await getHealthcareProvider(provider.id);
+          } catch {
+            return provider;
+          }
+        }),
+      );
+
+      const providerDocuments =
+        normalizeProviderDocuments(providerDetails);
+
+      state.documents = [
+        ...userDocuments,
+        ...providerDocuments,
+      ];
+
+      renderDocuments();
+    } catch (error) {
+      console.error("Unable to load Module 17 documents:", error);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+          <div class="thp-admin-empty-state">
+            <div class="thp-admin-empty-icon">!</div>
+            <strong>Unable to load documents</strong>
+            <span>${escapeHtml(error.message || "Please try again.")}</span>
+            <button
+              type="button"
+              class="thp-admin-secondary-button"
+              data-uploaded-files-retry
+            >
+              Try Again
+            </button>
+          </div>
+        </section>
+      `;
+
+      workspace
+        .querySelector("[data-uploaded-files-retry]")
+        ?.addEventListener("click", loadDocuments);
+    }
+  }
+
+  function filteredDocuments() {
+    const search = state.search.trim().toLowerCase();
+
+    return state.documents.filter((document) => {
+      const matchesSearch =
+        !search ||
+        String(document.ownerName || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(document.originalName || "")
+          .toLowerCase()
+          .includes(search);
+
+      const matchesOwner =
+        !state.owner ||
+        String(document.ownerId) === String(state.owner);
+
+      const matchesType =
+        !state.documentType ||
+        document.documentType === state.documentType;
+
+      const matchesStatus =
+        !state.status ||
+        document.status === state.status;
+
+      return (
+        matchesSearch &&
+        matchesOwner &&
+        matchesType &&
+        matchesStatus
+      );
+    });
+  }
+
+  function renderDocuments() {
+    const rows = filteredDocuments();
+
+    const owners = Array.from(
+      new Map(
+        state.documents.map((document) => [
+          String(document.ownerId),
+          document,
+        ]),
+      ).values(),
+    );
+
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+
+        <div class="thp-admin-card-header">
+          <div>
+            <h2>Document Verification</h2>
+            <p>
+              Review medical licences, ID proofs, certificates and
+              registration documents.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="thp-admin-table-toolbar"
+          style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;"
+        >
+          <div class="thp-admin-search-box" style="flex:1;min-width:240px;">
+            <input
+              type="search"
+              class="thp-admin-search"
+              data-document-search
+              placeholder="Search owner or document..."
+              value="${escapeHtml(state.search)}"
+            />
+          </div>
+
+          <div class="thp-admin-filter-box">
+            <select
+              class="thp-admin-select"
+              data-document-owner
+            >
+              <option value="">All Owners</option>
+              ${owners
+                .map(
+                  (owner) => `
+                    <option
+                      value="${escapeHtml(String(owner.ownerId))}"
+                      ${
+                        String(state.owner) ===
+                        String(owner.ownerId)
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${escapeHtml(owner.ownerName)}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </div>
+
+          <div class="thp-admin-filter-box">
+            <select
+              class="thp-admin-select"
+              data-document-type
+            >
+              <option value="">All Document Types</option>
+              <option
+                value="medical_license"
+                ${state.documentType === "medical_license" ? "selected" : ""}
+              >
+                Medical Licence
+              </option>
+              <option
+                value="id_proof"
+                ${state.documentType === "id_proof" ? "selected" : ""}
+              >
+                ID Proof
+              </option>
+              <option
+                value="degree_certificate"
+                ${state.documentType === "degree_certificate" ? "selected" : ""}
+              >
+                Degree Certificate
+              </option>
+              <option
+                value="registration_certificate"
+                ${state.documentType === "registration_certificate" ? "selected" : ""}
+              >
+                Registration Certificate
+              </option>
+              <option
+                value="pharmacy_license"
+                ${state.documentType === "pharmacy_license" ? "selected" : ""}
+              >
+                Pharmacy Licence
+              </option>
+              <option
+                value="other"
+                ${state.documentType === "other" ? "selected" : ""}
+              >
+                Other
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-filter-box">
+            <select
+              class="thp-admin-select"
+              data-document-status
+            >
+              <option value="">All Status</option>
+              <option
+                value="pending"
+                ${state.status === "pending" ? "selected" : ""}
+              >
+                Pending
+              </option>
+              <option
+                value="verified"
+                ${state.status === "verified" ? "selected" : ""}
+              >
+                Verified
+              </option>
+              <option
+                value="rejected"
+                ${state.status === "rejected" ? "selected" : ""}
+              >
+                Rejected
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="thp-admin-table-wrap">
+          <table class="thp-admin-table">
+            <thead>
+              <tr>
+                <th>OWNER</th>
+                <th>DOCUMENT</th>
+                <th>TYPE</th>
+                <th>STATUS</th>
+                <th>UPLOADED</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${
+                rows.length
+                  ? rows
+                      .map(
+                        (document) => `
+                          <tr>
+                            <td>
+                              <strong>
+                                ${escapeHtml(document.ownerName)}
+                              </strong>
+                              <small>
+                                ${escapeHtml(document.ownerType)}
+                              </small>
+                            </td>
+
+                            <td>
+                              ${escapeHtml(document.originalName)}
+                            </td>
+
+                            <td>
+                              ${escapeHtml(
+                                document.documentTypeLabel,
+                              )}
+                            </td>
+
+                            <td>
+                              <span class="thp-admin-status-badge ${escapeHtml(
+                                document.status,
+                              )}">
+                                ${escapeHtml(
+                                  document.status
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                    document.status.slice(1),
+                                )}
+                              </span>
+                            </td>
+
+                            <td>
+                              ${
+                                document.uploadedAt
+                                  ? escapeHtml(
+                                      new Date(
+                                        document.uploadedAt,
+                                      ).toLocaleDateString(),
+                                    )
+                                  : "—"
+                              }
+                            </td>
+
+                            <td>
+                              <div class="thp-admin-row-actions">
+
+                                <button
+                                  type="button"
+                                  class="thp-admin-row-button"
+                                  data-document-preview="${escapeHtml(
+                                    String(document.id),
+                                  )}"
+                                >
+                                  Preview
+                                </button>
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "edit",
+                                  ) &&
+                                  document.status !== "verified"
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button"
+                                        data-document-verify="${escapeHtml(
+                                          String(document.id),
+                                        )}"
+                                      >
+                                        Verify
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "edit",
+                                  ) &&
+                                  document.status !== "rejected"
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button is-danger"
+                                        data-document-reject="${escapeHtml(
+                                          String(document.id),
+                                        )}"
+                                      >
+                                        Reject
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join("")
+                  : `
+                    <tr>
+                      <td colspan="6">
+                        <div class="thp-admin-empty-state">
+                          <div class="thp-admin-empty-icon">✓</div>
+                          <strong>No documents found</strong>
+                          <span>
+                            ${
+                              state.search ||
+                              state.owner ||
+                              state.documentType ||
+                              state.status
+                                ? "Try changing your filters."
+                                : "No uploaded documents are available."
+                            }
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+              }
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+    `;
+
+    workspace
+      .querySelector("[data-document-search]")
+      ?.addEventListener("input", (event) => {
+        state.search = event.target.value;
+        renderDocuments();
+      });
+
+    workspace
+      .querySelector("[data-document-owner]")
+      ?.addEventListener("change", (event) => {
+        state.owner = event.target.value;
+        renderDocuments();
+      });
+
+    workspace
+      .querySelector("[data-document-type]")
+      ?.addEventListener("change", (event) => {
+        state.documentType = event.target.value;
+        renderDocuments();
+      });
+
+    workspace
+      .querySelector("[data-document-status]")
+      ?.addEventListener("change", (event) => {
+        state.status = event.target.value;
+        renderDocuments();
+      });
+  }
+
+  function findDocument(id) {
+    return state.documents.find(
+      (document) => String(document.id) === String(id),
+    );
+  }
+
+  async function previewDocument(document) {
+    try {
+      if (
+        document.source === "provider"
+      ) {
+        const blob =
+          await downloadHealthcareProviderDocument(
+            document.id,
+          );
+
+        const url = URL.createObjectURL(blob);
+
+        window.open(url, "_blank", "noopener,noreferrer");
+
+        window.setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 60000);
+
+        return;
+      }
+
+      if (document.fileUrl) {
+        window.open(
+          document.fileUrl,
+          "_blank",
+          "noopener,noreferrer",
+        );
+        return;
+      }
+
+      throw new Error("Preview is not available for this document.");
+    } catch (error) {
+      showToast(
+        error.message || "Unable to preview document.",
+        "error",
+      );
+    }
+  }
+
+  async function verifyDocument(document) {
+    try {
+      if (document.source === "provider") {
+        await reviewHealthcareProviderDocument(
+          document.sourceId,
+          document.id,
+          {
+            status: "verified",
+          },
+        );
+      } else {
+        await reviewAdminUploadedDocument(
+          document.id,
+          "verified",
+        );
+      }
+
+      showToast("Document verified successfully.");
+      await loadDocuments();
+    } catch (error) {
+      showToast(
+        error.message || "Unable to verify document.",
+        "error",
+      );
+    }
+  }
+
+  function openRejectModal(document) {
+    modalRoot.innerHTML = `
+      <div class="thp-admin-modal">
+        <div
+          class="thp-admin-modal-backdrop"
+          data-reject-close
+        ></div>
+
+        <section
+          class="thp-admin-modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="uploaded-document-reject-title"
+        >
+          <header class="thp-admin-modal-header">
+            <div>
+              <p class="thp-admin-eyebrow">DOCUMENT REVIEW</p>
+              <h2 id="uploaded-document-reject-title">
+                Reject Document
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              class="thp-admin-modal-close"
+              data-reject-close
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </header>
+
+          <form
+            class="thp-admin-staff-form"
+            data-reject-form
+          >
+            <p class="thp-admin-form-note">
+              Rejecting
+              <strong>
+                ${escapeHtml(document.originalName)}
+              </strong>
+              requires a written reason.
+            </p>
+
+            <div class="thp-admin-form-group">
+              <label for="uploaded-document-rejection-reason">
+                Rejection reason <b>*</b>
+              </label>
+
+              <textarea
+                id="uploaded-document-rejection-reason"
+                name="rejection_reason"
+                rows="5"
+                required
+                placeholder="Enter the reason for rejection..."
+              ></textarea>
+            </div>
+
+            <footer class="thp-admin-modal-footer">
+              <button
+                type="button"
+                class="thp-admin-secondary-button"
+                data-reject-close
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                class="thp-admin-primary-button"
+              >
+                Reject Document
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    `;
+
+    modalRoot
+      .querySelectorAll("[data-reject-close]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          modalRoot.innerHTML = "";
+        });
+      });
+
+    modalRoot
+      .querySelector("[data-reject-form]")
+      ?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const form = event.currentTarget;
+        const reason = String(
+          new FormData(form).get("rejection_reason") || "",
+        ).trim();
+
+        if (!reason) {
+          showToast(
+            "Rejection reason is required.",
+            "error",
+          );
+          return;
+        }
+
+        try {
+          if (document.source === "provider") {
+            await reviewHealthcareProviderDocument(
+              document.sourceId,
+              document.id,
+              {
+                status: "rejected",
+                rejection_reason: reason,
+              },
+            );
+          } else {
+            await reviewAdminUploadedDocument(
+              document.id,
+              "rejected",
+              reason,
+            );
+          }
+
+          modalRoot.innerHTML = "";
+          showToast("Document rejected.");
+          await loadDocuments();
+        } catch (error) {
+          showToast(
+            error.message || "Unable to reject document.",
+            "error",
+          );
+        }
+      });
+  }
+
+  async function loadMedia() {
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+        <div class="thp-admin-loading-state">
+          Loading media files...
+        </div>
+      </section>
+    `;
+
+    try {
+      const response = await getAdminMediaFiles();
+      state.media = getRows(response);
+      renderMedia();
+    } catch (error) {
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+          <div class="thp-admin-empty-state">
+            <div class="thp-admin-empty-icon">!</div>
+            <strong>Unable to load media files</strong>
+            <span>${escapeHtml(error.message || "Please try again.")}</span>
+          </div>
+        </section>
+      `;
+    }
+  }
+
+  function renderMedia() {
+    const search = state.mediaSearch.trim().toLowerCase();
+
+    const rows = state.media.filter((media) =>
+      !search
+        ? true
+        : String(media.original_name || "")
+            .toLowerCase()
+            .includes(search),
+    );
+
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+
+        <div class="thp-admin-card-header">
+          <div>
+            <h2>Media Manager</h2>
+            <p>
+              Upload, preview, rename and delete platform media files.
+            </p>
+          </div>
+
+          ${
+            hasPermission("uploaded_files", "create")
+              ? `
+                <div>
+                  <input
+                    type="file"
+                    id="uploaded-media-file"
+                    hidden
+                  />
+
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-media-upload
+                  >
+                    Upload File
+                  </button>
+                </div>
+              `
+              : ""
+          }
+        </div>
+
+        <div class="thp-admin-table-toolbar">
+          <div
+            class="thp-admin-search-box"
+            style="flex:1;min-width:240px;"
+          >
+            <input
+              type="search"
+              class="thp-admin-search"
+              data-media-search
+              placeholder="Search media files..."
+              value="${escapeHtml(state.mediaSearch)}"
+            />
+          </div>
+        </div>
+
+        <div class="thp-admin-table-wrap">
+          <table class="thp-admin-table">
+            <thead>
+              <tr>
+                <th>FILE</th>
+                <th>UPLOADED</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${
+                rows.length
+                  ? rows
+                      .map(
+                        (media) => `
+                          <tr>
+                            <td>
+                              <strong>
+                                ${escapeHtml(
+                                  media.original_name ||
+                                    "Unnamed file",
+                                )}
+                              </strong>
+                            </td>
+
+                            <td>
+                              ${
+                                media.uploaded_at
+                                  ? escapeHtml(
+                                      new Date(
+                                        media.uploaded_at,
+                                      ).toLocaleDateString(),
+                                    )
+                                  : "—"
+                              }
+                            </td>
+
+                            <td>
+                              <div class="thp-admin-row-actions">
+
+                                <button
+                                  type="button"
+                                  class="thp-admin-row-button"
+                                  data-media-preview="${escapeHtml(
+                                    String(media.id),
+                                  )}"
+                                >
+                                  Preview
+                                </button>
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "edit",
+                                  )
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button"
+                                        data-media-rename="${escapeHtml(
+                                          String(media.id),
+                                        )}"
+                                      >
+                                        Rename
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "delete",
+                                  )
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button is-danger"
+                                        data-media-delete="${escapeHtml(
+                                          String(media.id),
+                                        )}"
+                                      >
+                                        Delete
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join("")
+                  : `
+                    <tr>
+                      <td colspan="3">
+                        <div class="thp-admin-empty-state">
+                          <div class="thp-admin-empty-icon">+</div>
+                          <strong>No media files found</strong>
+                          <span>
+                            Upload an image or other media file to get started.
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+              }
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+    `;
+
+    workspace
+      .querySelector("[data-media-search]")
+      ?.addEventListener("input", (event) => {
+        state.mediaSearch = event.target.value;
+        renderMedia();
+      });
+
+    workspace
+      .querySelector("[data-media-upload]")
+      ?.addEventListener("click", () => {
+        workspace
+          .querySelector("#uploaded-media-file")
+          ?.click();
+      });
+
+    workspace
+      .querySelector("#uploaded-media-file")
+      ?.addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) return;
+
+        try {
+          await uploadAdminMediaFile(file);
+          showToast("Media file uploaded successfully.");
+          await loadMedia();
+        } catch (error) {
+          showToast(
+            error.message || "Unable to upload media file.",
+            "error",
+          );
+        } finally {
+          event.target.value = "";
+        }
+      });
+  }
+
+  async function renameMedia(media) {
+    const currentName = media.original_name || "";
+
+    const newName = window.prompt(
+      "Enter the new file name:",
+      currentName,
+    );
+
+    if (newName === null) return;
+
+    const trimmedName = newName.trim();
+
+    if (!trimmedName) {
+      showToast("File name is required.", "error");
+      return;
+    }
+
+    try {
+      await renameAdminMediaFile(
+        media.id,
+        trimmedName,
+      );
+
+      showToast("Media file renamed successfully.");
+      await loadMedia();
+    } catch (error) {
+      showToast(
+        error.message || "Unable to rename media file.",
+        "error",
+      );
+    }
+  }
+
+  async function deleteMedia(media) {
+    const confirmed = window.confirm(
+      `Delete "${media.original_name}" permanently?`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteAdminMediaFile(media.id);
+      showToast("Media file deleted.");
+      await loadMedia();
+    } catch (error) {
+      showToast(
+        error.message || "Unable to delete media file.",
+        "error",
+      );
+    }
+  }
+
+  function previewMedia(media) {
+    if (!media.file_url) {
+      showToast(
+        "Preview is not available for this file.",
+        "error",
+      );
+      return;
+    }
+
+    window.open(
+      media.file_url,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
+  function bindWorkspaceEvents() {
+    workspace.addEventListener("click", async (event) => {
+      const previewDocumentButton =
+        event.target.closest("[data-document-preview]");
+
+      if (previewDocumentButton) {
+        const document = findDocument(
+          previewDocumentButton.dataset.documentPreview,
+        );
+
+        if (document) {
+          await previewDocument(document);
+        }
+
+        return;
+      }
+
+      const verifyButton =
+        event.target.closest("[data-document-verify]");
+
+      if (verifyButton) {
+        const document = findDocument(
+          verifyButton.dataset.documentVerify,
+        );
+
+        if (document) {
+          await verifyDocument(document);
+        }
+
+        return;
+      }
+
+      const rejectButton =
+        event.target.closest("[data-document-reject]");
+
+      if (rejectButton) {
+        const document = findDocument(
+          rejectButton.dataset.documentReject,
+        );
+
+        if (document) {
+          openRejectModal(document);
+        }
+
+        return;
+      }
+
+      const previewMediaButton =
+        event.target.closest("[data-media-preview]");
+
+      if (previewMediaButton) {
+        const media = state.media.find(
+          (item) =>
+            String(item.id) ===
+            String(previewMediaButton.dataset.mediaPreview),
+        );
+
+        if (media) {
+          previewMedia(media);
+        }
+
+        return;
+      }
+
+      const renameButton =
+        event.target.closest("[data-media-rename]");
+
+      if (renameButton) {
+        const media = state.media.find(
+          (item) =>
+            String(item.id) ===
+            String(renameButton.dataset.mediaRename),
+        );
+
+        if (media) {
+          await renameMedia(media);
+        }
+
+        return;
+      }
+
+      const deleteButton =
+        event.target.closest("[data-media-delete]");
+
+      if (deleteButton) {
+        const media = state.media.find(
+          (item) =>
+            String(item.id) ===
+            String(deleteButton.dataset.mediaDelete),
+        );
+
+        if (media) {
+          await deleteMedia(media);
+        }
+      }
+    });
+  }
+
+  app
+    .querySelectorAll("[data-uploaded-files-tab]")
+    .forEach((tab) => {
+      tab.addEventListener("click", async () => {
+        const selectedTab =
+          tab.dataset.uploadedFilesTab;
+
+        state.activeTab = selectedTab;
+
+        app
+          .querySelectorAll("[data-uploaded-files-tab]")
+          .forEach((candidate) => {
+            const active =
+              candidate === tab;
+
+            candidate.classList.toggle(
+              "is-active",
+              active,
+            );
+
+            candidate.setAttribute(
+              "aria-selected",
+              String(active),
+            );
+          });
+
+        if (selectedTab === "documents") {
+          await loadDocuments();
+        } else {
+          await loadMedia();
+        }
+      });
+    });
+
+  bindWorkspaceEvents();
+
+  await loadDocuments();
 }
