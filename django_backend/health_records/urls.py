@@ -4,6 +4,7 @@ from .views import (
     HealthRecordAccessLogView,
     HealthRecordCollectionView,
     HealthRecordCountsView,
+    HealthRecordLabReportFileView,
     HealthRecordItemView,
     HealthRecordPatientDetailView,
     HealthRecordPatientListView,
@@ -21,6 +22,11 @@ urlpatterns = [
         "patients/<uuid:patient_id>/access-log/",
         HealthRecordAccessLogView.as_view(),
         name="health-record-access-log",
+    ),
+    path(
+        "lab-reports/<int:pk>/file/",
+        HealthRecordLabReportFileView.as_view(),
+        name="health-record-lab-report-file",
     ),
     path("<str:resource>/", HealthRecordCollectionView.as_view(), name="health-record-collection"),
     path(

@@ -26,6 +26,7 @@ import {
 } from './auth.js'
 
 import { openAuthModal } from './authPages.js'
+import { formatINR } from './currency.js'
 
 import {
   languages,
@@ -339,14 +340,14 @@ function productCard(p, ctx) {
 
           <div class="product-price">
             <strong>
-              $${p.price.toFixed(2)}
+              ${formatINR(p.price)}
             </strong>
 
             ${
               discount > 0
                 ? `
                   <s>
-                    $${p.mrp.toFixed(2)}
+                    ${formatINR(p.mrp)}
                   </s>
                 `
                 : ''
@@ -540,7 +541,7 @@ function doctorCard(d) {
 
           <div>
             <span class="consultation-fee">
-              $${d.fee}
+              ${formatINR(d.fee)}
             </span>
 
             <small>

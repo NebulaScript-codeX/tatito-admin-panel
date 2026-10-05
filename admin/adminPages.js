@@ -8,6 +8,7 @@ import {
 } from './adminAuth.js'
 
 import { renderAdminLayout } from './adminLayout.js'
+import { formatINR } from '../currency.js'
 import { doctors, getUsers } from '../data.js'
 import {
   getCoupons,
@@ -199,6 +200,7 @@ export function renderAdminLogin(app) {
         ["users", "users"],
         ["staff", "staff"],
         ["providers", "providers"],
+        ["lab_tests", "lab-tests"],
         ["coupons_offers_marketing", "coupons-offers-marketing"],
       ].find(([module]) => session.admin?.permissions?.[module]?.view);
       window.location.hash = accessibleRoute
@@ -5954,7 +5956,7 @@ export async function renderAdminUsers(app) {
 
       if (action === "view") {
         if (row) {
-          if (row.healthcareProviderId) {
+          if (row.healthcareProviderId && hasPermission("providers", "view")) {
             window.location.hash =
               `#/admin/providers?providerId=${encodeURIComponent(row.healthcareProviderId)}&providerAction=view`;
             return;
@@ -5982,6 +5984,10 @@ export async function renderAdminUsers(app) {
 
       if (action === "edit" && row) {
         if (row.healthcareProviderId) {
+          if (
+            !hasPermission("providers", "view")
+            || !hasPermission("providers", "edit")
+          ) return;
           window.location.hash =
             `#/admin/providers?providerId=${encodeURIComponent(row.healthcareProviderId)}&providerAction=edit`;
           return;
@@ -6566,24 +6572,26 @@ function getUserTabRows(state, staticAccounts) {
     });
   });
 
-  const partners = accounts.filter(
-    (user) => user.role.toLowerCase() === "partner",
+  const partnerAccounts = state.apiUsers
+    .map(normalizeUserRecord)
+    .filter((user) => user.role.toLowerCase() === "partner");
+  const partnersFromUsers = partnerAccounts.filter(
+    (user) => !user.healthcareProviderId,
   );
-  (state.apiProviders || []).forEach((provider) => {
-    const providerPartner = normalizeProviderPartner(provider);
-    const duplicateIndex = partners.findIndex((partner) =>
-      samePartnerRecord(partner, providerPartner),
-    );
-    if (duplicateIndex < 0) {
-      partners.push(providerPartner);
-    } else {
-      partners[duplicateIndex] = {
-        ...partners[duplicateIndex],
-        ...providerPartner,
-      };
-    }
-  });
-  return { patients, doctors: doctorRows, partners };
+  const providerPartners = (state.apiProviders || []).map(normalizeProviderPartner);
+  const providerIds = new Set(providerPartners.map((provider) => provider.healthcareProviderId));
+  const partnersFromLinkedUsers = partnerAccounts.filter(
+    (user) => user.healthcareProviderId && !providerIds.has(user.healthcareProviderId),
+  );
+  return {
+    patients,
+    doctors: doctorRows,
+    partners: [
+      ...partnersFromUsers,
+      ...providerPartners,
+      ...partnersFromLinkedUsers,
+    ],
+  };
 }
 
 function normalizeProviderPartner(provider) {
@@ -6615,15 +6623,6 @@ function normalizeProviderPartner(provider) {
   };
 }
 
-function samePartnerRecord(partner, provider) {
-  const partnerEmail = String(partner.email || "").trim().toLowerCase();
-  const providerEmail = String(provider.email || "").trim().toLowerCase();
-  if (partnerEmail && providerEmail) return partnerEmail === providerEmail;
-  const partnerPhone = String(partner.mobile || partner.phone || "").replace(/\D/g, "");
-  const providerPhone = String(provider.mobile || "").replace(/\D/g, "");
-  return Boolean(partnerPhone && providerPhone && partnerPhone === providerPhone);
-}
-
 function mergeUserAccounts(staticAccounts, apiUsers) {
   const records = new Map();
   [...staticAccounts, ...apiUsers.map(normalizeUserRecord)].forEach((user) => {
@@ -6649,6 +6648,8 @@ function normalizeUserRecord(user) {
     role: String(user.role || ""),
     mobile: String(user.mobile || user.phone || ""),
     doctorId: user.doctor_id || user.doctorId || "",
+    healthcareProviderId:
+      user.healthcare_provider_id || user.healthcareProviderId || "",
   };
 }
 
@@ -6883,7 +6884,11 @@ function renderUserActions(tab, row) {
   const available = actionList.filter(([action]) => {
     if (action === "view") return true;
     if (row.healthcareProviderId)
-      return hasPermission("providers", "edit");
+      return (
+        hasPermission("providers", "view")
+        && action === "edit"
+        && hasPermission("providers", "edit")
+      );
     if (action === "delete") return hasPermission("users", "delete");
     return hasPermission("users", "edit");
   });
@@ -6955,18 +6960,12 @@ function patientGenderBlood(row) {
 function formatWallet(value) {
   if (value == null || value === "" || !Number.isFinite(Number(value)))
     return "—";
-  return `$${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatINR(value);
 }
 
 function formatRupees(value) {
   const amount = Number(value);
-  return Number.isFinite(amount)
-    ? amount.toLocaleString("en-IN", {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 0,
-      })
-    : "—";
+  return Number.isFinite(amount) ? formatINR(amount) : "—";
 }
 
 function partnerRole(row) {
@@ -7893,9 +7892,11 @@ export async function renderAdminProviders(app) {
     try {
       const providers = await getHealthcareProviders();
       state.providers = providers.map(normalizeHealthcareProvider);
+      return true;
     } catch (error) {
       state.error = apiErrorMessage(error);
       showAdminToast(state.error);
+      return false;
     } finally {
       state.loading = false;
       render();
@@ -7904,12 +7905,11 @@ export async function renderAdminProviders(app) {
 
   async function updateProviderWorkflow(provider, action, body = {}) {
     try {
-      const result = await runHealthcareProviderAction(provider.id, action, body);
-      const updated = normalizeHealthcareProvider(result);
-      state.providers = state.providers.map((item) => item.id === updated.id ? updated : item);
+      await runHealthcareProviderAction(provider.id, action, body);
       state.modal = null;
-      showAdminToast(action === "approve" ? "Provider approved and activated." : `Provider ${action}d.`);
-      render();
+      if (await loadProviders()) {
+        showAdminToast(action === "approve" ? "Provider approved and activated." : `Provider ${action}d.`);
+      }
     } catch (error) {
       showAdminToast(apiErrorMessage(error));
     }
@@ -7935,9 +7935,8 @@ export async function renderAdminProviders(app) {
     try {
       if (modal.action === "delete") {
         await deleteHealthcareProvider(provider.id);
-        state.providers = state.providers.filter((item) => item.id !== provider.id);
         state.modal = null;
-        showAdminToast("Provider deleted.");
+        if (await loadProviders()) showAdminToast("Provider deleted.");
       } else if (modal.action === "reject") {
         await updateProviderWorkflow(provider, "reject", { reason: String(values.reason || "").trim() });
         return;

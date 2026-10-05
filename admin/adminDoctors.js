@@ -75,7 +75,9 @@ export async function renderAdminDoctors(app) {
   }
 
   const state = {
-    tab: "appointments",
+    tab: new URLSearchParams(window.location.hash.split("?")[1] || "").get("tab") === "refunds"
+      ? "refunds"
+      : "appointments",
     rows: [],
     specialties: [],
     doctors: [],
@@ -86,6 +88,10 @@ export async function renderAdminDoctors(app) {
     date: dateToday(),
     doctorId: "",
     availableSlots: [],
+    availableSlotsLoading: false,
+    availableSlotsError: "",
+    selectedSlotId: "",
+    appointmentSlotsRequest: 0,
     tabCounts: Object.fromEntries(TABS.map(([key]) => [key, { status: "loading", value: null }])),
     loading: true,
     error: "",
@@ -177,8 +183,69 @@ export async function renderAdminDoctors(app) {
     }));
   }
 
+  async function refreshAppointmentSlots() {
+    const requestId = ++state.appointmentSlotsRequest;
+    const doctorId = state.modal?.doctorId;
+    const date = state.modal?.date;
+    state.availableSlots = [];
+    state.selectedSlotId = "";
+    state.availableSlotsError = "";
+    state.availableSlotsLoading = Boolean(doctorId && date);
+    if (!doctorId || !date) {
+      state.availableSlotsError = "Choose a doctor and date";
+      state.availableSlotsLoading = false;
+      render();
+      return;
+    }
+    render();
+    try {
+      const response = await getCareCollection("slots", {
+        doctor_id: doctorId,
+        date,
+      });
+      if (
+        requestId !== state.appointmentSlotsRequest
+        || state.modal?.kind !== "appointment"
+      ) return;
+      state.availableSlots = (response.results || []).filter(
+        (slot) =>
+          slot.status === "available"
+          && slot.id
+          && (!slot.doctor_id || String(slot.doctor_id) === String(doctorId))
+          && (!slot.date || slot.date === date),
+      );
+    } catch (error) {
+      if (
+        requestId !== state.appointmentSlotsRequest
+        || state.modal?.kind !== "appointment"
+      ) return;
+      state.availableSlotsError = "Unable to load slots";
+      toast(error.message || "Unable to load appointment slots.", true);
+    } finally {
+      if (
+        requestId === state.appointmentSlotsRequest
+        && state.modal?.kind === "appointment"
+      ) {
+        state.availableSlotsLoading = false;
+        render();
+      }
+    }
+  }
+
   function field(label, name, value = "", type = "text", required = false, extra = "") {
     return `<label class="thp-admin-form-group"><span>${escape(label)}</span><input name="${escape(name)}" type="${type}" value="${escape(value === "—" ? "" : value)}" ${required ? "required" : ""} ${extra}></label>`;
+  }
+
+  function detailValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    if (Array.isArray(value)) {
+      return value.map((item) => (
+        item && typeof item === "object" ? JSON.stringify(item) : String(item)
+      )).join(", ") || "—";
+    }
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value).replace("T", " ").replace(/Z$/, "");
   }
 
   function renderModal() {
@@ -210,14 +277,19 @@ export async function renderAdminDoctors(app) {
       return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="care-modal-title"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">WEEKLY AVAILABILITY</p><h2 id="care-modal-title">${edit ? "Edit Slot" : "Add Slot"}</h2></div><button type="button" class="thp-admin-modal-close" data-care-close aria-label="Close">×</button></header><form id="care-slot-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group thp-care-form-wide"><span>Search doctor</span><input type="search" data-care-slot-doctor-search placeholder="Type a doctor's name" autocomplete="off"></label><label class="thp-admin-form-group thp-care-form-wide"><span>Doctor</span><select name="doctor_id" required>${state.doctors.map((doc) => `<option value="${escape(doc.id)}" ${doc.id === selectedDoctorId ? "selected" : ""}>${escape(doc.name)}${doc.specialty ? ` · ${escape(doc.specialty)}` : ""}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Date</span><input name="date" type="date" data-care-slot-date value="${escape(row.date || state.date)}" required></label><label class="thp-admin-form-group"><span>Day</span><select name="weekday" data-care-slot-weekday required>${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day, index) => `<option value="${index}" ${index === (row.weekday ?? new Date(`${state.date}T12:00:00`).getDay() + 6) % 7 ? "selected" : ""}>${day}</option>`).join("")}</select></label>${field("Start time", "start_time", row.start_time || "09:00", "time", true)}${field("End time", "end_time", row.end_time || "09:30", "time", true)}<label class="thp-admin-form-group"><span>Slot duration</span><select name="duration_minutes" required>${[10, 15, 20, 30].map((minutes) => `<option value="${minutes}" ${Number(row.duration_minutes || 30) === minutes ? "selected" : ""}>${minutes} minutes</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Status</span><select name="status" required><option value="available" ${row.status !== "blocked" ? "selected" : ""}>Available</option><option value="blocked" ${row.status === "blocked" ? "selected" : ""}>Blocked</option></select></label></div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit">${edit ? "Save Changes" : "Add Slot"}</button></footer></form></section></div>`;
     }
     if (kind === "schedule") {
-      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">WEEKLY AVAILABILITY</p><h2>Set Doctor Schedule</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-schedule-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group thp-care-form-wide"><span>Doctor</span><select name="doctor_id" required>${state.doctors.map((doc) => `<option value="${escape(doc.id)}">${escape(doc.name)}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Weekday</span><select name="weekday">${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day, i) => `<option value="${i}">${day}</option>`).join("")}</select></label>${field("Start time", "start_time", "09:00", "time", true)}${field("End time", "end_time", "17:00", "time", true)}<label class="thp-admin-form-group"><span>Slot duration</span><select name="duration_minutes"><option>15</option><option selected>30</option><option>20</option><option>10</option></select></label><label class="thp-admin-form-group"><span>Working</span><select name="is_working"><option value="true">Yes</option><option value="false">No</option></select></label></div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit">Save Schedule</button></footer></form></section></div>`;
+      const selectedDoctorId = row.doctor_id || state.doctorId;
+      const working = row.is_working !== false;
+      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">WEEKLY AVAILABILITY</p><h2>${edit ? "Edit Doctor Schedule" : "Set Doctor Schedule"}</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-schedule-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group thp-care-form-wide"><span>Doctor</span><select name="doctor_id" required>${state.doctors.map((doc) => `<option value="${escape(doc.id)}" ${doc.id === selectedDoctorId ? "selected" : ""}>${escape(doc.name)}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Weekday</span><select name="weekday">${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((day, i) => `<option value="${i}" ${i === Number(row.weekday) ? "selected" : ""}>${day}</option>`).join("")}</select></label>${field("Start time", "start_time", row.start_time || "09:00", "time", working)}${field("End time", "end_time", row.end_time || "17:00", "time", working)}<label class="thp-admin-form-group"><span>Slot duration</span><select name="duration_minutes">${[15, 30, 20, 10].map((minutes) => `<option value="${minutes}" ${Number(row.duration_minutes || 30) === minutes ? "selected" : ""}>${minutes}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Working</span><select name="is_working" data-care-schedule-working><option value="true" ${working ? "selected" : ""}>Yes</option><option value="false" ${!working ? "selected" : ""}>No</option></select></label></div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit">${edit ? "Save Changes" : "Save Schedule"}</button></footer></form></section></div>`;
     }
     if (kind === "leave") {
       return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">SCHEDULE MANAGEMENT</p><h2>Add Doctor Leave</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-leave-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group thp-care-form-wide"><span>Doctor</span><select name="doctor_id" required>${state.doctors.map((doc) => `<option value="${escape(doc.id)}">${escape(doc.name)}</option>`).join("")}</select></label>${field("Date", "date", state.date, "date", true)}${field("Reason", "reason")}</div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit">Add Leave</button></footer></form></section></div>`;
     }
     if (kind === "appointment") {
       const verifiedDoctors = state.doctors.filter((doctor) => doctor.verification_status === "verified");
-      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">APPOINTMENT BOOKING</p><h2>Book Appointment</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-appointment-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group"><span>Patient</span><select name="patient_id" required>${state.patients.map((patient) => `<option value="${escape(patient.id)}">${escape(patient.name)}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Verified doctor</span><select name="doctor_id" data-care-appointment-doctor required>${verifiedDoctors.map((doctor) => `<option value="${escape(doctor.id)}" ${state.modal.doctorId === doctor.id ? "selected" : ""}>${escape(doctor.name)}</option>`).join("")}</select></label>${field("Date", "date", state.modal.date || state.date, "date", true, "data-care-appointment-date")}<label class="thp-admin-form-group"><span>Available slot</span><select name="slot_id" required>${state.availableSlots.map((slot) => `<option value="${escape(slot.id)}">${escape(slot.start_time)}–${escape(slot.end_time)}</option>`).join("")}</select></label></div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit">Book Appointment</button></footer></form></section></div>`;
+      const slotPlaceholder = state.availableSlotsLoading
+        ? "Loading available slots…"
+        : state.availableSlotsError || "No slots available";
+      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">APPOINTMENT BOOKING</p><h2>Book Appointment</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-appointment-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group"><span>Patient</span><select name="patient_id" required>${state.patients.map((patient) => `<option value="${escape(patient.id)}">${escape(patient.name)}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Verified doctor</span><select name="doctor_id" data-care-appointment-doctor required>${verifiedDoctors.map((doctor) => `<option value="${escape(doctor.id)}" ${state.modal.doctorId === doctor.id ? "selected" : ""}>${escape(doctor.name)}</option>`).join("")}</select></label>${field("Date", "date", state.modal.date || state.date, "date", true, "data-care-appointment-date")}<label class="thp-admin-form-group"><span>Available slot</span><select name="slot_id" required><option value="" disabled ${state.selectedSlotId ? "" : "selected"}>${escape(slotPlaceholder)}</option>${state.availableSlots.map((slot) => `<option value="${escape(slot.id)}" ${state.selectedSlotId === String(slot.id) ? "selected" : ""}>${escape(slot.start_time)}–${escape(slot.end_time)}</option>`).join("")}</select></label></div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit" ${state.availableSlotsLoading || !state.availableSlots.length ? "disabled" : ""}>Book Appointment</button></footer></form></section></div>`;
     }
     if (kind === "instant-consult") {
       return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">INSTANT CONSULT</p><h2>Add to Queue</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-instant-consult-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid"><label class="thp-admin-form-group"><span>Patient</span><select name="patient_id" required>${state.patients.map((patient) => `<option value="${escape(patient.id)}">${escape(patient.name)}</option>`).join("")}</select></label><label class="thp-admin-form-group"><span>Call type</span><select name="consultation_type"><option>Video</option><option>Audio</option></select></label></div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button" type="submit">Add to Queue</button></footer></form></section></div>`;
@@ -237,12 +309,42 @@ export async function renderAdminDoctors(app) {
             : action === "reschedule"
               ? `${field("New date", "date", state.date, "date", true, 'data-care-reschedule-date')}<label class="thp-admin-form-group"><span>Available slot</span><select name="slot_id" required>${state.availableSlots.map((slot) => `<option value="${escape(slot.id)}">${escape(slot.start_time)}–${escape(slot.end_time)}</option>`).join("")}</select></label>`
               : `<p class="thp-care-form-wide">This action cannot be undone. Continue?</p>`;
-      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">CONFIRM ACTION</p><h2>${title}</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-action-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid">${fields}</div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button ${action === "delete" ? "is-danger" : ""}" type="submit">Continue</button></footer></form></section></div>`;
+      return `<div class="thp-admin-modal thp-care-action-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">CONFIRM ACTION</p><h2>${title}</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><form id="care-action-form" class="thp-admin-modal-form"><div class="thp-admin-form-grid">${fields}</div><p class="thp-care-inline-error" role="alert"></p><footer class="thp-admin-modal-footer"><button class="thp-admin-secondary-button" type="button" data-care-close>Cancel</button><button class="thp-admin-primary-button ${action === "delete" ? "is-danger" : ""}" type="submit">Continue</button></footer></form></section></div>`;
     }
     if (kind === "details") {
-      const entries = Object.entries(row).filter(([key]) => !["history", "id", "_id"].includes(key));
+      const hiddenFields = new Set([
+        "history",
+        "id",
+        "_id",
+        "development_key",
+        "is_development_data",
+        "doctor",
+        "doctor_id",
+        "patient",
+        "patient_id",
+        "slot",
+        "slot_id",
+        "appointment_id",
+        "payment_id",
+        "payout_id",
+        "consult_id",
+      ]);
+      const entries = Object.entries(row).filter(([key, value]) =>
+        !hiddenFields.has(key) && value !== null && value !== "",
+      );
+      const wideFields = new Set([
+        "bio",
+        "diagnosis",
+        "description",
+        "details",
+        "instructions",
+        "medicines",
+        "qualifications",
+        "rejection_reason",
+        "suspension_reason",
+      ]);
       const history = Array.isArray(row.history) ? row.history : [];
-      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card" role="dialog" aria-modal="true"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">RECORD DETAILS</p><h2>${escape(row.name || row.patient_name || row.doctor_name || row.patientName || "Details")}</h2></div><button type="button" class="thp-admin-modal-close" data-care-close>×</button></header><div class="thp-admin-modal-form"><dl class="thp-care-detail-grid">${entries.map(([key, value]) => `<div><dt>${escape(key.replace(/_/g, " "))}</dt><dd>${escape(Array.isArray(value) ? value.map((item) => typeof item === "object" ? JSON.stringify(item) : item).join(", ") : value)}</dd></div>`).join("")}</dl>${history.length ? `<h3>Appointment timeline</h3><ol class="thp-care-timeline">${history.map((item) => `<li><strong>${escape(item.action)}</strong><span>${escape(item.actor)} · ${escape(item.created_at)}</span><small>${escape(JSON.stringify(item.details || {}))}</small></li>`).join("")}</ol>` : ""}<footer class="thp-admin-modal-footer"><button class="thp-admin-primary-button" type="button" data-care-close>Close</button></footer></div></section></div>`;
+      return `<div class="thp-admin-modal" data-care-modal><div class="thp-admin-modal-backdrop" data-care-close></div><section class="thp-admin-modal-card thp-care-detail-modal" role="dialog" aria-modal="true" aria-labelledby="care-modal-title"><header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">RECORD DETAILS</p><h2 id="care-modal-title">${escape(row.name || row.patient_name || row.doctor_name || row.patientName || "Details")}</h2></div><button type="button" class="thp-admin-modal-close" data-care-close aria-label="Close">×</button></header><div class="thp-admin-modal-form thp-care-detail-body"><dl class="thp-care-detail-grid">${entries.map(([key, value]) => `<div class="${wideFields.has(key) ? "is-wide" : ""}"><dt>${escape(key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()))}</dt><dd>${escape(detailValue(value))}</dd></div>`).join("")}</dl>${history.length ? `<section class="thp-care-detail-history"><h3>Appointment timeline</h3><ol class="thp-care-timeline">${history.map((item) => `<li><strong>${escape(item.action)}</strong><span>${escape(item.actor)} · ${escape(detailValue(item.created_at))}</span>${item.details && Object.keys(item.details).length ? `<small>${escape(detailValue(item.details))}</small>` : ""}</li>`).join("")}</ol></section>` : ""}<footer class="thp-admin-modal-footer"><button class="thp-admin-primary-button" type="button" data-care-close>Close</button></footer></div></section></div>`;
     }
     return "";
   }
@@ -284,8 +386,8 @@ export async function renderAdminDoctors(app) {
         ).length;
         return `<td><strong>${escape(row.name)}</strong><small>${escape(row.icon)}</small></td><td>${escape(row.description)}</td><td><strong>${activeDoctors} assigned</strong></td><td><span class="thp-care-status ${row.is_active ? "is-approved" : "is-hidden"}">${row.is_active ? "Active" : "Inactive"}</span></td><td>${actions(row, [["view", "View"], ...(hasPermission("doctors", "edit") ? [["edit", "Edit"]] : []), ...(hasPermission("doctors", "delete") ? [["delete", "Delete", true]] : [])])}</td>`;
       }
-      if (tab === "schedules") return `<td>${escape(state.doctors.find((doctor) => doctor.id === row.doctor_id)?.name || row.doctor_id)}</td><td>${escape(row.weekday_name || row.weekday)}</td><td>${escape(row.start_time)}–${escape(row.end_time)}</td><td>${escape(row.duration_minutes)} min</td><td>${row.is_working ? "Working" : "Off"}</td><td>${actions(row, [["delete", "Delete", true]])}</td>`;
-      if (tab === "leaves") return `<td><strong>${escape(state.doctors.find((doctor) => doctor.id === row.doctor_id)?.name || row.doctor_id)}</strong></td><td>${escape(row.date)}</td><td>${escape(row.reason)}</td><td>${actions(row, [["delete", "Remove", true]])}</td>`;
+      if (tab === "schedules") return `<td>${escape(state.doctors.find((doctor) => doctor.id === row.doctor_id)?.name || row.doctor_id)}</td><td>${escape(row.weekday_name || row.weekday)}</td><td>${escape(row.start_time)}–${escape(row.end_time)}</td><td>${escape(row.duration_minutes)} min</td><td>${row.is_working ? "Working" : "Off"}</td><td>${actions(row, [...(hasPermission("doctors", "edit") ? [["edit", "Edit"]] : []), ...(hasPermission("doctors", "delete") ? [["delete", "Delete", true]] : [])])}</td>`;
+      if (tab === "leaves") return `<td><strong>${escape(state.doctors.find((doctor) => doctor.id === row.doctor_id)?.name || row.doctor_id)}</strong></td><td>${escape(row.date)}</td><td>${escape(row.reason)}</td><td>${actions(row, hasPermission("doctors", "delete") ? [["delete", "Remove", true]] : [])}</td>`;
       if (tab === "appointments") {
         const visitType = state.doctors.find((doctor) => doctor.id === row.doctor_id)?.consultation_type;
         const visitLabel = visitType === "Online" ? "Online visit" : visitType === "In-person" ? "In-person visit" : "Consultation";
@@ -313,7 +415,7 @@ export async function renderAdminDoctors(app) {
     return `<div class="thp-care-weekly-grid">${days.map((date) => {
       const weekday = new Date(`${date}T12:00:00`).getDay();
       const slots = state.rows.filter((slot) => slot.date === date);
-      return `<section class="thp-care-day-column"><header><span>${dayNames[weekday]}</span><small>${escape(date)}</small></header>${slots.length ? slots.map((slot) => `<article class="thp-care-slot-card is-${escape(slot.status)}"><div class="thp-care-slot-meta"><span>${escape(slot.start_time)} – ${escape(slot.end_time)}</span><span class="thp-care-status is-${escape(slot.status)}">${slot.status === "booked" ? "Booked (locked)" : escape(slot.status)}</span></div>${slot.status === "booked" ? `<p class="thp-care-slot-patient">Booked by ${escape(slot.patient_name || "Patient")}</p><span class="thp-care-slot-locked">Locked by appointment</span>` : `<p class="thp-care-slot-patient">${escape(doctor?.name || "Doctor availability")}</p>${actions(slot, [[slot.status === "available" ? "block" : "unblock", slot.status === "available" ? "Block slot" : "Make available"], ...(hasPermission("doctors", "edit") ? [["edit", "Edit"]] : []), ...(hasPermission("doctors", "delete") ? [["delete", "Delete", true]] : [])])}`}</article>`).join("") : '<p class="thp-care-day-empty">No slots scheduled</p>'}</section>`;
+    return `<section class="thp-care-day-column"><header><span>${dayNames[weekday]}</span><small>${escape(date)}</small></header>${slots.length ? slots.map((slot) => `<article class="thp-care-slot-card is-${escape(slot.status)}"><div class="thp-care-slot-meta"><span>${escape(slot.start_time)} – ${escape(slot.end_time)}</span><span class="thp-care-status is-${escape(slot.status)}">${slot.status === "booked" ? "Booked (locked)" : escape(slot.status)}</span></div>${slot.status === "booked" ? `<p class="thp-care-slot-patient">Booked by ${escape(slot.patient_name || "Patient")}</p><span class="thp-care-slot-locked">Locked by appointment</span>` : `<p class="thp-care-slot-patient">${escape(doctor?.name || "Doctor availability")}</p>${actions(slot, [...(hasPermission("doctors", "edit") ? [[slot.status === "available" ? "block" : "unblock", slot.status === "available" ? "Block slot" : "Make available"], ["edit", "Edit"]] : []), ...(hasPermission("doctors", "delete") ? [["delete", "Delete", true]] : [])])}`}</article>`).join("") : '<p class="thp-care-day-empty">No slots scheduled</p>'}</section>`;
     }).join("")}</div>`;
   }
 
@@ -363,6 +465,7 @@ export async function renderAdminDoctors(app) {
       "instant-consults": "instant-consult",
     }[state.tab];
     const canEdit = hasPermission("doctors", "edit");
+    const canAddCurrent = state.tab === "schedules" ? canEdit : state.tab === "payouts" ? canEdit : canCreate;
     const parentTab = tabParent(state.tab);
     const showStatusFilter = ["doctors", "reviews", "appointments", "instant-consults", "specialties"].includes(state.tab);
     const filterValues = state.tab === "doctors"
@@ -386,7 +489,7 @@ export async function renderAdminDoctors(app) {
       const countTitle = count?.status === "error" ? `Unable to load ${label.toLowerCase()} count. Use Refresh to retry.` : `${count?.status === "ready" ? count.value : "Loading"} ${label.toLowerCase()}`;
       return `<button type="button" data-care-tab="${key}" class="${parentTab === key ? "is-active" : ""}" aria-current="${parentTab === key ? "page" : "false"}"><span>${label}</span><small title="${escape(countTitle)}" aria-label="${escape(countTitle)}">${escape(countText)}</small></button>`;
     }).join("")}</nav>`;
-    target.innerHTML = `${nav}<section class="thp-care-panel"><header class="thp-care-panel-heading"><div><h2>${escape(heading)}</h2><p>${escape(subtitle)}</p></div><div class="thp-care-heading-actions">${addLabel && (state.tab === "payouts" ? canEdit : canCreate) ? `<button type="button" class="thp-admin-primary-button" data-care-open="${state.tab === "payouts" ? "commission" : addKind}">${escape(addLabel)}</button>` : ""}${["schedules", "leaves"].includes(state.tab) && canCreate ? `<button type="button" class="thp-admin-secondary-button" data-care-open="leave">${state.tab === "leaves" ? "Add Leave" : "Add Leave Date"}</button>` : ""}<button type="button" class="thp-admin-secondary-button" data-care-refresh>Refresh</button></div></header>
+    target.innerHTML = `${nav}<section class="thp-care-panel"><header class="thp-care-panel-heading"><div><h2>${escape(heading)}</h2><p>${escape(subtitle)}</p></div><div class="thp-care-heading-actions">${addLabel && canAddCurrent ? `<button type="button" class="thp-admin-primary-button" data-care-open="${state.tab === "payouts" ? "commission" : addKind}">${escape(addLabel)}</button>` : ""}${["schedules", "leaves"].includes(state.tab) && canCreate ? `<button type="button" class="thp-admin-secondary-button" data-care-open="leave">${state.tab === "leaves" ? "Add Leave" : "Add Leave Date"}</button>` : ""}<button type="button" class="thp-admin-secondary-button" data-care-refresh>Refresh</button></div></header>
       ${renderSubtabs()}
       <div class="thp-care-toolbar">${!["slots", "instant-consults"].includes(state.tab) || state.tab === "instant-consults" ? `<label class="thp-admin-search-box"><input type="search" data-care-search placeholder="${state.tab === "appointments" ? "Search by patient, doctor, or specialty..." : `Search ${escape(heading.toLowerCase())}...`}" value="${escapeHtml(state.search)}"></label>` : '<span class="thp-care-toolbar-hint">Select a doctor and week to review booked, available, and blocked slots.</span>'}${showStatusFilter ? `<label class="thp-admin-filter-box"><select data-care-filter><option value="">${filterLabel}</option>${filterValues.map((item) => `<option value="${item}" ${state.filter === item ? "selected" : ""}>${state.tab === "specialties" ? item === "true" ? "Active" : "Inactive" : item.replace(/_/g, " ")}</option>`).join("")}</select></label>` : ""}${["slots", "payouts"].includes(state.tab) ? `<label class="thp-admin-filter-box"><input type="${state.tab === "slots" ? "date" : "month"}" data-care-date value="${escape(state.tab === "slots" ? state.date : state.date.slice(0, 7))}"></label>` : ""}${state.tab === "slots" ? `<label class="thp-admin-filter-box"><select data-care-doctor aria-label="Select doctor">${state.doctors.map((doc) => `<option value="${escape(doc.id)}" ${state.doctorId === doc.id ? "selected" : ""}>${escape(doc.name)}${doc.specialty ? ` (${escape(doc.specialty)})` : ""}</option>`).join("")}</select></label>` : ""}<button type="button" class="thp-admin-secondary-button" data-care-clear>Clear filters</button></div>
       ${state.error ? `<div class="thp-care-error" role="alert">${escape(state.error)} <button type="button" data-care-retry>Retry</button></div>` : ""}
@@ -418,7 +521,15 @@ export async function renderAdminDoctors(app) {
         ? updateCareRecord("slots", state.modal.row.id, body)
         : createCareRecord("slots", body);
     }
-    if (type === "appointment") return createCareRecord("appointments", body);
+    if (type === "appointment") {
+      const selectedSlot = state.availableSlots.find(
+        (slot) => String(slot.id) === String(body.slot_id),
+      );
+      if (!selectedSlot || selectedSlot.status !== "available") {
+        throw new Error("Choose an available slot before booking.");
+      }
+      return createCareRecord("appointments", body);
+    }
     if (type === "instant-consult") return createCareRecord("instant-consults", body);
     if (type === "commission") {
       const result = await createCareRecord("settings", {
@@ -457,17 +568,8 @@ export async function renderAdminDoctors(app) {
         const doctor = state.doctors.find((item) => item.verification_status === "verified" && item.available);
         state.modal.doctorId = doctor?.id || "";
         state.modal.date = state.date;
-        if (doctor) {
-          try {
-            const response = await getCareCollection("slots", {
-              doctor_id: doctor.id,
-              date: state.modal.date,
-            });
-            state.availableSlots = (response.results || []).filter((slot) => slot.status === "available");
-          } catch (error) {
-            toast(error.message || "Unable to load appointment slots.", true);
-          }
-        }
+        await refreshAppointmentSlots();
+        if (state.modal?.kind !== "appointment") return;
       }
       render();
     } else if (button.matches("[data-care-close]")) {
@@ -485,7 +587,7 @@ export async function renderAdminDoctors(app) {
       const row = state.rows.find((item) => item.id === id);
       try {
         if (action === "edit") {
-          state.modal = { kind: state.tab === "doctors" ? "doctor" : state.tab === "slots" ? "slot" : "specialty", mode: "edit", row, doctorId: row.doctor_id };
+          state.modal = { kind: state.tab === "doctors" ? "doctor" : state.tab === "slots" ? "slot" : state.tab === "schedules" ? "schedule" : "specialty", mode: "edit", row, doctorId: row.doctor_id };
           render();
           return;
         }
@@ -555,6 +657,10 @@ export async function renderAdminDoctors(app) {
       if (weekday && event.target.value) {
         weekday.value = String((new Date(`${event.target.value}T12:00:00`).getDay() + 6) % 7);
       }
+    } else if (event.target.matches("[data-care-schedule-working]")) {
+      const working = event.target.value === "true";
+      app.querySelectorAll('#care-schedule-form input[name="start_time"], #care-schedule-form input[name="end_time"]')
+        .forEach((input) => { input.required = working; });
     } else if (event.target.matches("[data-care-reschedule-date]")) {
       const appointment = state.modal?.row;
       if (!appointment) return;
@@ -565,21 +671,15 @@ export async function renderAdminDoctors(app) {
           render();
         })
         .catch((error) => toast(error.message || "Unable to load appointment slots.", true));
+    } else if (event.target.matches('#care-appointment-form select[name="slot_id"]')) {
+      state.selectedSlotId = event.target.value;
     } else if (event.target.matches("[data-care-appointment-date], [data-care-appointment-doctor]")) {
       const dateInput = app.querySelector("[data-care-appointment-date]");
       const doctorInput = app.querySelector("[data-care-appointment-doctor]");
-      if (!dateInput?.value || !doctorInput?.value) return;
+      if (!dateInput || !doctorInput || state.modal?.kind !== "appointment") return;
       state.modal.date = dateInput.value;
       state.modal.doctorId = doctorInput.value;
-      getCareCollection("slots", {
-        doctor_id: state.modal.doctorId,
-        date: state.modal.date,
-      })
-        .then((response) => {
-          state.availableSlots = (response.results || []).filter((slot) => slot.status === "available");
-          render();
-        })
-        .catch((error) => toast(error.message || "Unable to load appointment slots.", true));
+      refreshAppointmentSlots();
     }
   }, { signal: controller.signal });
   app.addEventListener("submit", async (event) => {

@@ -11,6 +11,9 @@ from rest_framework.views import APIView
 from accounts.permissions import ModulePermission
 
 from .models import PlatformDoctor, PlatformReview, PlatformUser
+from providers.models import HealthcareProvider
+from providers.serializers import HealthcareProviderSerializer
+from providers.services import link_provider_to_partner_user
 
 
 VALID_ROLES = {choice for choice, _ in PlatformUser.Role.choices}
@@ -48,8 +51,9 @@ def _user_active(user):
 
 def _serialize_user(user, doctor=None):
     doctor = doctor or user.doctor
+    provider = user.healthcare_provider if user.role == PlatformUser.Role.PARTNER else None
     location = (doctor.location if doctor else "") or ""
-    return {
+    row = {
         "id": str(user.pk),
         "name": user.name,
         "email": user.email,
@@ -80,6 +84,38 @@ def _serialize_user(user, doctor=None):
         "rejection_reason": user.rejection_reason,
         "suspension_reason": user.suspension_reason,
     }
+    if provider:
+        row.update({
+            "name": provider.name,
+            "email": provider.email,
+            "mobile": provider.phone,
+            "city": provider.city,
+            "status": provider.status,
+            "is_active": provider.status == HealthcareProvider.Status.ACTIVE,
+            "is_blocked": False,
+            "partner_role": provider.get_provider_type_display(),
+            "availability": (
+                "available"
+                if provider.status == HealthcareProvider.Status.ACTIVE
+                else "pending"
+                if provider.status == HealthcareProvider.Status.PENDING
+                else "unavailable"
+            ),
+            "address": provider.address,
+            "provider_type": provider.provider_type,
+            "healthcare_provider_id": str(provider.pk),
+            "verification_status": provider.status,
+            "rejection_reason": provider.rejection_reason,
+            "registration_number": provider.registration_number,
+            "registration_date": (
+                provider.registration_date.isoformat()
+                if provider.registration_date
+                else None
+            ),
+            "type_details": provider.type_details,
+            "updated_at": provider.updated_at.isoformat(),
+        })
+    return row
 
 
 def _serialize_doctor(doctor):
@@ -106,7 +142,9 @@ def _serialize_doctor(doctor):
 
 
 def _user_or_none(pk):
-    return PlatformUser.objects.select_related("doctor").filter(pk=pk).first()
+    return PlatformUser.objects.select_related(
+        "doctor", "healthcare_provider"
+    ).filter(pk=pk).first()
 
 
 def _doctor_values(payload, *, defaults=None):
@@ -149,7 +187,7 @@ class PlatformUserListView(APIView):
     module = "users"
 
     def get(self, request):
-        queryset = PlatformUser.objects.select_related("doctor")
+        queryset = PlatformUser.objects.select_related("doctor", "healthcare_provider")
         role = request.query_params.get("role")
         if role in VALID_ROLES:
             queryset = queryset.filter(role=role)
@@ -257,6 +295,8 @@ class PlatformUserListView(APIView):
                         )
                     user.doctor = doctor
                     user.save(update_fields=["doctor", "updated_at"])
+                elif role == PlatformUser.Role.PARTNER:
+                    link_provider_to_partner_user(user)
         except ValueError as error:
             return _response(str(error))
         except IntegrityError as error:
@@ -284,6 +324,8 @@ class PlatformUserDetailView(APIView):
         user = _user_or_none(pk)
         if user is None:
             return _response("User not found.", status.HTTP_404_NOT_FOUND)
+        if user.healthcare_provider_id:
+            return self._patch_linked_provider(user, payload)
 
         aliases = {
             "date_of_birth": "date_of_birth",
@@ -379,9 +421,115 @@ class PlatformUserDetailView(APIView):
                             setattr(doctor, field, value)
                         doctor.save()
                 locked.save()
-                user = PlatformUser.objects.select_related("doctor").get(pk=locked.pk)
+                if locked.role == PlatformUser.Role.PARTNER:
+                    link_provider_to_partner_user(locked)
+                user = PlatformUser.objects.select_related(
+                    "doctor", "healthcare_provider"
+                ).get(pk=locked.pk)
         except IntegrityError:
             return _response("A user with this email already exists.", status.HTTP_409_CONFLICT)
+        return Response({"success": True, "user": _serialize_user(user)})
+
+    def _patch_linked_provider(self, user, payload):
+        provider = user.healthcare_provider
+        if "role" in payload and payload["role"] != PlatformUser.Role.PARTNER:
+            return _response("A linked provider must remain a partner account.")
+
+        provider_payload = {
+            "name": "name",
+            "email": "email",
+            "mobile": "phone",
+            "phone": "phone",
+            "city": "city",
+            "address": "address",
+            "provider_type": "provider_type",
+            "registration_number": "registration_number",
+            "registration_date": "registration_date",
+            "type_details": "type_details",
+        }
+        values = {
+            target: payload[source]
+            for source, target in provider_payload.items()
+            if source in payload
+        }
+        status_value = payload.get(
+            "status",
+            payload.get("verificationStatus", payload.get("verification_status")),
+        )
+        availability = payload.get("availability")
+        is_active = payload.get("isActive", payload.get("is_active"))
+        if status_value is not None:
+            status_value = str(status_value).strip().lower()
+            status_value = {"verified": "active"}.get(status_value, status_value)
+            if status_value not in HealthcareProvider.Status.values:
+                return _response("Invalid healthcare provider status.")
+        elif availability is not None:
+            if availability not in {"available", "unavailable"}:
+                return _response("Availability must be available or unavailable.")
+            status_value = (
+                HealthcareProvider.Status.ACTIVE
+                if availability == "available"
+                else HealthcareProvider.Status.INACTIVE
+            )
+        elif is_active is not None:
+            if not isinstance(is_active, bool):
+                return _response("isActive must be true or false.")
+            status_value = (
+                HealthcareProvider.Status.ACTIVE
+                if is_active
+                else HealthcareProvider.Status.INACTIVE
+            )
+        if "partnerRole" in payload or "partner_role" in payload:
+            return _response("Change provider type from Healthcare Providers.")
+        if "isBlocked" in payload or "is_blocked" in payload:
+            return _response("Use the healthcare provider status actions.")
+        rejection_reason = str(
+            payload.get("rejectionReason")
+            or payload.get("rejection_reason")
+            or ""
+        ).strip()
+        if status_value == HealthcareProvider.Status.REJECTED:
+            rejection_reason = rejection_reason or provider.rejection_reason
+            if not rejection_reason:
+                return _response("A rejection reason is required.")
+        elif (
+            ("rejectionReason" in payload or "rejection_reason" in payload)
+            and provider.status != HealthcareProvider.Status.REJECTED
+        ):
+            return _response("Only rejected providers can have a rejection reason.")
+
+        serializer = HealthcareProviderSerializer(
+            provider,
+            data=values,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=False)
+        if serializer.errors:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            provider = serializer.save()
+            update_fields = ["updated_at"]
+            if status_value is not None:
+                provider.status = status_value
+                update_fields.append("status")
+            if status_value == HealthcareProvider.Status.REJECTED:
+                provider.rejection_reason = rejection_reason
+                update_fields.append("rejection_reason")
+            elif provider.status == HealthcareProvider.Status.REJECTED and (
+                "rejectionReason" in payload
+                or "rejection_reason" in payload
+            ):
+                provider.rejection_reason = rejection_reason
+                update_fields.append("rejection_reason")
+            elif status_value in {
+                HealthcareProvider.Status.ACTIVE,
+                HealthcareProvider.Status.PENDING,
+            }:
+                provider.rejection_reason = ""
+                update_fields.append("rejection_reason")
+            if status_value is not None:
+                provider.save(update_fields=update_fields)
+        user = _user_or_none(user.pk)
         return Response({"success": True, "user": _serialize_user(user)})
 
     def delete(self, request, pk):
@@ -521,6 +669,33 @@ class PlatformUserStatusView(APIView):
         if action not in states:
             return _response("Unsupported user status action.")
         next_status, is_active, is_blocked = states[action]
+        if user.healthcare_provider_id:
+            provider = user.healthcare_provider
+            provider_status = {
+                "block": HealthcareProvider.Status.INACTIVE,
+                "unblock": HealthcareProvider.Status.ACTIVE,
+                "deactivate": HealthcareProvider.Status.INACTIVE,
+                "reactivate": HealthcareProvider.Status.ACTIVE,
+                "approve": HealthcareProvider.Status.ACTIVE,
+                "reject": HealthcareProvider.Status.REJECTED,
+                "suspend": HealthcareProvider.Status.INACTIVE,
+                "reinstate": HealthcareProvider.Status.ACTIVE,
+            }[action]
+            rejection_reason = (
+                reason
+                if provider_status == HealthcareProvider.Status.REJECTED
+                else ""
+            )
+            provider.status = provider_status
+            provider.rejection_reason = rejection_reason
+            provider.save(
+                update_fields=["status", "rejection_reason", "updated_at"]
+            )
+            return Response({
+                "success": True,
+                "user": _serialize_user(user),
+                "message": f"{action.title()} completed.",
+            })
         user.status = next_status
         user.is_active = is_active
         user.is_blocked = is_blocked
@@ -558,18 +733,18 @@ class PlatformWalletActionView(APIView):
             user = PlatformUser.objects.select_for_update().filter(pk=pk).first()
             if user is None:
                 return _response("User not found.", status.HTTP_404_NOT_FOUND)
-            next_balance = user.wallet_balance + amount if direction == "credit" else user.wallet_balance - amount
-            if next_balance < 0:
-                return _response("Wallet debit exceeds available balance.")
-            entry = {
-                "type": direction,
-                "amount": float(amount),
-                "reason": reason,
-                "createdAt": timezone.now().isoformat(),
-            }
-            user.wallet_balance = next_balance
-            user.wallet_transactions = [*(user.wallet_transactions or []), entry]
-            user.save()
+            from commerce.services import apply_wallet_change
+
+            try:
+                user, entry = apply_wallet_change(
+                    user,
+                    direction,
+                    amount,
+                    reason,
+                    actor=request.user,
+                )
+            except ValueError as exc:
+                return _response(str(exc))
             user = PlatformUser.objects.select_related("doctor").get(pk=user.pk)
         return Response({
             "success": True,

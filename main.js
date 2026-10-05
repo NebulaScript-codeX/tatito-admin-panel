@@ -10,8 +10,12 @@ import {
   renderAdminCouponsOffersMarketing,
   renderAdminModulePlaceholder,
 } from "./admin/adminPages.js";
+import { renderAdminHealthPlans } from "./admin/adminHealthPlans.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import { renderAdminHealthRecords } from "./admin/healthRecordsPage.js";
+import { renderAdminPharmacy } from "./admin/adminPharmacy.js";
+import { renderAdminLabTests } from "./admin/adminLabTests.js";
+import { renderAdminOrdersPayments } from "./admin/adminOrdersPayments.js";
 import {
   navigate,
   registerPages,
@@ -52,10 +56,6 @@ import { initChatbot } from "./chatbot.js";
 
 const adminPlaceholderRoutes = Object.fromEntries(
   [
-    "pharmacy",
-    "lab_tests",
-    "orders_payments",
-    "health_plans",
     "content",
     "internships",
     "support",
@@ -69,7 +69,6 @@ const adminPlaceholderRoutes = Object.fromEntries(
     (app) => renderAdminModulePlaceholder(app, moduleKey),
   ]),
 );
-[];
 registerPages({
   home: renderHome,
   pharmacy: renderPharmacy,
@@ -104,6 +103,10 @@ registerPages({
   "admin/providers": renderAdminProviders,
   "admin/doctors": renderAdminDoctors,
   "admin/health-records": renderAdminHealthRecords,
+  "admin/pharmacy": renderAdminPharmacy,
+  "admin/lab-tests": renderAdminLabTests,
+  "admin/orders-payments": renderAdminOrdersPayments,
+  "admin/health-plans": renderAdminHealthPlans,
   "admin/promotions": renderAdminPromotions,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   ...adminPlaceholderRoutes,

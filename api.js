@@ -1,6 +1,12 @@
 const API_BASE =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) ||
   'http://localhost:5000/api'
+const HEALTH_PLANS_API_BASE =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_HEALTH_PLANS_API_URL) ||
+  'http://127.0.0.1:8000/api/health-plans/'
+export const HEALTH_PLANS_API_URL = HEALTH_PLANS_API_BASE.endsWith('/')
+  ? HEALTH_PLANS_API_BASE
+  : `${HEALTH_PLANS_API_BASE}/`
 
 let cachedToken = null
 
@@ -17,7 +23,8 @@ export async function api(path, { method = 'GET', body, token } = {}) {
   const tkn = token || cachedToken
   if (tkn) headers.Authorization = `Bearer ${tkn}`
   if (body !== undefined) headers['Content-Type'] = 'application/json'
-  const res = await fetch(`${API_BASE}${path}`, {
+  const url = /^https?:\/\//i.test(path) ? path : `${API_BASE}${path}`
+  const res = await fetch(url, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -31,7 +38,7 @@ export async function api(path, { method = 'GET', body, token } = {}) {
   }
   if (!res.ok) {
     const err = new Error(
-      (data && data.error) || `Backend request failed (${res.status})`,
+      (data && (data.error || data.detail)) || `Backend request failed (${res.status})`,
     )
     err.status = res.status
     throw err
@@ -64,5 +71,26 @@ export const getMyDoctorAppointments = (token) =>
   api('/doctors/appointments/me', { token })
 export const getMyDoctorPayments = (token) =>
   api('/doctors/payments/me', { token })
+export const getMyHealthPlanSubscriptions = (token) =>
+  api(`${HEALTH_PLANS_API_URL}my-subscriptions/`, { token })
+export const addMyHealthPlanFamilyMember = (subscriptionId, payload, token) =>
+  api(`${HEALTH_PLANS_API_URL}my-subscriptions/${encodeURIComponent(subscriptionId)}/family/`, {
+    method: 'POST',
+    body: payload,
+    token,
+  })
+export const updateMyHealthPlanFamilyMember = (subscriptionId, memberId, payload, token) =>
+  api(`${HEALTH_PLANS_API_URL}my-subscriptions/${encodeURIComponent(subscriptionId)}/family/${encodeURIComponent(memberId)}/`, {
+    method: 'PATCH',
+    body: payload,
+    token,
+  })
+export const removeMyHealthPlanFamilyMember = (subscriptionId, memberId, token) =>
+  api(`${HEALTH_PLANS_API_URL}my-subscriptions/${encodeURIComponent(subscriptionId)}/family/${encodeURIComponent(memberId)}/`, {
+    method: 'DELETE',
+    token,
+  })
+export const getPublicHealthPlans = (token) =>
+  api(HEALTH_PLANS_API_URL, { token })
 export const createReview = (id, payload, token) =>
   api(`/doctors/${id}/reviews`, { method: 'POST', body: payload, token })

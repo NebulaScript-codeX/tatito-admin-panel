@@ -10,6 +10,9 @@ from rest_framework.test import APIClient
 from accounts.models import AdminProfile, Role, RolePermission
 from audit.models import AuditLog
 from care.models import Appointment, AppointmentSlot, CarePatient, Doctor, Specialty
+from care.services import care_dashboard_stats
+from dashboard.models import PlatformUser
+from dashboard.services import build_overview
 
 from .models import Allergy, LabBooking, PrescriptionUpload, Vaccination, VitalReading
 
@@ -345,7 +348,7 @@ class HealthRecordsApiTests(TestCase):
             6,
         )
 
-    def test_vitals_can_be_added_and_edited_but_not_deleted(self):
+    def test_vitals_can_be_added_edited_and_deleted(self):
         created = self.client.post(
             "/api/admin/health-records/vitals/",
             {
@@ -370,12 +373,83 @@ class HealthRecordsApiTests(TestCase):
         self.assertEqual(edited.status_code, 200, edited.data)
         self.assertEqual(VitalReading.objects.get(pk=record_id).systolic_bp, 124)
         self.assertEqual(
-            self.client.delete(f"/api/admin/health-records/vitals/{record_id}/").status_code,
-            405,
+            self.client.delete(
+                f"/api/admin/health-records/vitals/{record_id}/"
+            ).status_code,
+            204,
         )
 
     @override_settings(DEBUG=True)
     def test_development_data_seed_is_idempotent_and_safe(self):
+        seeded_patient, _ = CarePatient.objects.update_or_create(
+            development_key="dev-care-patient-one",
+            defaults={
+                "external_id": "temporary-seed-link",
+                "name": "Legacy seeded patient",
+                "is_development_data": True,
+            },
+        )
+        appointment_date = timezone.localdate() - timedelta(days=2)
+        slot = AppointmentSlot.objects.create(
+            doctor=self.doctor,
+            date=appointment_date,
+            weekday=appointment_date.weekday(),
+            start_time=time(9),
+            end_time=time(9, 30),
+            duration_minutes=30,
+            status=AppointmentSlot.Status.BOOKED,
+        )
+        completed_appointment = Appointment.objects.create(
+            doctor=self.doctor,
+            patient=seeded_patient,
+            slot=slot,
+            doctor_name=self.doctor.name,
+            patient_name=seeded_patient.name,
+            specialty_name=self.specialty.name,
+            date=appointment_date,
+            start_time=time(9),
+            end_time=time(9, 30),
+            fee=Decimal("500.00"),
+            status=Appointment.Status.COMPLETED,
+        )
+        dashboard_users_before = PlatformUser.objects.count()
+        LabBooking.objects.create(
+            development_key="dev-health-record-completed-cmp",
+            is_development_data=True,
+            patient=self.patient,
+            test_name="Legacy duplicate report",
+            specimen_date=date(2026, 1, 1),
+            status=LabBooking.Status.COMPLETED,
+        )
+        PrescriptionUpload.objects.create(
+            development_key="dev-health-record-approved-rx",
+            is_development_data=True,
+            patient=self.patient,
+            prescription_number="Legacy duplicate prescription",
+            status=PrescriptionUpload.Status.APPROVED,
+        )
+        for key in (
+            "dev-health-record-vaccination-one-flu",
+            "dev-health-record-vaccination-two-tdap",
+            "dev-health-record-vaccination-three-hepb",
+            "dev-health-record-vaccination-four-flu",
+        ):
+            Vaccination.objects.create(
+                development_key=key,
+                is_development_data=True,
+                patient=self.patient,
+                vaccine="Legacy duplicate vaccine",
+                administered_on=date(2026, 1, 1),
+                dose="Dose 1",
+            )
+        pharmacy_prescription = PrescriptionUpload.objects.create(
+            development_key="dev-pharmacy-prescription-pending",
+            is_development_data=True,
+            patient=self.patient,
+            prescription_number="Pharmacy workflow record",
+            status=PrescriptionUpload.Status.PENDING,
+        )
+
         call_command("seed_health_records_development_data", verbosity=0)
         call_command("seed_health_records_development_data", verbosity=0)
         self.assertEqual(
@@ -384,22 +458,78 @@ class HealthRecordsApiTests(TestCase):
         )
         self.assertEqual(
             Vaccination.objects.filter(development_key__startswith="dev-health-record-").count(),
-            4,
+            5,
         )
+        self.assertTrue(PrescriptionUpload.objects.filter(pk=pharmacy_prescription.pk).exists())
         self.assertEqual(
             CarePatient.objects.filter(development_key__startswith="dev-care-patient-").count(),
-            4,
+            5,
         )
         self.assertEqual(
             PrescriptionUpload.objects.filter(
                 development_key__startswith="dev-health-record-",
                 status=PrescriptionUpload.Status.APPROVED,
             ).count(),
-            4,
+            5,
         )
         self.assertEqual(
             VitalReading.objects.filter(
                 development_key__startswith="dev-health-record-",
             ).count(),
-            12,
+            15,
         )
+        patients = CarePatient.objects.filter(
+            development_key__in=[
+                f"dev-care-patient-{slug}"
+                for slug in ("one", "two", "three", "four", "five")
+            ]
+        )
+        self.assertEqual(patients.count(), 5)
+        self.assertNotIn("DEV Sample Patient", patients.values_list("name", flat=True))
+        for patient in patients:
+            account = PlatformUser.objects.get(pk=patient.external_id)
+            self.assertEqual(patient.name, account.name)
+            self.assertTrue(account.email.endswith("@example.test"))
+            self.assertTrue(account.mobile)
+            self.assertTrue(account.date_of_birth)
+            self.assertTrue(account.gender)
+        prescription = PrescriptionUpload.objects.get(
+            development_key="dev-health-record-approved-rx-one"
+        )
+        self.assertEqual(prescription.patient, seeded_patient)
+        self.assertEqual(prescription.appointment, completed_appointment)
+        prescription_response = self.client.get(
+            "/api/admin/health-records/prescriptions/",
+            {"patient_id": str(seeded_patient.pk)},
+        )
+        seeded_prescription = next(
+            row for row in prescription_response.data["results"]
+            if row["prescription_number"] == "HR-RX-AN-01"
+        )
+        self.assertEqual(seeded_prescription["status"], PrescriptionUpload.Status.APPROVED)
+        dashboard = build_overview("30", care_stats=care_dashboard_stats())
+        self.assertEqual(
+            dashboard["platform_overview"]["total_users"],
+            dashboard_users_before + 5,
+        )
+        self.assertEqual(dashboard["live_stats"]["new_patients"], 5)
+        self.assertEqual(
+            AuditLog.objects.filter(
+                development_key__startswith="dev-health-record-access-"
+            ).count(),
+            15,
+        )
+
+    @override_settings(DEBUG=True)
+    def test_patient_directory_excludes_unlinked_pharmacy_customer_records(self):
+        call_command("seed_health_records_development_data", verbosity=0)
+        CarePatient.objects.create(
+            development_key="dev-pharmacy-delivery-customer-test",
+            name="Development dispatch customer",
+            is_development_data=True,
+        )
+        response = self.client.get("/api/admin/health-records/patients/")
+        self.assertEqual(response.status_code, 200, response.data)
+        names = {patient["name"] for patient in response.data["results"]}
+        self.assertTrue({"Ananya Kulkarni", "Rohan Deshmukh", "Kavya Nair", "Aarav Iyer", "Meera Joshi"} <= names)
+        self.assertNotIn("Development dispatch customer", names)

@@ -82,6 +82,13 @@ class PlatformUser(DevelopmentRecord):
         blank=True,
         related_name="platform_users",
     )
+    healthcare_provider = models.OneToOneField(
+        "providers.HealthcareProvider",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="platform_user",
+    )
     status = models.CharField(max_length=20, default="active")
     is_active = models.BooleanField(default=True)
     is_blocked = models.BooleanField(default=False)

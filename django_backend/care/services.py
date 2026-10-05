@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 import re
 import uuid
 
+from django.db import IntegrityError
 from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 
@@ -16,6 +17,7 @@ from .models import (
     CareSetting,
     Doctor,
     DoctorLeave,
+    DoctorSlotExclusion,
     DoctorPayout,
     InstantConsult,
     RefundRequest,
@@ -267,27 +269,47 @@ def generate_slots(doctor, target_date):
         raise ValueError("Schedule is missing valid working hours or slot duration.")
     if schedule.end_time <= schedule.start_time:
         raise ValueError("Schedule end must be later than its start.")
+    excluded_starts = set(
+        DoctorSlotExclusion.objects.filter(
+            doctor=doctor, date=target_date
+        ).values_list("start_time", flat=True)
+    )
     cursor = datetime.combine(target_date, schedule.start_time)
     finish = datetime.combine(target_date, schedule.end_time)
     slots = []
     while cursor + timedelta(minutes=duration) <= finish:
         end = cursor + timedelta(minutes=duration)
-        slot, _ = AppointmentSlot.objects.get_or_create(
-            doctor=doctor,
-            date=target_date,
-            start_time=cursor.time(),
-            defaults={
-                "weekday": target_date.weekday(),
-                "end_time": end.time(),
-                "duration_minutes": duration,
-                "is_development_data": doctor.is_development_data,
-                "development_key": (
-                    f"{doctor.development_key}-slot-{target_date.isoformat()}-{cursor:%H%M}"
-                    if doctor.development_key
-                    else None
-                ),
-            },
-        )
+        if cursor.time() in excluded_starts:
+            cursor = end
+            continue
+        defaults = {
+            "weekday": target_date.weekday(),
+            "end_time": end.time(),
+            "duration_minutes": duration,
+            "is_development_data": doctor.is_development_data,
+            "development_key": (
+                f"{doctor.development_key}-slot-{target_date.isoformat()}-{cursor:%H%M}"
+                if doctor.development_key
+                else None
+            ),
+        }
+        try:
+            slot, _ = AppointmentSlot.objects.get_or_create(
+                doctor=doctor,
+                date=target_date,
+                start_time=cursor.time(),
+                defaults=defaults,
+            )
+        except IntegrityError:
+            if not defaults["development_key"]:
+                raise
+            defaults["development_key"] = None
+            slot, _ = AppointmentSlot.objects.get_or_create(
+                doctor=doctor,
+                date=target_date,
+                start_time=cursor.time(),
+                defaults=defaults,
+            )
         if (slot.end_time, slot.duration_minutes) != (end.time(), duration):
             if slot.status == AppointmentSlot.Status.BOOKED:
                 raise ValueError("Cannot change a schedule while its slots are booked.")
@@ -556,6 +578,21 @@ def care_dashboard_stats():
                 "status": item.status,
             }
             for item in Appointment.objects.order_by("-created_at")[:5]
+        ],
+        "upcoming_appointment_list": [
+            {
+                "id": str(item.pk),
+                "patient_name": item.patient_name,
+                "doctor_name": item.doctor_name,
+                "specialty_name": item.specialty_name,
+                "date": item.date.isoformat(),
+                "start_time": item.start_time.strftime("%H:%M"),
+                "status": item.status,
+            }
+            for item in Appointment.objects.filter(
+                status__in=ACTIVE_APPOINTMENT_STATUSES,
+                date__gte=today,
+            ).order_by("date", "start_time", "id")[:5]
         ],
         "upcoming_appointments": Appointment.objects.filter(
             status__in=ACTIVE_APPOINTMENT_STATUSES, date__gte=today

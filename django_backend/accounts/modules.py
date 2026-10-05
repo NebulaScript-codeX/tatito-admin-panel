@@ -48,7 +48,7 @@ SYSTEM_ROLES = {
 # {role: {module: "vced"-style string of allowed actions: v=view c=create e=edit d=delete}}
 DEFAULT_PERMISSIONS = {
     "Doctor": {"dashboard": "v", "doctors": "ve", "health_records": "ve"},
-    "Pharmacist": {"dashboard": "v", "pharmacy": "ve", "orders_payments": "v"},
+    "Pharmacist": {"dashboard": "v", "pharmacy": "vce", "orders_payments": "v"},
     "Lab Technician": {"dashboard": "v", "lab_tests": "ve"},
     "Support Agent": {"dashboard": "v", "users": "v", "doctors": "v", "support": "vce"},
     "Content Manager": {"dashboard": "v", "content": "vced", "health_plans": "v"},

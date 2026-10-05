@@ -158,6 +158,24 @@ class AppointmentSlot(DevelopmentRecord):
         ]
 
 
+class DoctorSlotExclusion(models.Model):
+    doctor = models.ForeignKey(
+        Doctor, on_delete=models.CASCADE, related_name="slot_exclusions"
+    )
+    date = models.DateField()
+    start_time = models.TimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["date", "start_time"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["doctor", "date", "start_time"],
+                name="care_unique_doctor_slot_exclusion",
+            )
+        ]
+
+
 class CarePatient(DevelopmentRecord):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     external_id = models.CharField(max_length=100, blank=True, db_index=True)
@@ -179,6 +197,7 @@ class Appointment(DevelopmentRecord):
     class PaymentStatus(models.TextChoices):
         PENDING = "pending", "Pending"
         PAID = "paid", "Paid"
+        FAILED = "failed", "Failed"
         REFUNDED = "refunded", "Refunded"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -243,7 +262,15 @@ class CarePayment(DevelopmentRecord):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         PAID = "paid", "Paid"
+        FAILED = "failed", "Failed"
         REFUNDED = "refunded", "Refunded"
+
+    class PaymentMethod(models.TextChoices):
+        CARD = "card", "Card"
+        UPI = "upi", "UPI"
+        WALLET = "wallet", "Wallet"
+        CASH = "cash", "Cash"
+        OTHER = "other", "Not recorded"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     appointment = models.OneToOneField(
@@ -255,8 +282,12 @@ class CarePayment(DevelopmentRecord):
     patient_id = models.CharField(max_length=100, blank=True)
     doctor = models.ForeignKey(Doctor, on_delete=models.PROTECT, related_name="payments")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    plan_discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     kind = models.CharField(max_length=20, choices=Kind.choices)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    payment_method = models.CharField(
+        max_length=16, choices=PaymentMethod.choices, default=PaymentMethod.OTHER
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -280,6 +311,8 @@ class RefundRequest(DevelopmentRecord):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     reason = models.TextField(blank=True)
+    destination = models.CharField(max_length=20, blank=True)
+    rejection_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.CharField(max_length=100, blank=True)

@@ -32,6 +32,26 @@ urlpatterns = [
         include("health_records.urls"),
     ),
     path(
+        "api/admin/pharmacy/",
+        include("pharmacy.urls"),
+    ),
+    path(
+        "api/admin/lab-tests/",
+        include("lab_tests.urls"),
+    ),
+    path(
+        "api/admin/orders-payments/",
+        include("commerce.urls"),
+    ),
+    path(
+        "api/admin/health-plans/",
+        include("commerce.health_plan_urls"),
+    ),
+    path(
+        "api/health-plans/",
+        include("commerce.public_urls"),
+    ),
+    path(
         "api/admin/",
         include("providers.urls"),
     ),

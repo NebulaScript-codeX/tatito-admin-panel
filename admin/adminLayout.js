@@ -22,6 +22,10 @@ const BUILT_MODULES = new Set([
   "doctors",
   "promotions",
   "health_records",
+  "pharmacy",
+  "lab_tests",
+  "orders_payments",
+  "health_plans",
   "coupons_offers_marketing",
 ]);
 
@@ -29,7 +33,7 @@ export function isModuleAvailable(key) {
   return BUILT_MODULES.has(key);
 }
 
-export function openModule(key) {
+export function openModule(key, section) {
   const routes = {
     dashboard: "dashboard",
     users: "users",
@@ -58,7 +62,8 @@ export function openModule(key) {
     window.thpNavigate(`admin/${route}`);
     return;
   }
-  window.location.hash = `#/admin/${route}`;
+  const query = section ? `?tab=${encodeURIComponent(section)}` : "";
+  window.location.hash = `#/admin/${route}${query}`;
 }
 
 const sidebarGroups = [
@@ -330,10 +335,21 @@ export function renderAdminLayout(
             <div class="thp-admin-notifications" id="thp-admin-notifications">
               <button type="button" class="thp-admin-notification" id="thp-admin-notification-toggle" aria-label="Notifications" title="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="thp-admin-notification-panel">
                 <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
-                <span class="thp-admin-notification-dot" id="thp-admin-notification-count" aria-hidden="true" hidden></span>
+                <span class="thp-admin-notification-dot" id="thp-admin-notification-count" aria-label="Unread notifications" hidden></span>
               </button>
               <section class="thp-admin-notification-panel" id="thp-admin-notification-panel" aria-label="Admin notifications" hidden>
-                <header><strong>Notifications</strong><button type="button" class="thp-admin-notification-refresh" id="thp-admin-notification-refresh">Refresh</button></header>
+                <header>
+                  <div class="thp-admin-notification-heading"><strong>Notifications</strong><span id="thp-admin-notification-unread-count"></span></div>
+                  <div class="thp-admin-notification-actions">
+                    <button type="button" class="thp-admin-notification-mark-read" id="thp-admin-notification-mark-read">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+                      Mark all read
+                    </button>
+                    <button type="button" class="thp-admin-notification-refresh" id="thp-admin-notification-refresh" aria-label="Refresh notifications" title="Refresh notifications">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.6 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.4-3"/></svg>
+                    </button>
+                  </div>
+                </header>
                 <div class="thp-admin-notification-content" id="thp-admin-notification-content"><p>Open to load the latest admin activity.</p></div>
               </section>
             </div>
@@ -685,10 +701,39 @@ function setupAdminLayoutEvents(app) {
   const notificationPanel = app.querySelector("#thp-admin-notification-panel");
   const notificationContent = app.querySelector("#thp-admin-notification-content");
   const notificationCount = app.querySelector("#thp-admin-notification-count");
+  const notificationUnreadCount = app.querySelector("#thp-admin-notification-unread-count");
+  const notificationMarkRead = app.querySelector("#thp-admin-notification-mark-read");
+  const notificationRefresh = app.querySelector("#thp-admin-notification-refresh");
+  const notificationStorageKey = `tatito-admin-notifications-read:${getAdminSession()?.admin?.id || getAdminSession()?.admin?.email || getAdminSession()?.admin?.username || "admin"}`;
+  let notificationIds = [];
+  const readNotificationIds = new Set();
+  const loadReadNotificationIds = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(notificationStorageKey) || "[]");
+      readNotificationIds.clear();
+      if (Array.isArray(stored)) stored.forEach((id) => readNotificationIds.add(id));
+    } catch (error) {
+      console.error("Failed to load notification read state:", error);
+    }
+  };
+  const saveReadNotificationIds = () => {
+    try {
+      localStorage.setItem(notificationStorageKey, JSON.stringify([...readNotificationIds]));
+      return true;
+    } catch (error) {
+      console.error("Failed to save notification read state:", error);
+      showToast("Unable to save notification read status.", true);
+      return false;
+    }
+  };
+  loadReadNotificationIds();
   let notificationRequestId = 0;
   const loadNotifications = async () => {
     const requestId = ++notificationRequestId;
-    notificationContent.innerHTML = '<p>Loading recent admin activity…</p>';
+    notificationRefresh?.classList.add("is-loading");
+    notificationRefresh?.setAttribute("aria-busy", "true");
+    notificationMarkRead.disabled = true;
+    notificationContent.innerHTML = '<p class="thp-admin-notification-state">Loading notifications…</p>';
     try {
       let entries = [];
       let attention = [];
@@ -706,23 +751,63 @@ function setupAdminLayoutEvents(app) {
         const data = await adminApi("/audit-logs/?page_size=5");
         entries = data.results || [];
       } else {
-        notificationContent.innerHTML = '<p>Notifications are unavailable for your account.</p>';
+        notificationContent.innerHTML = '<p class="thp-admin-notification-state">Notifications are unavailable for your account.</p>';
         notificationCount.hidden = true;
+        notificationCount.textContent = "";
+        notificationUnreadCount.textContent = "";
         return;
       }
       if (requestId !== notificationRequestId) return;
+      loadReadNotificationIds();
       const notices = [
-        ...attention.map((item) => `<button type="button" class="thp-admin-notification-item is-attention" data-notification-module="${item.module}"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></button>`),
-        ...entries.slice(0, 5).map((item) => `<div class="thp-admin-notification-item"><strong>${escapeHtml(item.description || item.action || "Admin activity")}</strong><span>${escapeHtml(item.actor || "Admin")} · ${escapeHtml(item.module || "system")} · ${escapeHtml(item.created_at ? new Date(item.created_at).toLocaleString() : "")}</span></div>`),
+        ...attention.map((item) => ({
+          id: `attention:${item.module}:${item.label}:${item.detail}`,
+          title: item.label,
+          detail: item.detail,
+          module: item.module,
+          createdAt: "",
+          attention: true,
+        })),
+        ...entries.slice(0, 5).map((item) => ({
+          id: `activity:${item.id || `${item.created_at || ""}:${item.action || ""}:${item.module || ""}:${item.actor || ""}:${item.description || ""}`}`,
+          title: item.description || item.action || "Admin activity",
+          detail: `${item.actor || "Admin"} · ${item.module || "system"}`,
+          module: "",
+          createdAt: item.created_at ? new Date(item.created_at).toLocaleString() : "",
+          attention: false,
+        })),
       ];
-      notificationCount.hidden = attention.length === 0;
+      notificationIds = notices.map((notice) => notice.id);
+      const unreadCount = notices.filter((notice) => !readNotificationIds.has(notice.id)).length;
+      notificationCount.hidden = unreadCount === 0;
+      notificationCount.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+      notificationUnreadCount.textContent = unreadCount ? `${unreadCount} unread` : "All caught up";
+      notificationMarkRead.disabled = unreadCount === 0;
       notificationContent.innerHTML = notices.length
-        ? notices.join("")
-        : '<p>No recent admin notifications.</p>';
+        ? notices.map((notice) => {
+          const unread = !readNotificationIds.has(notice.id);
+          const tag = notice.module ? "button" : "div";
+          const attrs = notice.module
+            ? ` type="button" data-notification-module="${escapeHtml(notice.module)}"`
+            : "";
+          return `<${tag} class="thp-admin-notification-item${unread ? " is-unread" : ""}${notice.attention ? " is-attention" : ""}" data-notification-id="${escapeHtml(notice.id)}"${attrs}>
+            <span class="thp-admin-notification-indicator" aria-hidden="true"></span>
+            <span class="thp-admin-notification-copy"><strong>${escapeHtml(notice.title)}</strong><span>${escapeHtml(notice.detail)}</span></span>
+            <span class="thp-admin-notification-time">${escapeHtml(notice.createdAt || (notice.attention ? "Needs attention" : ""))}</span>
+          </${tag}>`;
+        }).join("")
+        : '<p class="thp-admin-notification-state">You’re all caught up.</p>';
     } catch (error) {
       if (requestId !== notificationRequestId) return;
       notificationCount.hidden = true;
-      notificationContent.innerHTML = `<p>${escapeHtml(error.message || "Unable to load admin notifications.")}</p>`;
+      notificationCount.textContent = "";
+      notificationUnreadCount.textContent = "";
+      notificationContent.innerHTML = `<p class="thp-admin-notification-state">${escapeHtml(error.message || "Unable to load admin notifications.")}</p>`;
+    } finally {
+      if (requestId === notificationRequestId) {
+        notificationRefresh?.classList.remove("is-loading");
+        notificationRefresh?.removeAttribute("aria-busy");
+      }
     }
   };
   const setNotificationsOpen = (open) => {
@@ -733,8 +818,40 @@ function setupAdminLayoutEvents(app) {
   notificationToggle?.addEventListener("click", () => {
     setNotificationsOpen(notificationPanel.hidden);
   });
-  app.querySelector("#thp-admin-notification-refresh")?.addEventListener("click", loadNotifications);
+  notificationRefresh?.addEventListener("click", loadNotifications);
+  notificationMarkRead?.addEventListener("click", () => {
+    const previousReadIds = new Set(readNotificationIds);
+    notificationIds.forEach((id) => readNotificationIds.add(id));
+    if (!saveReadNotificationIds()) {
+      readNotificationIds.clear();
+      previousReadIds.forEach((id) => readNotificationIds.add(id));
+      loadNotifications();
+      return;
+    }
+    notificationContent.querySelectorAll(".thp-admin-notification-item").forEach((item) => {
+      item.classList.remove("is-unread");
+    });
+    notificationCount.hidden = true;
+    notificationCount.textContent = "";
+    notificationUnreadCount.textContent = "All caught up";
+    notificationMarkRead.disabled = true;
+  });
   notificationContent?.addEventListener("click", (event) => {
+    const notification = event.target.closest("[data-notification-id]");
+    if (notification?.classList.contains("is-unread")) {
+      readNotificationIds.add(notification.dataset.notificationId);
+      if (!saveReadNotificationIds()) {
+        readNotificationIds.delete(notification.dataset.notificationId);
+        loadNotifications();
+        return;
+      }
+      notification.classList.remove("is-unread");
+      const unreadCount = notificationContent.querySelectorAll(".thp-admin-notification-item.is-unread").length;
+      notificationCount.hidden = unreadCount === 0;
+      notificationCount.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+      notificationUnreadCount.textContent = unreadCount ? `${unreadCount} unread` : "All caught up";
+      notificationMarkRead.disabled = unreadCount === 0;
+    }
     const item = event.target.closest("[data-notification-module]");
     if (!item) return;
     setNotificationsOpen(false);

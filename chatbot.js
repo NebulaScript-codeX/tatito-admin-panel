@@ -2,6 +2,7 @@ import { doctors, doctorSpecialties, products, labTests, labPackages } from './d
 import { icon, avatar, showToast } from './ui.js'
 import { navigate, addToCart } from './router.js'
 import { feeText, getDoctors as cachedDoctors } from './doctorCache.js'
+import { formatINR } from './currency.js'
 
 const STORAGE_KEY = 'tatito_ai_chat_history'
 const POS_STORAGE_KEY = 'tatito_chatbot_pos'
@@ -361,8 +362,8 @@ function renderCardHTML(card) {
           <p class="chat-prod-desc">${prod.desc}</p>
           <div class="chat-card-row">
             <div class="chat-price-block">
-              <strong>$${prod.price.toFixed(2)}</strong>
-              <s>$${prod.mrp.toFixed(2)}</s>
+              <strong>${formatINR(prod.price)}</strong>
+              <s>${formatINR(prod.mrp)}</s>
             </div>
             <span class="chat-stock-tag ${prod.stock === 'Low Stock' ? 'low' : ''}">${prod.stock}</span>
           </div>
@@ -394,8 +395,8 @@ function renderCardHTML(card) {
           <p class="chat-prod-desc">${test.desc || test.testsIncluded || ''}</p>
           <div class="chat-card-row">
             <div class="chat-price-block">
-              <strong>$${test.price}</strong>
-              <s>$${test.mrp}</s>
+              <strong>${formatINR(test.price)}</strong>
+              <s>${formatINR(test.mrp)}</s>
             </div>
             <span class="badge-chip">${test.badge || 'Diagnostic'}</span>
           </div>

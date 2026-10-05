@@ -411,6 +411,49 @@ function queryString(params = {}) {
   return value ? `?${value}` : "";
 }
 
+export function pharmacyRequest(path, options = {}) {
+  const resource = String(path || "").replace(/^\/+/, "");
+  return adminApi(`/pharmacy/${resource}`, options);
+}
+
+export async function getAdminFile(path) {
+  const url = `${ADMIN_API_BASE_URL}${path}`;
+  const token = getAdminToken();
+  if (!token) {
+    throw new Error("Admin session is missing. Please log in again.");
+  }
+
+  const request = () =>
+    fetch(url, {
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
+    });
+  let response = await request();
+  if (response.status === 401 && await refreshAdminAccessToken()) {
+    response = await request();
+  }
+  if (response.status === 401) {
+    logoutAdmin();
+    window.location.hash = "#/admin/login";
+    throw new Error("Your admin session has expired. Please log in again.");
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      // Fall through to the HTTP status message for non-JSON responses.
+    }
+    throw new Error(
+      data?.error ||
+        data?.detail ||
+        data?.message ||
+        `Unable to load the file (${response.status}).`,
+    );
+  }
+  return response.blob();
+}
+
 export function getAdminStaff(params = {}) {
   return adminApi(`/staff/${queryString(params)}`);
 }
@@ -433,6 +476,177 @@ export function resetAdminStaffPassword(id, newPassword) {
   return adminApi(`/staff/${id}/reset-password/`, {
     method: "POST",
     body: { new_password: newPassword },
+  });
+}
+
+const commercePath = "/orders-payments/";
+
+export function getCommerceOrders(params = {}) {
+  return adminApi(`${commercePath}orders/${queryString(params)}`);
+}
+
+export function getCommerceTransactions(params = {}) {
+  return adminApi(`${commercePath}transactions/${queryString(params)}`);
+}
+
+export function createCommerceTransaction(data) {
+  return adminApi(`${commercePath}transactions/`, { method: "POST", body: data });
+}
+
+export function setCommerceTransactionStatus(id, status, source = "commerce") {
+  const path = source === "commerce"
+    ? `${commercePath}transactions/${encodeURIComponent(id)}/${encodeURIComponent(status)}/`
+    : `${commercePath}transactions/source/${encodeURIComponent(source)}/${encodeURIComponent(id)}/${encodeURIComponent(status)}/`;
+  return adminApi(
+    path,
+    { method: "POST", body: {} },
+  );
+}
+
+export function getCommerceRevenue(params = {}) {
+  return adminApi(`${commercePath}revenue/${queryString(params)}`);
+}
+
+export function getCommerceRefunds() {
+  return adminApi(`${commercePath}refunds/`);
+}
+
+export function reviewCommerceRefund(source, id, action, data = {}) {
+  return adminApi(
+    `${commercePath}refunds/${encodeURIComponent(source)}/${encodeURIComponent(id)}/${encodeURIComponent(action)}/`,
+    { method: "POST", body: data },
+  );
+}
+
+export function getCommerceInvoices() {
+  return adminApi(`${commercePath}invoices/`);
+}
+
+export function getCommerceWallets() {
+  return adminApi(`${commercePath}wallets/`);
+}
+
+export function adjustCommerceWallet(id, direction, data) {
+  return adminApi(`${commercePath}wallets/${encodeURIComponent(id)}/adjust/`, {
+    method: "POST",
+    body: { ...data, direction },
+  });
+}
+
+export function getCommerceWalletHistory(id) {
+  return adminApi(
+    `${commercePath}wallets/${encodeURIComponent(id)}/transactions/`,
+  );
+}
+
+export function getCommerceOrderDetail(type, id) {
+  return adminApi(
+    `${commercePath}orders/${encodeURIComponent(type)}/${encodeURIComponent(id)}/`,
+  );
+}
+
+export function getCommercePlans() {
+  return adminApi(`${commercePath}plans/`);
+}
+
+export function cancelCommercePlanOrder(id) {
+  return adminApi(`${commercePath}orders/plan/${encodeURIComponent(id)}/cancel/`, {
+    method: "POST",
+    body: {},
+  });
+}
+
+const healthPlansPath = "/health-plans/";
+
+export function getHealthPlans() {
+  return adminApi(`${healthPlansPath}plans/`);
+}
+
+export function saveHealthPlan(data, id) {
+  return adminApi(
+    `${healthPlansPath}plans/${id ? `${encodeURIComponent(id)}/` : ""}`,
+    { method: id ? "PATCH" : "POST", body: data },
+  );
+}
+
+export function deleteHealthPlan(id) {
+  return adminApi(`${healthPlansPath}plans/${encodeURIComponent(id)}/`, {
+    method: "DELETE",
+  });
+}
+
+export function getHealthPlanSubscriptions() {
+  return adminApi(`${healthPlansPath}subscriptions/`);
+}
+
+export function getHealthPlanFamilyMembers(subscriptionId) {
+  return adminApi(
+    `${healthPlansPath}subscriptions/${encodeURIComponent(subscriptionId)}/family/`,
+  );
+}
+
+export function createHealthPlanSubscription(data) {
+  return adminApi(`${healthPlansPath}subscriptions/`, { method: "POST", body: data });
+}
+
+export function actOnHealthPlanSubscription(id, data) {
+  return adminApi(
+    `${healthPlansPath}subscriptions/${encodeURIComponent(id)}/action/`,
+    { method: "POST", body: data },
+  );
+}
+
+export function getHealthPlanSubscriptionHistory(id) {
+  return adminApi(
+    `${healthPlansPath}subscriptions/${encodeURIComponent(id)}/history/`,
+  );
+}
+
+export function removeHealthPlanFamilyMember(subscriptionId, memberId) {
+  return adminApi(
+    `${healthPlansPath}subscriptions/${encodeURIComponent(subscriptionId)}/family/${encodeURIComponent(memberId)}/`,
+    { method: "DELETE" },
+  );
+}
+
+export function updateHealthPlanFamilyMember(subscriptionId, memberId, data) {
+  return adminApi(
+    `${healthPlansPath}subscriptions/${encodeURIComponent(subscriptionId)}/family/${encodeURIComponent(memberId)}/`,
+    { method: "PATCH", body: data },
+  );
+}
+
+export function addHealthPlanFamilyMember(subscriptionId, data) {
+  return adminApi(
+    `${healthPlansPath}subscriptions/${encodeURIComponent(subscriptionId)}/family/`,
+    { method: "POST", body: data },
+  );
+}
+
+export function getHealthPlanPatients() {
+  return adminApi(`${healthPlansPath}patients/`);
+}
+
+export function getHealthPlanBenefitUsage() {
+  return adminApi(`${healthPlansPath}benefit-usage/`);
+}
+
+export function getHealthPlanCalculator() {
+  return adminApi(`${healthPlansPath}calculator/`);
+}
+
+export function saveHealthPlanCalculator(data) {
+  return adminApi(`${healthPlansPath}calculator/`, { method: "PATCH", body: data });
+}
+
+export function getHealthPlanRefunds() {
+  return adminApi(`${healthPlansPath}refunds/`);
+}
+
+export function reviewHealthPlanRefund(id, action, reason = "") {
+  return adminApi(`${healthPlansPath}refunds/${encodeURIComponent(id)}/`, {
+    method: "POST",
+    body: { action, reason },
   });
 }
 

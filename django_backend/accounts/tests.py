@@ -6,7 +6,11 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from audit.models import AuditLog
+from care.models import CarePatient
 from dashboard.models import PlatformDoctor, PlatformReview, PlatformUser
+from health_records.models import LabBooking, PrescriptionUpload
+from pharmacy.models import PharmacyOrder
+from providers.models import HealthcareProvider
 
 from .models import AdminProfile, Role
 
@@ -354,6 +358,134 @@ class PeopleUserLifecycleTests(Base):
         self.assertEqual(saved["availability"], "unavailable")
         self.assertEqual(PlatformUser.objects.get(pk=user_id).city, "Shelbyville")
 
+    def test_healthcare_provider_and_partner_share_one_authoritative_record(self):
+        provider_response = self.api.post("/api/admin/providers/", {
+            "name": "Source Clinic",
+            "provider_type": HealthcareProvider.ProviderType.CLINIC,
+            "email": "source-clinic@example.com",
+            "phone": "9876543210",
+            "city": "Pune",
+            "registration_number": "CLINIC-001",
+            "type_details": {"registration_class": "primary"},
+        }, format="json")
+        self.assertEqual(provider_response.status_code, 201, provider_response.data)
+        provider_id = provider_response.data["id"]
+
+        partner_response = self.api.post("/api/admin/users/", {
+            "name": "Stale Account Name",
+            "email": "source-clinic@example.com",
+            "mobile": "9876543210",
+            "role": "partner",
+            "partnerRole": "Old role",
+            "city": "Old city",
+        }, format="json")
+        self.assertEqual(partner_response.status_code, 201, partner_response.data)
+        partner_id = partner_response.data["user"]["id"]
+        partner = PlatformUser.objects.get(pk=partner_id)
+        self.assertEqual(str(partner.healthcare_provider_id), str(provider_id))
+        self.assertEqual(partner_response.data["user"]["name"], "Source Clinic")
+        self.assertEqual(partner_response.data["user"]["status"], "pending")
+
+        for action, expected in (
+            ("approve", HealthcareProvider.Status.ACTIVE),
+            ("deactivate", HealthcareProvider.Status.INACTIVE),
+            ("activate", HealthcareProvider.Status.ACTIVE),
+        ):
+            response = self.api.post(
+                f"/api/admin/providers/{provider_id}/{action}/",
+                {},
+                format="json",
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            partner_row = next(
+                row
+                for row in self.api.get("/api/admin/users/?role=partner").data["results"]
+                if row["id"] == partner_id
+            )
+            self.assertEqual(partner_row["status"], expected)
+            self.assertEqual(partner_row["is_active"], expected == HealthcareProvider.Status.ACTIVE)
+
+        edited = self.api.patch(f"/api/admin/providers/{provider_id}/", {
+            "name": "Renamed Source Clinic",
+            "email": "renamed-clinic@example.com",
+            "phone": "9876543211",
+            "city": "Mumbai",
+            "registration_number": "CLINIC-002",
+            "provider_type": HealthcareProvider.ProviderType.HOSPITAL,
+            "type_details": {"registration_class": "secondary"},
+        }, format="json")
+        self.assertEqual(edited.status_code, 200, edited.data)
+        partner_row = next(
+            row
+            for row in self.api.get("/api/admin/users/?role=partner").data["results"]
+            if row["id"] == partner_id
+        )
+        self.assertEqual(partner_row["name"], "Renamed Source Clinic")
+        self.assertEqual(partner_row["email"], "renamed-clinic@example.com")
+        self.assertEqual(partner_row["mobile"], "9876543211")
+        self.assertEqual(partner_row["city"], "Mumbai")
+        self.assertEqual(partner_row["provider_type"], HealthcareProvider.ProviderType.HOSPITAL)
+        self.assertEqual(partner_row["registration_number"], "CLINIC-002")
+
+        reject = self.api.post(
+            f"/api/admin/providers/{provider_id}/reject/",
+            {"reason": "Registration needs correction."},
+            format="json",
+        )
+        self.assertEqual(reject.status_code, 200, reject.data)
+        partner_row = next(
+            row
+            for row in self.api.get("/api/admin/users/?role=partner").data["results"]
+            if row["id"] == partner_id
+        )
+        self.assertEqual(partner_row["status"], HealthcareProvider.Status.REJECTED)
+        self.assertEqual(partner_row["rejection_reason"], "Registration needs correction.")
+
+        self.api.post(
+            f"/api/admin/users/{partner_id}/status/reactivate/",
+            {},
+            format="json",
+        )
+        provider_row = self.api.get(f"/api/admin/providers/{provider_id}/")
+        self.assertEqual(provider_row.data["status"], HealthcareProvider.Status.ACTIVE)
+
+        deleted = self.api.delete(f"/api/admin/providers/{provider_id}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(PlatformUser.objects.filter(pk=partner_id).exists())
+        self.assertFalse(
+            any(
+                row["id"] == partner_id
+                for row in self.api.get("/api/admin/users/?role=partner").data["results"]
+            )
+        )
+
+    def test_partner_created_before_provider_is_linked_across_provider_types(self):
+        for provider_type in HealthcareProvider.ProviderType.values:
+            email = f"{provider_type}@example.com"
+            user_response = self.api.post("/api/admin/users/", {
+                "name": f"Partner {provider_type}",
+                "email": email,
+                "role": "partner",
+                "partnerRole": "External partner",
+            }, format="json")
+            self.assertEqual(user_response.status_code, 201, user_response.data)
+            user_id = user_response.data["user"]["id"]
+
+            provider_response = self.api.post("/api/admin/providers/", {
+                "name": f"Provider {provider_type}",
+                "provider_type": provider_type,
+                "email": email,
+            }, format="json")
+            self.assertEqual(provider_response.status_code, 201, provider_response.data)
+            account = PlatformUser.objects.get(pk=user_id)
+            self.assertEqual(
+                str(account.healthcare_provider_id),
+                str(provider_response.data["id"]),
+            )
+            listed = self.api.get("/api/admin/users/?role=partner").data["results"]
+            row = next(item for item in listed if item["id"] == user_id)
+            self.assertEqual(row["provider_type"], provider_type)
+
     def test_doctor_delete_removes_profile_reviews_and_dashboard_count(self):
         doctor_id = "doctor-delete-test"
         doctor = PlatformDoctor.objects.create(
@@ -615,6 +747,78 @@ class DashboardTests(Base):
         self.assertEqual(d["platform_overview"]["total_doctors"], 3)
         self.assertEqual(d["needs_attention"]["doctor_verifications"], 2)
 
+    def test_pending_prescription_reviews_are_read_from_sql(self):
+        patient = CarePatient.objects.create(
+            external_id="dashboard-prescription-patient",
+            name="Dashboard prescription patient",
+        )
+        for status in (
+            PrescriptionUpload.Status.PENDING,
+            PrescriptionUpload.Status.APPROVED,
+            PrescriptionUpload.Status.REJECTED,
+        ):
+            PrescriptionUpload.objects.create(patient=patient, status=status)
+
+        data = self.get("7")
+
+        self.assertEqual(data["needs_attention"]["prescription_reviews"], 1)
+        self.assertEqual(
+            data["meta"]["sources"]["prescription_reviews"],
+            "django:health_records.PrescriptionUpload (status=pending)",
+        )
+        self.assertNotIn(
+            "prescription_reviews",
+            {item["metric"] for item in data["meta"]["unavailable"]},
+        )
+
+    def test_module_coverage_reports_pharmacy_and_lab_work_from_sql(self):
+        patient = CarePatient.objects.create(
+            external_id="dashboard-coverage-patient",
+            name="Dashboard coverage patient",
+        )
+        PharmacyOrder.objects.create(patient=patient, address="Development address")
+        PrescriptionUpload.objects.create(
+            patient=patient,
+            status=PrescriptionUpload.Status.PENDING,
+        )
+        LabBooking.objects.create(
+            patient=patient,
+            test_name="Coverage CBC",
+            specimen_date=datetime.now(dt_timezone.utc).date(),
+            status=LabBooking.Status.BOOKED,
+        )
+
+        data = self.get("7")
+
+        self.assertEqual(data["live_stats"]["pending_medicine_orders"], 1)
+        self.assertEqual(data["live_stats"]["lab_test_bookings"], 1)
+        self.assertEqual(data["live_stats"]["sample_collections"], 0)
+        self.assertEqual(data["live_stats"]["active_phlebotomists"], 0)
+        self.assertEqual(data["needs_attention"]["prescription_reviews"], 1)
+        self.assertEqual(data["needs_attention"]["unassigned_sample_bookings"], 1)
+        order_trend = data["charts"]["order_trend"]
+        self.assertEqual(len(order_trend), 7)
+        self.assertEqual(sum(point["count"] for point in order_trend), 1)
+        self.assertEqual(len(data["recent_activity"]["orders"]), 1)
+        self.assertEqual(
+            data["recent_activity"]["orders"][0]["order_number"],
+            f"PH-{data['recent_activity']['orders'][0]['id']:06d}",
+        )
+        self.assertEqual(
+            data["recent_activity"]["orders"][0]["patient_name"],
+            "Dashboard coverage patient",
+        )
+        unavailable = {item["metric"] for item in data["meta"]["unavailable"]}
+        self.assertTrue(
+            {"pending_medicine_orders", "prescription_reviews", "lab_test_bookings",
+             "sample_collections", "unassigned_sample_bookings",
+             "active_phlebotomists", "order_trend", "recent_orders"}.isdisjoint(unavailable)
+        )
+        self.assertEqual(
+            data["meta"]["sources"]["order_trend"],
+            "django:pharmacy.PharmacyOrder.created_at",
+        )
+
     def test_period_changes_statistics_and_charts(self):
         today, week, month = self.get("today"), self.get("7"), self.get("30")
         self.assertEqual(today["live_stats"]["new_patients"], 1)
@@ -629,41 +833,35 @@ class DashboardTests(Base):
     def test_invalid_period_falls_back_to_7(self):
         self.assertEqual(self.get("bogus")["period"], "7")
 
-    def test_unavailable_metrics_are_null_and_provider_metrics_are_live(self):
+    def test_unavailable_metrics_are_null_and_live_module_metrics_are_available(self):
         d = self.get("7")
         for key in ("total_hospitals", "total_clinics", "total_diagnostic_centres", "total_pharmacies"):
             self.assertEqual(d["platform_overview"][key], 0)
         for key in ("today_appointments", "pending_medicine_orders", "lab_test_bookings",
-                    "sample_collections", "revenue"):
-            if key in {"pending_medicine_orders", "lab_test_bookings", "sample_collections"}:
-                self.assertIsNone(d["live_stats"][key])
-            else:
-                self.assertEqual(d["live_stats"][key], 0)
+                    "sample_collections", "active_phlebotomists", "revenue"):
+            self.assertEqual(d["live_stats"][key], 0)
+        available_attention_metrics = {
+            "doctor_verifications": 2,
+            "provider_approvals": 0,
+            "document_verifications": 0,
+            "prescription_reviews": 0,
+            "pending_reviews": 0,
+            "refund_requests": 0,
+            "unassigned_instant_consults": 0,
+            "pending_payouts": 0,
+            "patients_waiting_over_15_minutes": 0,
+            "low_stock_products": 0,
+            "unassigned_sample_bookings": 0,
+        }
         for key, val in d["needs_attention"].items():
-            if key not in {
-                "doctor_verifications",
-                "provider_approvals",
-                "document_verifications",
-                "pending_reviews",
-                "refund_requests",
-                "unassigned_instant_consults",
-                "pending_payouts",
-                "patients_waiting_over_15_minutes",
-            }:
+            if key not in available_attention_metrics:
                 self.assertIsNone(val, key)
-        self.assertEqual(d["needs_attention"]["doctor_verifications"], 2)
-        for key in (
-            "provider_approvals",
-            "document_verifications",
-            "pending_reviews",
-            "refund_requests",
-            "unassigned_instant_consults",
-            "pending_payouts",
-            "patients_waiting_over_15_minutes",
-        ):
-            self.assertEqual(d["needs_attention"][key], 0, key)
-        for chart in ("revenue_trend", "revenue_by_module", "appointments_by_specialty", "order_trend"):
+            else:
+                self.assertEqual(val, available_attention_metrics[key], key)
+        self.assertEqual(d["needs_attention"]["prescription_reviews"], 0)
+        for chart in ("revenue_trend", "revenue_by_module", "appointments_by_specialty"):
             self.assertEqual(d["charts"][chart], [])
+        self.assertEqual(sum(point["count"] for point in d["charts"]["order_trend"]), 0)
         names = {u["metric"] for u in d["meta"]["unavailable"]}
         self.assertNotIn("revenue", names)
         self.assertIn("revenue_trend", names)
@@ -671,8 +869,9 @@ class DashboardTests(Base):
     def test_contract_keys_and_labels(self):
         d = self.get("7")
         self.assertEqual(set(d["live_stats"]), {"today_appointments", "pending_medicine_orders",
-                         "lab_test_bookings", "sample_collections", "revenue", "new_patients"})
-        self.assertEqual(len(d["needs_attention"]), 12)
+                         "lab_test_bookings", "sample_collections", "active_phlebotomists",
+                         "revenue", "new_patients"})
+        self.assertEqual(len(d["needs_attention"]), 13)
         self.assertEqual(set(d["charts"]), {"revenue_trend", "revenue_by_module",
                          "appointments_by_specialty", "user_registration_trend", "order_trend"})
 
@@ -707,12 +906,20 @@ class DashboardTests(Base):
         self.assertEqual(d["recent_activity"]["admin_activity"], [])
         self.assertIsNone(d["platform_overview"]["total_hospitals"])
         self.assertIsNone(d["coupons_offers"])
+        self.assertIsNone(d["needs_attention"]["prescription_reviews"])
+        self.assertIsNone(d["charts"]["order_trend"])
+        self.assertIsNone(d["recent_activity"]["orders"])
         self.assertEqual(set(d["meta"]["restricted"]),
                          {
                              "recent_activity.users",
                              "recent_activity.admin_activity",
+                             "users",
+                             "audit_logs",
                              "providers",
+                             "pharmacy",
+                             "doctors",
                              "coupons_offers_marketing",
+                             "orders_payments",
                          })
 
     def test_role_without_dashboard_view_blocked(self):
