@@ -1586,3 +1586,18 @@ export function deleteAdminNotification(id) {
     method: "DELETE",
   });
 }
+
+
+export async function getAdminReports(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+
+  return adminApi(`/reports/${suffix}`);
+}

@@ -14,6 +14,7 @@ import {
   renderAdminModulePlaceholder,
   renderAdminContent,
   renderAdminAIAssistant,
+  renderAdminReports,
 } from "./admin/adminPages.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import { renderAdminHealthRecords } from "./admin/healthRecordsPage.js";
@@ -114,6 +115,7 @@ registerPages({
   "admin/internships": renderAdminInternships,
   "admin/support": renderAdminSupport,
   "admin/ai-assistant": renderAdminAIAssistant,
+  "admin/reports": renderAdminReports,
 });
 
 window.addEventListener("thp-auth-required", () =>

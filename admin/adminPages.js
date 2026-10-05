@@ -146,6 +146,7 @@ import {
   updateAISafetyRule,
   deleteAISafetyRule,
   testAIAssistantQuery,
+  getAdminReports,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -18859,4 +18860,416 @@ export function renderAdminAIAssistant(app) {
   }
 
   renderActiveTab();
+}
+
+export async function renderAdminReports(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  if (!window.location.hash.startsWith("#/admin/reports")) {
+    return;
+  }
+
+  if (!hasPermission("reports", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-reports-page">
+
+      <div class="thp-admin-panel">
+
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Reports &amp; Analytics</h3>
+            <p>
+              Review live platform reports using a selected date range and report type.
+            </p>
+          </div>
+        </div>
+
+        <nav class="thp-admin-reports-tabs" aria-label="Reports">
+          <button type="button" class="thp-admin-reports-tab is-active" data-report-tab="registrations">
+            Registrations
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="appointments">
+            Appointments
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="orders">
+            Orders
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="lab_tests">
+            Lab Tests
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="payments">
+            Payments
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="subscriptions">
+            Subscriptions
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="applications">
+            Applications
+          </button>
+        </nav>
+
+        <div class="thp-admin-reports-filters">
+
+          <label>
+            <span>Start Date</span>
+            <input id="reports-start-date" type="date">
+          </label>
+
+          <label>
+            <span>End Date</span>
+            <input id="reports-end-date" type="date">
+          </label>
+
+          <div class="thp-admin-reports-actions">
+            <button
+              type="button"
+              class="thp-admin-primary-button"
+              id="reports-load-btn"
+            >
+              Load Report
+            </button>
+
+            <button
+              type="button"
+              class="thp-admin-secondary-button"
+              id="reports-export-btn"
+            >
+              Export CSV
+            </button>
+          </div>
+
+        </div>
+
+      <div id="reports-content">
+        <section class="thp-admin-empty-state">
+          <strong>Loading reports...</strong>
+        </section>
+      </div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "reports",
+    content,
+    {
+      subtitle: "Reports, analytics and downloadable operational data",
+    },
+  );
+
+  const startDate = app.querySelector("#reports-start-date");
+  const endDate = app.querySelector("#reports-end-date");
+  const loadButton = app.querySelector("#reports-load-btn");
+  const exportButton = app.querySelector("#reports-export-btn");
+
+  let currentReportData = null;
+  const reportTabs = Array.from(
+    app.querySelectorAll("[data-report-tab]"),
+  );
+
+  let activeReport = "registrations";
+  const contentArea = app.querySelector("#reports-content");
+
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  startDate.value = formatDate(thirtyDaysAgo);
+  endDate.value = formatDate(today);
+
+  const escapeHtml = (value = "") =>
+    String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const formatTitle = (value) =>
+    String(value || "")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const renderReportCard = (title, value) => {
+    if (value?.available === false) {
+      return `
+        <section class="thp-admin-panel">
+          <div class="thp-admin-panel-heading">
+            <div>
+              <h3>${escapeHtml(formatTitle(title))}</h3>
+              <p>${escapeHtml(value.reason || "Report data is unavailable.")}</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    const metricEntries = Object.entries(value || {}).filter(
+      ([key, item]) =>
+        typeof item === "number" ||
+        typeof item === "string"
+    );
+
+    const breakdownEntries = Object.entries(value || {}).filter(
+      ([, item]) => Array.isArray(item)
+    );
+
+    return `
+      <section class="thp-admin-panel thp-admin-report-card">
+
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>${escapeHtml(formatTitle(title))}</h3>
+            <p>Report data for the selected date range.</p>
+          </div>
+        </div>
+
+        ${
+          metricEntries.length
+            ? `
+              <div class="thp-admin-report-metrics">
+                ${metricEntries
+                  .map(
+                    ([key, item]) => `
+                      <div class="thp-admin-report-metric">
+                        <span>${escapeHtml(formatTitle(key))}</span>
+                        <strong>${escapeHtml(item)}</strong>
+                      </div>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          breakdownEntries.length
+            ? `
+              <div class="thp-admin-report-breakdowns">
+                ${breakdownEntries
+                  .map(([key, items]) => {
+                    if (!items.length) {
+                      return `
+                        <div class="thp-admin-report-breakdown">
+                          <h4>${escapeHtml(formatTitle(key))}</h4>
+                          <div class="thp-admin-empty-state">
+                            <strong>No data available</strong>
+                          </div>
+                        </div>
+                      `;
+                    }
+
+                    const columns = Object.keys(items[0] || {});
+
+                    return `
+                      <div class="thp-admin-report-breakdown">
+                        <h4>${escapeHtml(formatTitle(key))}</h4>
+
+                        <div class="thp-admin-table-wrap">
+                          <table class="thp-admin-table">
+                            <thead>
+                              <tr>
+                                ${columns
+                                  .map(
+                                    (column) =>
+                                      `<th>${escapeHtml(
+                                        formatTitle(column),
+                                      )}</th>`,
+                                  )
+                                  .join("")}
+                              </tr>
+                            </thead>
+
+                            <tbody>
+                              ${items
+                                .map(
+                                  (item) => `
+                                    <tr>
+                                      ${columns
+                                        .map(
+                                          (column) =>
+                                            `<td>${escapeHtml(
+                                              item[column] ?? "—",
+                                            )}</td>`,
+                                        )
+                                        .join("")}
+                                    </tr>
+                                  `,
+                                )
+                                .join("")}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+            : ""
+        }
+
+      </section>
+    `;
+  };
+
+  const loadReports = async () => {
+    contentArea.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Loading reports...</strong>
+      </section>
+    `;
+
+    try {
+      const response = await getAdminReports({
+        report: activeReport,
+        start_date: startDate.value,
+        end_date: endDate.value,
+      });
+
+      const reports = response?.reports || {};
+
+      currentReportData = reports[activeReport] || null;
+
+      if (!Object.keys(reports).length) {
+        contentArea.innerHTML = `
+          <section class="thp-admin-empty-state">
+            <strong>No report data available</strong>
+            <span>Try another report or date range.</span>
+          </section>
+        `;
+        return;
+      }
+
+      contentArea.innerHTML = Object.entries(reports)
+        .map(([key, value]) => renderReportCard(key, value))
+        .join("");
+    } catch (error) {
+      console.error("Reports load failed:", error);
+
+      contentArea.innerHTML = `
+        <section class="thp-admin-empty-state">
+          <strong>Unable to load reports</strong>
+          <span>${escapeHtml(
+            error?.message || "Please try again.",
+          )}</span>
+        </section>
+      `;
+    }
+  };
+
+  const exportCurrentReport = () => {
+    if (!currentReportData) {
+      return;
+    }
+
+    const rows = [];
+
+    Object.entries(currentReportData).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          rows.push({
+            section: key,
+            ...item,
+          });
+        });
+      } else if (
+        typeof value === "number" ||
+        typeof value === "string"
+      ) {
+        rows.push({
+          metric: key,
+          value,
+        });
+      }
+    });
+
+    if (!rows.length) {
+      return;
+    }
+
+    const columns = [
+      ...new Set(rows.flatMap((row) => Object.keys(row))),
+    ];
+
+    const csv = [
+      columns.join(","),
+      ...rows.map((row) =>
+        columns
+          .map((column) => {
+            const value = row[column] ?? "";
+            return `"${String(value).replaceAll('"', '""')}"`;
+          })
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${activeReport}-report-${startDate.value}-to-${endDate.value}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  };
+
+  reportTabs.forEach((tab) => {
+    tab.addEventListener("click", async () => {
+      reportTabs.forEach((item) => {
+        item.classList.toggle(
+          "is-active",
+          item === tab,
+        );
+      });
+
+      activeReport = tab.dataset.reportTab;
+
+      await loadReports();
+    });
+  });
+
+  exportButton.addEventListener("click", exportCurrentReport);
+
+  loadButton.addEventListener("click", loadReports);
+
+  await loadReports();
 }
