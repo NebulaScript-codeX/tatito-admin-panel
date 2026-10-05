@@ -1,10 +1,13 @@
 import {
   getAdminSession,
   hasPermission,
+  logoutAdmin,
   logoutAdminRemote,
   updateAdminSessionProfile,
 } from "./adminAuth.js";
+
 import { escapeHtml } from "./adminChart.js";
+
 import {
   adminApi,
   getAdminDashboardOverview,
@@ -27,6 +30,12 @@ const BUILT_MODULES = new Set([
   "orders_payments",
   "health_plans",
   "coupons_offers_marketing",
+  "support",
+  "content",
+  "internships",
+  "ai_assistant",
+  "reports",
+  "uploaded_files",
 ]);
 
 export function isModuleAvailable(key) {
@@ -110,8 +119,11 @@ const sidebarGroups = [
     items: [
       { key: "content", label: "Content", icon: "content" },
       { key: "internships", label: "Internships", icon: "internships" },
-      { key: "promotions", label: "Manage Promotions", icon: "promotions" },
     ],
+  },
+  {
+    title: "MANAGE",
+    items: [{ key: "promotions", label: "Promotions", icon: "promotions" }],
   },
   {
     title: "SUPPORT",
@@ -390,7 +402,7 @@ export function renderAdminLayout(
 
           ${
             activePage === "content" ||
-            activePage === "coupons_offers_marketing"
+            activePage === "coupons_offers_marketing" || activePage === "promotions"
               ? ""
               : `
                 <div class="thp-admin-page-heading ${activePage === "users" ? "thp-admin-users-page-heading" : ""} ${activePage === "staff" ? "thp-admin-staff-page-heading" : ""}">
@@ -502,9 +514,10 @@ function setupAdminLayoutEvents(app) {
     { signal: eventController.signal },
   );
 
-  logoutButton?.addEventListener("click", async () => {
+  logoutButton?.addEventListener("click", () => {
     setProfileMenuOpen(false);
-    await logoutAdminRemote();
+    logoutAdmin();
+    void logoutAdminRemote();
     window.location.hash = "#/admin/login";
   });
 

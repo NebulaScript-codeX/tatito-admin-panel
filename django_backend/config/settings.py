@@ -57,6 +57,11 @@ INSTALLED_APPS = [
     "pharmacy",
     "lab_tests",
     "commerce",
+    "internships",
+    "support",
+    "ai_assistant",
+    "reports",
+    "uploaded_files",
 ]
 
 MIDDLEWARE = [

@@ -1,4 +1,5 @@
 import "./style.css";
+
 import {
   renderAdminLogin,
   renderAdminDashboard,
@@ -8,7 +9,13 @@ import {
   renderAdminProviders,
   renderAdminPromotions,
   renderAdminCouponsOffersMarketing,
+  renderAdminInternships,
+  renderAdminSupport,
   renderAdminModulePlaceholder,
+  renderAdminContent,
+  renderAdminAIAssistant,
+  renderAdminReports,
+  renderAdminUploadedFiles,
 } from "./admin/adminPages.js";
 import { renderAdminHealthPlans } from "./admin/adminHealthPlans.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
@@ -55,16 +62,7 @@ import { renderDoctorConsole } from "./doctorConsole.js";
 import { initChatbot } from "./chatbot.js";
 
 const adminPlaceholderRoutes = Object.fromEntries(
-  [
-    "content",
-    "internships",
-    "support",
-    "ai_assistant",
-    "reports",
-    "uploaded_files",
-    "settings",
-    "audit_logs",
-  ].map((moduleKey) => [
+  ["settings", "audit_logs"].map((moduleKey) => [
     `admin/${moduleKey.replace(/_/g, "-")}`,
     (app) => renderAdminModulePlaceholder(app, moduleKey),
   ]),
@@ -108,7 +106,13 @@ registerPages({
   "admin/orders-payments": renderAdminOrdersPayments,
   "admin/health-plans": renderAdminHealthPlans,
   "admin/promotions": renderAdminPromotions,
+  "admin/content": renderAdminContent,
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
+  "admin/internships": renderAdminInternships,
+  "admin/support": renderAdminSupport,
+  "admin/ai-assistant": renderAdminAIAssistant,
+  "admin/reports": renderAdminReports,
+  "admin/uploaded-files": renderAdminUploadedFiles,
   ...adminPlaceholderRoutes,
 });
 

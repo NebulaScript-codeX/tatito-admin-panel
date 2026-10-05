@@ -1307,3 +1307,589 @@ export function deleteContentCity(id) {
     method: "DELETE",
   });
 }
+
+// ============================================================
+// MODULE 13 — INTERNSHIPS APIs
+// ============================================================
+
+function internshipsQueryString(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+
+  const queryString = query.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+// --------------------
+// Internship Tracks
+// --------------------
+
+export function getInternshipTracks(params = {}) {
+  return adminApi(
+    `/internships/tracks/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipTrack(data) {
+  return adminApi("/internships/tracks/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipTrack(id, data) {
+  return adminApi(`/internships/tracks/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipTrack(id) {
+  return adminApi(`/internships/tracks/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function toggleInternshipTrackPublish(id) {
+  return adminApi(`/internships/tracks/${id}/toggle-publish/`, {
+    method: "POST",
+  });
+}
+
+export function toggleInternshipTrackStatus(id) {
+  return adminApi(`/internships/tracks/${id}/toggle-status/`, {
+    method: "POST",
+  });
+}
+
+// --------------------
+// Internship Applications
+// --------------------
+
+export function getInternshipApplications(params = {}) {
+  return adminApi(
+    `/internships/applications/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipApplication(data) {
+  return adminApi("/internships/applications/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipApplication(id, data) {
+  return adminApi(`/internships/applications/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipApplication(id) {
+  return adminApi(`/internships/applications/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function selectInternshipApplication(id) {
+  return adminApi(`/internships/applications/${id}/select/`, {
+    method: "POST",
+  });
+}
+
+export function revertInternshipSelection(id) {
+  return adminApi(`/internships/applications/${id}/revert-selection/`, {
+    method: "POST",
+  });
+}
+
+export function sendInternshipOffer(id) {
+  return adminApi(`/internships/applications/${id}/send-offer/`, {
+    method: "POST",
+  });
+}
+
+// --------------------
+// Internship Partners
+// --------------------
+
+export function getInternshipPartners(params = {}) {
+  return adminApi(
+    `/internships/partners/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipPartner(data) {
+  return adminApi("/internships/partners/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipPartner(id, data) {
+  return adminApi(`/internships/partners/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipPartner(id) {
+  return adminApi(`/internships/partners/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+// --------------------
+// Internship Alumni
+// --------------------
+
+export function getInternshipAlumni(params = {}) {
+  return adminApi(
+    `/internships/alumni/${internshipsQueryString(params)}`
+  );
+}
+
+export function createInternshipAlumni(data) {
+  return adminApi("/internships/alumni/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateInternshipAlumni(id, data) {
+  return adminApi(`/internships/alumni/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteInternshipAlumni(id) {
+  return adminApi(`/internships/alumni/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+// ============================================================
+// MODULE 14 — SUPPORT & COMMUNICATION APIs
+// ============================================================
+
+function supportQueryString(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+
+  const queryString = query.toString();
+  return queryString ? `?${queryString}` : "";
+}
+
+
+// --------------------
+// Support Tickets
+// --------------------
+
+export function getSupportTickets(params = {}) {
+  return adminApi(
+    `/support/tickets/${supportQueryString(params)}`
+  );
+}
+
+export function getSupportTicket(id) {
+  return adminApi(`/support/tickets/${id}/`);
+}
+
+export function createSupportTicket(data) {
+  return adminApi("/support/tickets/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateSupportTicket(id, data) {
+  return adminApi(`/support/tickets/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteSupportTicket(id) {
+  return adminApi(`/support/tickets/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function assignSupportTicket(id, assignee) {
+  return adminApi(`/support/tickets/${id}/assign/`, {
+    method: "POST",
+    body: { assignee },
+  });
+}
+
+export function replySupportTicket(id, message) {
+  return adminApi(`/support/tickets/${id}/reply/`, {
+    method: "POST",
+    body: { message },
+  });
+}
+
+export function addSupportTicketInternalNote(id, message) {
+  return adminApi(`/support/tickets/${id}/internal-note/`, {
+    method: "POST",
+    body: { message },
+  });
+}
+
+export function closeSupportTicket(id) {
+  return adminApi(`/support/tickets/${id}/close/`, {
+    method: "POST",
+  });
+}
+
+export function reopenSupportTicket(id) {
+  return adminApi(`/support/tickets/${id}/reopen/`, {
+    method: "POST",
+  });
+}
+
+// AI Assistant
+export function getAIAssistantSettings() {
+  return adminApi("/ai-assistant/settings/");
+}
+
+export function updateAIAssistantSettings(id, data) {
+  return adminApi(`/ai-assistant/settings/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function getAISuggestedChips(params = {}) {
+  return adminApi(
+    `/ai-assistant/chips/${supportQueryString(params)}`
+  );
+}
+
+export function createAISuggestedChip(data) {
+  return adminApi("/ai-assistant/chips/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateAISuggestedChip(id, data) {
+  return adminApi(`/ai-assistant/chips/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAISuggestedChip(id) {
+  return adminApi(`/ai-assistant/chips/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function getAIQueryLogs(params = {}) {
+  return adminApi(
+    `/ai-assistant/query-logs/${supportQueryString(params)}`
+  );
+}
+
+export function sendAIQueryToDoctor(id) {
+  return adminApi(
+    `/ai-assistant/query-logs/${id}/send-to-doctor/`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export function getAISafetyRules(params = {}) {
+  return adminApi(
+    `/ai-assistant/safety-rules/${supportQueryString(params)}`
+  );
+}
+
+export function createAISafetyRule(data) {
+  return adminApi("/ai-assistant/safety-rules/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateAISafetyRule(id, data) {
+  return adminApi(`/ai-assistant/safety-rules/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAISafetyRule(id) {
+  return adminApi(`/ai-assistant/safety-rules/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function testAIAssistantQuery(query) {
+  return adminApi("/ai-assistant/safety-rules/test/", {
+    method: "POST",
+    body: { query },
+  });
+}
+
+// --------------------
+// Contact Queries
+// --------------------
+
+export function getContactQueries(params = {}) {
+  return adminApi(
+    `/support/contact-queries/${supportQueryString(params)}`
+  );
+}
+
+export function createContactQuery(data) {
+  return adminApi("/support/contact-queries/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateContactQuery(id, data) {
+  return adminApi(`/support/contact-queries/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteContactQuery(id) {
+  return adminApi(`/support/contact-queries/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function markContactQueryRead(id) {
+  return adminApi(`/support/contact-queries/${id}/mark-read/`, {
+    method: "POST",
+  });
+}
+
+export function replyContactQuery(id) {
+  return adminApi(`/support/contact-queries/${id}/reply/`, {
+    method: "POST",
+  });
+}
+
+
+// --------------------
+// Emergency Requests
+// --------------------
+
+export function getEmergencyRequests(params = {}) {
+  return adminApi(
+    `/support/emergency-requests/${supportQueryString(params)}`
+  );
+}
+
+export function createEmergencyRequest(data) {
+  return adminApi("/support/emergency-requests/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateEmergencyRequest(id, data) {
+  return adminApi(`/support/emergency-requests/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteEmergencyRequest(id) {
+  return adminApi(`/support/emergency-requests/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function assignEmergencyRequest(id, assignedStaff) {
+  return adminApi(`/support/emergency-requests/${id}/assign/`, {
+    method: "POST",
+    body: { assigned_staff: assignedStaff },
+  });
+}
+
+export function markEmergencyRequestHandled(id) {
+  return adminApi(`/support/emergency-requests/${id}/mark-handled/`, {
+    method: "POST",
+  });
+}
+
+
+// --------------------
+// Notification Templates
+// --------------------
+
+export function getNotificationTemplates(params = {}) {
+  return adminApi(
+    `/support/notification-templates/${supportQueryString(params)}`
+  );
+}
+
+export function createNotificationTemplate(data) {
+  return adminApi("/support/notification-templates/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateNotificationTemplate(id, data) {
+  return adminApi(`/support/notification-templates/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteNotificationTemplate(id) {
+  return adminApi(`/support/notification-templates/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function sendNotificationTemplateTest(id, data = {}) {
+  return adminApi(`/support/notification-templates/${id}/send-test/`, {
+    method: "POST",
+    body: data,
+  });
+}
+
+
+// --------------------
+// Notifications
+// --------------------
+
+export function getAdminNotifications(params = {}) {
+  return adminApi(
+    `/support/notifications/${supportQueryString(params)}`
+  );
+}
+
+export function createAdminNotification(data) {
+  return adminApi("/support/notifications/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateAdminNotification(id, data) {
+  return adminApi(`/support/notifications/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAdminNotification(id) {
+  return adminApi(`/support/notifications/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+
+export async function getAdminReports(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+
+  return adminApi(`/reports/${suffix}`);
+}
+
+export async function getAdminUploadedDocuments(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const queryString = query.toString();
+
+  return adminApi(
+    `/uploaded-files/documents/${
+      queryString ? `?${queryString}` : ""
+    }`
+  );
+}
+
+export async function reviewAdminUploadedDocument(
+  documentId,
+  status,
+  rejectionReason = ""
+) {
+  return adminApi(
+    `/uploaded-files/documents/${documentId}/review/`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        status,
+        rejection_reason: rejectionReason,
+      }),
+    }
+  );
+}
+
+export async function getAdminMediaFiles(params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.set(key, value);
+    }
+  });
+
+  const queryString = query.toString();
+
+  return adminApi(
+    `/uploaded-files/media/${
+      queryString ? `?${queryString}` : ""
+    }`
+  );
+}
+
+export async function uploadAdminMediaFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return adminApi("/uploaded-files/media/", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function renameAdminMediaFile(mediaId, originalName) {
+  return adminApi(`/uploaded-files/media/${mediaId}/`, {
+    method: "PATCH",
+    body: {
+      original_name: originalName,
+    },
+  });
+}
+
+export async function deleteAdminMediaFile(mediaId) {
+  return adminApi(`/uploaded-files/media/${mediaId}/`, {
+    method: "DELETE",
+  });
+}

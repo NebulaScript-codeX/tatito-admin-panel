@@ -8222,3 +8222,468 @@ button.thp-admin-notification-item:focus-visible {
     padding: 13px 16px;
   }
 }
+
+/* =========================================================
+   SUPPORT MODAL POSITION FIX
+   ========================================================= */
+
+.thp-admin-modal.thp-admin-support-modal {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+
+  width: 100vw !important;
+  height: 100vh !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  box-sizing: border-box !important;
+  padding: 24px !important;
+
+  z-index: 99999 !important;
+}
+
+.thp-admin-support-modal .thp-admin-modal-card {
+  position: relative !important;
+
+  width: min(820px, calc(100vw - 48px)) !important;
+  max-height: calc(100vh - 80px) !important;
+
+  margin: 0 !important;
+
+  overflow-y: auto !important;
+
+  flex: 0 1 auto !important;
+}
+
+/* Support modal submit button */
+.thp-admin-support-modal .thp-admin-modal-footer .thp-admin-primary-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 140px !important;
+  min-height: 42px !important;
+  padding: 10px 17px !important;
+
+  border: 1px solid #075f50 !important;
+  background: #075f50 !important;
+  color: #ffffff !important;
+
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.thp-admin-support-modal .thp-admin-modal-footer .thp-admin-primary-button:hover {
+  background: #064f43 !important;
+  color: #ffffff !important;
+}
+
+.thp-admin-emergency-urgent {
+  background: #fff4f4 !important;
+}
+
+.thp-admin-emergency-urgent td {
+  border-bottom-color: #fecaca !important;
+}
+
+.thp-admin-emergency-urgent td:first-child {
+  border-left: 4px solid #dc2626 !important;
+}
+
+.thp-admin-promotions-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.thp-admin-promotions-intro > div {
+  flex: 1;
+}
+
+/* Module 16 — Reports filters */
+.thp-admin-reports-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+.thp-admin-reports-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.thp-admin-reports-filters label > span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #52636a;
+}
+
+.thp-admin-reports-filters select,
+.thp-admin-reports-filters input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.thp-admin-reports-filters .thp-admin-primary-button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.thp-admin-reports-json {
+  margin: 0;
+  padding: 20px 24px;
+  overflow-x: auto;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #294047;
+  background: #f8faf9;
+  border-top: 1px solid #e5ece9;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .thp-admin-reports-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .thp-admin-reports-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Module 16 — Report cards */
+.thp-admin-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.thp-admin-report-metric {
+  padding: 18px;
+  border: 1px solid #e5ece9;
+  border-radius: 12px;
+  background: #f8faf9;
+}
+
+.thp-admin-report-metric span {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64757a;
+}
+
+.thp-admin-report-metric strong {
+  display: block;
+  font-size: 25px;
+  line-height: 1.2;
+  color: #063f38;
+}
+
+.thp-admin-report-breakdowns {
+  padding: 0 24px 24px;
+}
+
+.thp-admin-report-breakdown {
+  margin-top: 20px;
+}
+
+.thp-admin-report-breakdown h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #173f3a;
+}
+
+.thp-admin-report-card .thp-admin-table-wrap {
+  overflow-x: auto;
+}
+
+.thp-admin-report-card .thp-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.thp-admin-report-card .thp-admin-table th,
+.thp-admin-report-card .thp-admin-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #e8eeec;
+}
+
+.thp-admin-report-card .thp-admin-table th {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5d6f73;
+  background: #f8faf9;
+}
+
+.thp-admin-report-card .thp-admin-table td {
+  font-size: 14px;
+  color: #294047;
+}
+
+/* Module 16 — Reports tabs */
+
+.thp-admin-reports-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  overflow-x: auto;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid #e1ebe7;
+  scrollbar-width: thin;
+}
+
+.thp-admin-reports-tab {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 20px;
+  padding: 11px 18px;
+  background: transparent;
+  color: #244943;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.thp-admin-reports-tab:hover {
+  background: #eef6f3;
+}
+
+.thp-admin-reports-tab.is-active {
+  background: #159b78;
+  color: #ffffff;
+}
+
+.thp-admin-reports-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+@media (max-width: 700px) {
+  .thp-admin-reports-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.thp-admin-reports-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thp-admin-reports-actions .thp-admin-secondary-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid #159b78;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #08705a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.thp-admin-reports-actions .thp-admin-secondary-button:hover {
+  background: #eef8f5;
+}
+
+/* =========================================================
+   MODULE 17 — UPLOADED FILES & DOCUMENTS
+   ========================================================= */
+
+.thp-admin-uploaded-files-page {
+  width: 100%;
+}
+
+.thp-admin-uploaded-files-page .thp-marketing-tabs {
+  margin-bottom: 20px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card {
+  width: 100%;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card-header h2 {
+  margin: 0 0 6px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-card-header p {
+  margin: 0;
+}
+
+/* Filters */
+
+.thp-admin-uploaded-files-page .thp-admin-table-toolbar {
+  margin-bottom: 20px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-search-box input,
+.thp-admin-uploaded-files-page .thp-admin-filter-box select {
+  min-height: 42px;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-filter-box select {
+  min-width: 170px;
+}
+
+/* Table */
+
+.thp-admin-uploaded-files-page .thp-admin-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table th,
+.thp-admin-uploaded-files-page .thp-admin-table td {
+  vertical-align: middle;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table td strong {
+  display: block;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-table td small {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.7;
+}
+
+/* Row actions */
+
+.thp-admin-uploaded-files-page .thp-admin-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-row-button {
+  white-space: nowrap;
+}
+
+/* Status badges */
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge.pending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge.verified {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-status-badge.rejected {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+/* Empty/loading states */
+
+.thp-admin-uploaded-files-page .thp-admin-empty-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.thp-admin-uploaded-files-page .thp-admin-loading-state {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* Modal */
+
+#uploaded-files-modal-root .thp-admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+#uploaded-files-modal-root .thp-admin-modal-card {
+  max-width: 560px;
+  width: calc(100% - 32px);
+}
+
+#uploaded-files-modal-root textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+  .thp-admin-uploaded-files-page .thp-admin-card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-table {
+    min-width: 760px;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-table-toolbar {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-search-box,
+  .thp-admin-uploaded-files-page .thp-admin-filter-box {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .thp-admin-uploaded-files-page .thp-admin-filter-box select {
+    width: 100%;
+  }
+}

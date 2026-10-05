@@ -71,6 +71,90 @@ import {
   deleteAdminRole,
   updateAdminRolePermissions,
   getAdminModules,
+
+  getInternshipTracks,
+  createInternshipTrack,
+  updateInternshipTrack,
+  deleteInternshipTrack,
+  toggleInternshipTrackPublish,
+  toggleInternshipTrackStatus,
+
+  getInternshipApplications,
+  createInternshipApplication,
+  updateInternshipApplication,
+  deleteInternshipApplication,
+  selectInternshipApplication,
+  revertInternshipSelection,
+  sendInternshipOffer,
+
+  getInternshipPartners,
+  createInternshipPartner,
+  updateInternshipPartner,
+  deleteInternshipPartner,
+
+  getInternshipAlumni,
+  createInternshipAlumni,
+  updateInternshipAlumni,
+  deleteInternshipAlumni,
+
+  // Module 14 — Support & Communication
+  getSupportTickets,
+  getSupportTicket,
+  createSupportTicket,
+  updateSupportTicket,
+  deleteSupportTicket,
+  assignSupportTicket,
+  replySupportTicket,
+  addSupportTicketInternalNote,
+  closeSupportTicket,
+  reopenSupportTicket,
+
+  getContactQueries,
+  createContactQuery,
+  updateContactQuery,
+  deleteContactQuery,
+  markContactQueryRead,
+  replyContactQuery,
+
+  getEmergencyRequests,
+  createEmergencyRequest,
+  updateEmergencyRequest,
+  deleteEmergencyRequest,
+  assignEmergencyRequest,
+  markEmergencyRequestHandled,
+
+  getNotificationTemplates,
+  createNotificationTemplate,
+  updateNotificationTemplate,
+  deleteNotificationTemplate,
+  sendNotificationTemplateTest,
+
+  getAdminNotifications,
+  createAdminNotification,
+  updateAdminNotification,
+  deleteAdminNotification,
+
+  getAIAssistantSettings,
+  updateAIAssistantSettings,
+  getAISuggestedChips,
+  createAISuggestedChip,
+  updateAISuggestedChip,
+  deleteAISuggestedChip,
+  getAIQueryLogs,
+  sendAIQueryToDoctor,
+  getAISafetyRules,
+  createAISafetyRule,
+  updateAISafetyRule,
+  deleteAISafetyRule,
+  testAIAssistantQuery,
+  getAdminReports,
+
+  getAdminUploadedDocuments,
+  reviewAdminUploadedDocument,
+  getAdminMediaFiles,
+  uploadAdminMediaFile,
+  renameAdminMediaFile,
+  deleteAdminMediaFile,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -202,6 +286,7 @@ export function renderAdminLogin(app) {
         ["providers", "providers"],
         ["lab_tests", "lab-tests"],
         ["coupons_offers_marketing", "coupons-offers-marketing"],
+        ["internships", "internships"],
       ].find(([module]) => session.admin?.permissions?.[module]?.view);
       window.location.hash = accessibleRoute
         ? `#/admin/${accessibleRoute[1]}`
@@ -8336,6 +8421,13 @@ export function renderAdminCouponsOffersMarketing(app) {
 
   const content = `
     <section class="thp-admin-module-page thp-admin-marketing-page">
+            <div class="thp-admin-page-heading">
+              <div class="thp-admin-page-title">
+                <p class="thp-admin-eyebrow">TATITO HEALTH+</p>
+                <h1>Coupons, Offers &amp; Marketing</h1>
+                <p class="thp-admin-subtitle">Manage coupons, campaigns, promotional banners and offer strips.</p>
+              </div>
+            </div>
       <nav class="thp-marketing-tabs" aria-label="Marketing sections" role="tablist">
         <button type="button" class="thp-marketing-tab is-active" id="marketing-tab-coupons" role="tab" aria-selected="true" aria-controls="marketing-panel-coupons" data-marketing-tab="coupons">
           Vouchers &amp; Coupons <span class="thp-marketing-tab-count" id="coupon-tab-count">0</span>
@@ -11697,4 +11789,8728 @@ async function savePromotionalContent(event) {
 
     button.disabled = false
   }
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIPS
+// ============================================================
+
+export function renderAdminInternships(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("internships", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-internships-page">
+
+      <nav
+        class="thp-marketing-tabs"
+        aria-label="Internship sections"
+        role="tablist"
+      >
+        <button
+          type="button"
+          class="thp-marketing-tab is-active"
+          id="internship-tab-tracks"
+          role="tab"
+          aria-selected="true"
+          aria-controls="internship-panel-tracks"
+          data-internship-tab="tracks"
+        >
+          Fellowship Tracks
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-track-tab-count"
+          >0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          id="internship-tab-applications"
+          role="tab"
+          aria-selected="false"
+          aria-controls="internship-panel-applications"
+          data-internship-tab="applications"
+          tabindex="-1"
+        >
+          Candidate Pipeline
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-application-tab-count"
+          >0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          id="internship-tab-partners"
+          role="tab"
+          aria-selected="false"
+          aria-controls="internship-panel-partners"
+          data-internship-tab="partners"
+          tabindex="-1"
+        >
+          University Affiliates
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-partner-tab-count"
+          >0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          id="internship-tab-alumni"
+          role="tab"
+          aria-selected="false"
+          aria-controls="internship-panel-alumni"
+          data-internship-tab="alumni"
+          tabindex="-1"
+        >
+          Fellowship Alumni
+          <span
+            class="thp-marketing-tab-count"
+            id="internship-alumni-tab-count"
+          >0</span>
+        </button>
+      </nav>
+
+      <!-- FELLOWSHIP TRACKS -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-tracks"
+        role="tabpanel"
+        aria-labelledby="internship-tab-tracks"
+        data-internship-panel="tracks"
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Fellowship Tracks</h3>
+            <p>
+              Manage internship opportunities, openings,
+              eligibility and publishing status.
+            </p>
+          </div>
+
+          ${
+            hasPermission("internships", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="create-internship-track-button"
+                >
+                  + Add Track
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        <div id="internship-tracks-content">
+          <div class="thp-admin-loading-state">
+            Loading fellowship tracks...
+          </div>
+        </div>
+      </div>
+
+      <!-- CANDIDATE PIPELINE -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-applications"
+        role="tabpanel"
+        aria-labelledby="internship-tab-applications"
+        data-internship-panel="applications"
+        hidden
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Candidate Pipeline</h3>
+            <p>
+              Review applicants and manage the internship
+              selection pipeline.
+            </p>
+          </div>
+        </div>
+
+        <div id="internship-applications-content">
+          <div class="thp-admin-loading-state">
+            Loading candidate applications...
+          </div>
+        </div>
+      </div>
+
+      <!-- UNIVERSITY AFFILIATES -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-partners"
+        role="tabpanel"
+        aria-labelledby="internship-tab-partners"
+        data-internship-panel="partners"
+        hidden
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>University Affiliates</h3>
+            <p>
+              Manage partner universities and internship
+              organisations.
+            </p>
+          </div>
+
+          ${
+            hasPermission("internships", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="create-internship-partner-button"
+                >
+                  + Add Affiliate
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        <div id="internship-partners-content">
+          <div class="thp-admin-loading-state">
+            Loading university affiliates...
+          </div>
+        </div>
+      </div>
+
+      <!-- FELLOWSHIP ALUMNI -->
+      <div
+        class="thp-admin-panel thp-marketing-panel"
+        id="internship-panel-alumni"
+        role="tabpanel"
+        aria-labelledby="internship-tab-alumni"
+        data-internship-panel="alumni"
+        hidden
+      >
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Fellowship Alumni</h3>
+            <p>
+              Manage alumni profiles and fellowship testimonials.
+            </p>
+          </div>
+
+          ${
+            hasPermission("internships", "create")
+              ? `
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  id="create-internship-alumni-button"
+                >
+                  + Add Alumni
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+        <div id="internship-alumni-content">
+          <div class="thp-admin-loading-state">
+            Loading fellowship alumni...
+          </div>
+        </div>
+      </div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "internships",
+    content,
+  );
+
+  /* ---------------------------------
+     INTERNSHIP TABS
+  --------------------------------- */
+
+  const internshipTabs = Array.from(
+    app.querySelectorAll("[data-internship-tab]"),
+  );
+
+  const internshipPanels = Array.from(
+    app.querySelectorAll("[data-internship-panel]"),
+  );
+
+  internshipTabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => {
+      internshipTabs.forEach((candidate) => {
+        const selected = candidate === tab;
+
+        candidate.classList.toggle(
+          "is-active",
+          selected,
+        );
+
+        candidate.setAttribute(
+          "aria-selected",
+          String(selected),
+        );
+
+        candidate.tabIndex = selected ? 0 : -1;
+      });
+
+      internshipPanels.forEach((panel) => {
+        panel.hidden =
+          panel.dataset.internshipPanel !==
+          tab.dataset.internshipTab;
+      });
+    });
+
+    tab.addEventListener("keydown", (event) => {
+      if (
+        event.key !== "ArrowLeft" &&
+        event.key !== "ArrowRight"
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const offset =
+        event.key === "ArrowRight" ? 1 : -1;
+
+      const nextTab =
+        internshipTabs[
+          (index + offset + internshipTabs.length) %
+            internshipTabs.length
+        ];
+
+      nextTab.focus();
+      nextTab.click();
+    });
+  });
+
+  /* ---------------------------------
+     CREATE BUTTONS
+  --------------------------------- */
+
+  document
+    .getElementById("create-internship-track-button")
+    ?.addEventListener("click", () => {
+      openInternshipTrackModal();
+    });
+
+  document
+    .getElementById("create-internship-partner-button")
+    ?.addEventListener("click", () => {
+      openInternshipPartnerModal();
+    });
+
+  document
+    .getElementById("create-internship-alumni-button")
+    ?.addEventListener("click", () => {
+      openInternshipAlumniModal();
+    });
+
+  /* ---------------------------------
+     INITIAL LOAD
+  --------------------------------- */
+
+  loadInternshipTracks();
+  loadInternshipApplications();
+  loadInternshipPartners();
+  loadInternshipAlumni();
+}
+
+
+// ============================================================
+// MODULE 13 — INTERNSHIP LOADERS
+// ============================================================
+
+async function loadInternshipTracks() {
+  const container = document.getElementById(
+    "internship-tracks-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipTracks();
+    const tracks = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!tracks.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No internship tracks found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Track</th>
+              <th>Type</th>
+              <th>Organisation</th>
+              <th>Positions</th>
+              <th>Status</th>
+              <th>Published</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${tracks
+              .map(
+                (track) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(track.title || "—")}
+                      </strong>
+
+                      <div class="thp-content-muted">
+                        ${escapeHtml(track.duration || "—")}
+                      </div>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        track.track_type || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        track.organisation || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        track.open_positions ?? 0,
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${escapeHtml(
+                          track.status || "—",
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${
+                          track.is_published
+                            ? "Published"
+                            : "Unpublished"
+                        }
+                      </span>
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+                        ${
+                          hasPermission(
+                            "internships",
+                            "edit",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-edit="${track.id}"
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-publish="${track.id}"
+                              >
+                                ${
+                                  track.is_published
+                                    ? "Unpublish"
+                                    : "Publish"
+                                }
+                              </button>
+
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-status="${track.id}"
+                              >
+                                ${
+                                  track.status === "open"
+                                    ? "Close"
+                                    : "Open"
+                                }
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "delete",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-internship-delete="${track.id}"
+                              >
+                                Delete
+                              </button>
+                            `
+                            : ""
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-internship-publish]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await toggleInternshipTrackPublish(
+              button.dataset.internshipPublish,
+            );
+
+            showAdminToast("Track publication status updated.");
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to update track.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-internship-status]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await toggleInternshipTrackStatus(
+              button.dataset.internshipStatus,
+            );
+
+            showAdminToast("Track status updated.");
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to update track status.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-internship-delete]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          const confirmed = window.confirm(
+            "Delete this internship track?",
+          );
+
+          if (!confirmed) return;
+
+          try {
+            await deleteInternshipTrack(
+              button.dataset.internshipDelete,
+            );
+
+            showAdminToast("Internship track deleted.");
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to delete track.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-internship-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const track = tracks.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.internshipEdit),
+            );
+
+            if (track) {
+              openInternshipTrackModal(track);
+            }
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load internship tracks</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+
+async function loadInternshipApplications() {
+  const container = document.getElementById(
+    "internship-applications-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipApplications();
+
+    const applications = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!applications.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No internship applications found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Applicant</th>
+              <th>Email</th>
+              <th>Track</th>
+              <th>Status</th>
+              <th>Case Review</th>
+              <th>CV</th>
+              <th>Statement</th>
+              <th>Offer</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${applications
+              .map(
+                (application) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(
+                          application.applicant_name ||
+                            "—",
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        application.applicant_email ||
+                          "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        application.track_title ||
+                          "—",
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${escapeHtml(
+                          application.status ||
+                            "applied",
+                        )}
+                      </span>
+                    </td>
+
+                    <td>
+                      ${application.case_review_schedule
+                        ? escapeHtml(
+                            new Date(
+                              application.case_review_schedule,
+                            ).toLocaleString(),
+                          )
+                        : "—"}
+                    </td>
+
+                    <td>
+                      ${application.offer_sent
+                        ? "Sent"
+                        : "Not Sent"}
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+
+                        ${
+                          application.status === "applied"
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-review="${application.id}"
+                              >
+                                Case Review
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          application.status === "case_review"
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-select="${application.id}"
+                              >
+                                Select
+                              </button>
+                            `
+                            : application.status === "selected"
+                              ? `
+                                <button
+                                  type="button"
+                                  class="thp-admin-button"
+                                  data-application-revert="${application.id}"
+                                >
+                                  Revert
+                                </button>
+                              `
+                              : ""
+                        }
+
+                        ${
+                          application.status !== "rejected"
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-reject="${application.id}"
+                              >
+                                Reject
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          application.status === "selected" &&
+                          !application.offer_sent
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-application-offer="${application.id}"
+                              >
+                                Send Offer
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    </td>
+
+                    <td>
+                      ${
+                        application.cv_url
+                          ? `
+                            <a
+                              href="${escapeHtml(application.cv_url)}"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              View CV
+                            </a>
+                          `
+                          : "—"
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        application.statement_of_intent
+                          ? `
+                            <button
+                              type="button"
+                              class="thp-admin-button"
+                              data-application-statement="${application.id}"
+                            >
+                              View Statement
+                            </button>
+                          `
+                          : "—"
+                      }
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-application-review]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          const applicationId =
+            button.dataset.applicationReview;
+
+          const schedule = window.prompt(
+            "Enter Case Review date and time (YYYY-MM-DDTHH:MM):",
+          );
+
+          if (!schedule) return;
+
+          try {
+            await updateInternshipApplication(
+              applicationId,
+              {
+                status: "case_review",
+                case_review_schedule: schedule,
+              },
+            );
+
+            showAdminToast(
+              "Application moved to Case Review.",
+            );
+
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to schedule Case Review.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-review]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          const applicationId =
+            button.dataset.applicationReview;
+
+          const schedule = window.prompt(
+            "Enter Case Review date and time (YYYY-MM-DDTHH:MM):",
+          );
+
+          if (!schedule) return;
+
+          try {
+            await updateInternshipApplication(
+              applicationId,
+              {
+                status: "case_review",
+                case_review_schedule: schedule,
+              },
+            );
+
+            showAdminToast(
+              "Application moved to Case Review.",
+            );
+
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to schedule Case Review.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-select]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await selectInternshipApplication(
+              button.dataset.applicationSelect,
+            );
+
+            showAdminToast(
+              "Applicant selected successfully.",
+            );
+
+            loadInternshipApplications();
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to select applicant.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-revert]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await revertInternshipSelection(
+              button.dataset.applicationRevert,
+            );
+
+            showAdminToast(
+              "Selection reverted successfully.",
+            );
+
+            loadInternshipApplications();
+            loadInternshipTracks();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to revert selection.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-reject]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await updateInternshipApplication(
+              button.dataset.applicationReject,
+              {
+                status: "rejected",
+              },
+            );
+
+            showAdminToast("Application rejected.");
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to reject application.",
+              "error",
+            );
+          }
+        });
+      });
+
+    container
+      .querySelectorAll("[data-application-offer]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await sendInternshipOffer(
+              button.dataset.applicationOffer,
+            );
+
+            showAdminToast("Offer sent successfully.");
+            loadInternshipApplications();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to send offer.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-application-statement]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const application = applications.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.applicationStatement),
+            );
+
+            if (!application?.statement_of_intent) {
+              showAdminToast(
+                "No statement of intent is available.",
+                "error",
+              );
+              return;
+            }
+
+            window.alert(
+              `Statement of Intent\n\n${application.statement_of_intent}`,
+            );
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load applications</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+
+async function loadInternshipPartners() {
+  const container = document.getElementById(
+    "internship-partners-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipPartners();
+
+    const partners = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!partners.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No partner organisations found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Organisation</th>
+              <th>Type</th>
+              <th>Contact</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${partners
+              .map(
+                (partner) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(
+                          partner.name || "—",
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        partner.organisation_type ||
+                          "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        partner.contact_name || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        partner.email || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${
+                          partner.is_active
+                            ? "Active"
+                            : "Inactive"
+                        }
+                      </span>
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "edit",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-partner-edit="${partner.id}"
+                              >
+                                Edit
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "delete",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-partner-delete="${partner.id}"
+                              >
+                                Delete
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    </td>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-partner-delete]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (
+            !window.confirm(
+              "Delete this partner organisation?",
+            )
+          ) {
+            return;
+          }
+
+          try {
+            await deleteInternshipPartner(
+              button.dataset.partnerDelete,
+            );
+
+            showAdminToast("Partner deleted.");
+            loadInternshipPartners();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to delete partner.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-partner-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const partner = partners.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.partnerEdit),
+            );
+
+            if (partner) {
+              openInternshipPartnerModal(partner);
+            }
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load partners</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+
+async function loadInternshipAlumni() {
+  const container = document.getElementById(
+    "internship-alumni-content",
+  );
+
+  if (!container) return;
+
+  try {
+    const response = await getInternshipAlumni();
+
+    const alumni = Array.isArray(response)
+      ? response
+      : response?.results || [];
+
+    if (!alumni.length) {
+      container.innerHTML = `
+        <div class="thp-admin-empty-state">
+          No alumni testimonials found.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="thp-admin-table-wrap">
+        <table class="thp-admin-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Testimonial</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${alumni
+              .map(
+                (item) => `
+                  <tr>
+                    <td>
+                      <strong>
+                        ${escapeHtml(
+                          item.name || "—",
+                        )}
+                      </strong>
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        item.role || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      ${escapeHtml(
+                        item.testimonial || "—",
+                      )}
+                    </td>
+
+                    <td>
+                      <span class="thp-admin-status-badge">
+                        ${
+                          item.is_active
+                            ? "Active"
+                            : "Inactive"
+                        }
+                      </span>
+                    </td>
+
+                    <td>
+                      <div class="thp-admin-row-actions">
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "edit",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-alumni-edit="${item.id}"
+                              >
+                                Edit
+                              </button>
+                            `
+                            : ""
+                        }
+
+                        ${
+                          hasPermission(
+                            "internships",
+                            "delete",
+                          )
+                            ? `
+                              <button
+                                type="button"
+                                class="thp-admin-button"
+                                data-alumni-delete="${item.id}"
+                              >
+                                Delete
+                              </button>
+                            `
+                            : ""
+                        }
+
+                      </div>
+                    </td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    container
+      .querySelectorAll("[data-alumni-delete]")
+      .forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (
+            !window.confirm(
+              "Delete this alumni testimonial?",
+            )
+          ) {
+            return;
+          }
+
+          try {
+            await deleteInternshipAlumni(
+              button.dataset.alumniDelete,
+            );
+
+            showAdminToast("Alumni testimonial deleted.");
+            loadInternshipAlumni();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to delete alumni testimonial.",
+              "error",
+            );
+          }
+        });
+      });
+
+      container
+        .querySelectorAll("[data-alumni-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const alumniItem = alumni.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.alumniEdit),
+            );
+
+            if (alumniItem) {
+              openInternshipAlumniModal(alumniItem);
+            }
+          });
+        });
+
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="thp-admin-error-state">
+        <strong>Unable to load alumni</strong>
+        <span>
+          ${escapeHtml(
+            error?.message || "Something went wrong.",
+          )}
+        </span>
+      </div>
+    `;
+  }
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIP TRACK FORM
+// ============================================================
+
+function openInternshipTrackModal(track = null) {
+  const existing = document.getElementById(
+    "internship-track-modal",
+  );
+
+  if (existing) existing.remove();
+
+  const isEdit = Boolean(track);
+
+  const skillsValue = Array.isArray(track?.skills)
+    ? track.skills.join(", ")
+    : "";
+
+  const deadlineValue = track?.application_deadline
+    ? new Date(track.application_deadline)
+        .toISOString()
+        .slice(0, 16)
+    : "";
+
+  const modal = document.createElement("div");
+
+  modal.className = "thp-admin-modal";
+
+  modal.id = "internship-track-modal";
+
+
+  modal.innerHTML = `
+    <div
+      class="thp-admin-modal-backdrop"
+      data-close-internship-track-modal
+    ></div>
+
+    <div
+      class="thp-admin-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="internship-track-modal-title"
+      style="
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, calc(100vw - 48px));
+        max-height: calc(100vh - 48px);
+        margin: 0;
+      "
+    >
+      <div class="thp-admin-modal-header">
+        <div>
+          <p class="thp-admin-eyebrow">INTERNSHIP TRACK</p>
+
+          <h2 id="internship-track-modal-title">
+            ${isEdit ? "Edit Internship Track" : "Add Internship Track"}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          id="close-internship-track-modal"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="internship-track-form">
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-title">
+              Title
+            </label>
+
+            <input
+              id="internship-track-title"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(track?.title || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-type">
+              Type
+            </label>
+
+            <select
+              id="internship-track-type"
+              required
+            >
+              <option value="fellowship"
+                ${track?.track_type === "fellowship" ? "selected" : ""}
+              >
+                Fellowship
+              </option>
+
+              <option value="clinical_rotation"
+                ${track?.track_type === "clinical_rotation" ? "selected" : ""}
+              >
+                Clinical Rotation
+              </option>
+
+              <option value="lab_pathology"
+                ${track?.track_type === "lab_pathology" ? "selected" : ""}
+              >
+                Lab Pathology
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-organisation">
+              Organisation
+            </label>
+
+            <input
+              id="internship-track-organisation"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(track?.organisation || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-duration">
+              Duration
+            </label>
+
+            <input
+              id="internship-track-duration"
+              type="text"
+              maxlength="100"
+              placeholder="e.g. 6 months"
+              value="${escapeHtml(track?.duration || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-weekly-hours">
+              Weekly Hours
+            </label>
+
+            <input
+              id="internship-track-weekly-hours"
+              type="number"
+              min="0"
+              step="1"
+              value="${track?.weekly_hours ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-stipend">
+              Monthly Stipend
+            </label>
+
+            <input
+              id="internship-track-stipend"
+              type="number"
+              min="0"
+              step="0.01"
+              value="${track?.monthly_stipend ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-positions">
+              Open Positions
+            </label>
+
+            <input
+              id="internship-track-positions"
+              type="number"
+              min="0"
+              step="1"
+              required
+              value="${track?.open_positions ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-deadline">
+              Application Deadline
+            </label>
+
+            <input
+              id="internship-track-deadline"
+              type="datetime-local"
+              value="${deadlineValue}"
+            />
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-skills">
+              Skills Tags
+            </label>
+
+            <input
+              id="internship-track-skills"
+              type="text"
+              placeholder="Python, Django, SQL, Machine Learning"
+              value="${escapeHtml(skillsValue)}"
+            />
+
+            <small>
+              Separate skills using commas.
+            </small>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-description">
+              Description
+            </label>
+
+            <textarea
+              id="internship-track-description"
+              rows="4"
+            >${escapeHtml(track?.description || "")}</textarea>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-syllabus">
+              Syllabus
+            </label>
+
+            <textarea
+              id="internship-track-syllabus"
+              rows="5"
+            >${escapeHtml(track?.syllabus || "")}</textarea>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-track-eligibility">
+              Eligibility
+            </label>
+
+            <textarea
+              id="internship-track-eligibility"
+              rows="4"
+            >${escapeHtml(track?.eligibility || "")}</textarea>
+          </div>
+
+        </div>
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-track-status">
+              Status
+            </label>
+
+            <select id="internship-track-status">
+
+              <option
+                value="open"
+                ${track?.status !== "closed" ? "selected" : ""}
+              >
+                Open
+              </option>
+
+              <option
+                value="closed"
+                ${track?.status === "closed" ? "selected" : ""}
+              >
+                Closed
+              </option>
+
+            </select>
+          </div>
+
+          <div class="thp-admin-form-group">
+
+            <label class="thp-admin-checkbox">
+
+              <input
+                id="internship-track-published"
+                type="checkbox"
+                ${track?.is_published ? "checked" : ""}
+              />
+
+              <span>
+                Publish this internship track
+              </span>
+
+            </label>
+
+          </div>
+
+        </div>
+
+        <p
+          id="internship-track-form-error"
+          class="thp-admin-form-error"
+          hidden
+        ></p>
+
+        <div class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="cancel-internship-track"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-primary-button"
+          >
+            ${isEdit ? "Save Changes" : "Create Track"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  </div>
+`;
+
+  document.body.appendChild(modal);
+
+  modal.hidden = false;
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal
+    .querySelector("#close-internship-track-modal")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#cancel-internship-track")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("[data-close-internship-track-modal]")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#internship-track-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorElement = modal.querySelector(
+        "#internship-track-form-error",
+      );
+
+      errorElement.hidden = true;
+      errorElement.textContent = "";
+
+      const skills = document
+        .getElementById("internship-track-skills")
+        .value
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+
+      const data = {
+        title: document.getElementById(
+          "internship-track-title",
+        ).value.trim(),
+
+        track_type: document.getElementById(
+          "internship-track-type",
+        ).value,
+
+        organisation: document.getElementById(
+          "internship-track-organisation",
+        ).value.trim(),
+
+        description: document.getElementById(
+          "internship-track-description",
+        ).value.trim(),
+
+        duration: document.getElementById(
+          "internship-track-duration",
+        ).value.trim(),
+
+        weekly_hours: Number(
+          document.getElementById(
+            "internship-track-weekly-hours",
+          ).value,
+        ),
+
+        monthly_stipend: Number(
+          document.getElementById(
+            "internship-track-stipend",
+          ).value,
+        ),
+
+        skills,
+
+        open_positions: Number(
+          document.getElementById(
+            "internship-track-positions",
+          ).value,
+        ),
+
+        syllabus: document.getElementById(
+          "internship-track-syllabus",
+        ).value.trim(),
+
+        eligibility: document.getElementById(
+          "internship-track-eligibility",
+        ).value.trim(),
+
+        application_deadline:
+          document.getElementById(
+            "internship-track-deadline",
+          ).value || null,
+
+        status: document.getElementById(
+          "internship-track-status",
+        ).value,
+
+        is_published: document.getElementById(
+          "internship-track-published",
+        ).checked,
+      };
+
+      try {
+        if (isEdit) {
+          await updateInternshipTrack(
+            track.id,
+            data,
+          );
+
+          showAdminToast(
+            "Internship track updated successfully.",
+          );
+        } else {
+          await createInternshipTrack(data);
+
+          showAdminToast(
+            "Internship track created successfully.",
+          );
+        }
+
+        closeModal();
+
+        loadInternshipTracks();
+      } catch (error) {
+        errorElement.textContent =
+          error?.message ||
+          "Unable to save internship track.";
+
+        errorElement.hidden = false;
+      }
+    });
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIP PARTNER FORM
+// ============================================================
+
+function openInternshipPartnerModal(partner = null) {
+  const existing = document.getElementById(
+    "internship-partner-modal",
+  );
+
+  if (existing) existing.remove();
+
+  const isEdit = Boolean(partner);
+
+  const modal = document.createElement("div");
+
+  modal.className = "thp-admin-modal";
+  modal.id = "internship-partner-modal";
+
+  modal.innerHTML = `
+    <div
+      class="thp-admin-modal-backdrop"
+      data-close-internship-partner-modal
+    ></div>
+
+    <div
+      class="thp-admin-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="internship-track-modal-title"
+      style="
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, calc(100vw - 48px));
+        max-height: calc(100vh - 48px);
+        margin: 0;
+      "
+    >
+      <div class="thp-admin-modal-header">
+        <div>
+          <p class="thp-admin-eyebrow">PARTNER ORGANISATION</p>
+
+          <h2 id="internship-partner-modal-title">
+            ${isEdit ? "Edit Partner" : "Add Partner"}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          id="close-internship-partner-modal"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="internship-partner-form">
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-name">
+              Organisation Name
+            </label>
+
+            <input
+              id="internship-partner-name"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(partner?.name || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-type">
+              Organisation Type
+            </label>
+
+            <input
+              id="internship-partner-type"
+              type="text"
+              maxlength="100"
+              placeholder="Hospital, Laboratory, University..."
+              value="${escapeHtml(
+                partner?.organisation_type || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-contact">
+              Contact Person
+            </label>
+
+            <input
+              id="internship-partner-contact"
+              type="text"
+              maxlength="255"
+              value="${escapeHtml(
+                partner?.contact_name || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-email">
+              Email
+            </label>
+
+            <input
+              id="internship-partner-email"
+              type="email"
+              value="${escapeHtml(
+                partner?.email || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-phone">
+              Phone
+            </label>
+
+            <input
+              id="internship-partner-phone"
+              type="text"
+              maxlength="50"
+              value="${escapeHtml(
+                partner?.phone || "",
+              )}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-partner-status">
+              Status
+            </label>
+
+            <select id="internship-partner-status">
+
+              <option
+                value="true"
+                ${partner?.is_active !== false ? "selected" : ""}
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${partner?.is_active === false ? "selected" : ""}
+              >
+                Inactive
+              </option>
+
+            </select>
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-partner-description">
+              Description
+            </label>
+
+            <textarea
+              id="internship-partner-description"
+              rows="4"
+            >${escapeHtml(
+              partner?.description || "",
+            )}</textarea>
+          </div>
+
+        </div>
+
+        <p
+          id="internship-partner-form-error"
+          class="thp-admin-form-error"
+          hidden
+        ></p>
+
+        <div class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="cancel-internship-partner"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-primary-button"
+          >
+            ${isEdit ? "Save Changes" : "Create Partner"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.hidden = false;
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal
+    .querySelector("#close-internship-partner-modal")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#cancel-internship-partner")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("[data-close-internship-partner-modal]")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#internship-partner-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorElement = modal.querySelector(
+        "#internship-partner-form-error",
+      );
+
+      errorElement.hidden = true;
+      errorElement.textContent = "";
+
+      const data = {
+        name: document.getElementById(
+          "internship-partner-name",
+        ).value.trim(),
+
+        organisation_type: document.getElementById(
+          "internship-partner-type",
+        ).value.trim(),
+
+        contact_name: document.getElementById(
+          "internship-partner-contact",
+        ).value.trim(),
+
+        email: document.getElementById(
+          "internship-partner-email",
+        ).value.trim(),
+
+        phone: document.getElementById(
+          "internship-partner-phone",
+        ).value.trim(),
+
+        description: document.getElementById(
+          "internship-partner-description",
+        ).value.trim(),
+
+        is_active:
+          document.getElementById(
+            "internship-partner-status",
+          ).value === "true",
+      };
+
+      try {
+        if (isEdit) {
+          await updateInternshipPartner(
+            partner.id,
+            data,
+          );
+
+          showAdminToast(
+            "Partner updated successfully.",
+          );
+        } else {
+          await createInternshipPartner(data);
+
+          showAdminToast(
+            "Partner created successfully.",
+          );
+        }
+
+        closeModal();
+
+        loadInternshipPartners();
+      } catch (error) {
+        errorElement.textContent =
+          error?.message ||
+          "Unable to save partner.";
+
+        errorElement.hidden = false;
+      }
+    });
+}
+
+// ============================================================
+// MODULE 13 — INTERNSHIP ALUMNI FORM
+// ============================================================
+
+function openInternshipAlumniModal(alumni = null) {
+  const existing = document.getElementById(
+    "internship-alumni-modal",
+  );
+
+  if (existing) existing.remove();
+
+  const isEdit = Boolean(alumni);
+
+  const modal = document.createElement("div");
+
+  modal.className = "thp-admin-modal";
+  modal.id = "internship-alumni-modal";
+
+  modal.innerHTML = `
+    <div
+      class="thp-admin-modal-backdrop"
+      data-close-internship-alumni-modal
+    ></div>
+
+    <div
+      class="thp-admin-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="internship-track-modal-title"
+      style="
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(820px, calc(100vw - 48px));
+        max-height: calc(100vh - 48px);
+        margin: 0;
+      "
+    >
+      <div class="thp-admin-modal-header">
+        <div>
+          <p class="thp-admin-eyebrow">ALUMNI TESTIMONIAL</p>
+
+          <h2 id="internship-alumni-modal-title">
+            ${isEdit ? "Edit Alumni Testimonial" : "Add Alumni Testimonial"}
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-modal-close"
+          id="close-internship-alumni-modal"
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <form id="internship-alumni-form">
+
+        <div class="thp-admin-form-grid">
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-name">
+              Name
+            </label>
+
+            <input
+              id="internship-alumni-name"
+              type="text"
+              maxlength="255"
+              required
+              value="${escapeHtml(alumni?.name || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-role">
+              Role
+            </label>
+
+            <input
+              id="internship-alumni-role"
+              type="text"
+              maxlength="255"
+              placeholder="Former Clinical Intern"
+              value="${escapeHtml(alumni?.role || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-photo">
+              Photo URL
+            </label>
+
+            <input
+              id="internship-alumni-photo"
+              type="url"
+              value="${escapeHtml(alumni?.photo_url || "")}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="internship-alumni-order">
+              Display Order
+            </label>
+
+            <input
+              id="internship-alumni-order"
+              type="number"
+              min="0"
+              step="1"
+              value="${alumni?.display_order ?? 0}"
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+
+            <label for="internship-alumni-status">
+              Status
+            </label>
+
+            <select id="internship-alumni-status">
+
+              <option
+                value="true"
+                ${alumni?.is_active !== false ? "selected" : ""}
+              >
+                Active
+              </option>
+
+              <option
+                value="false"
+                ${alumni?.is_active === false ? "selected" : ""}
+              >
+                Inactive
+              </option>
+
+            </select>
+
+          </div>
+
+          <div
+            class="thp-admin-form-group"
+            style="grid-column:1/-1"
+          >
+            <label for="internship-alumni-testimonial">
+              Testimonial
+            </label>
+
+            <textarea
+              id="internship-alumni-testimonial"
+              rows="6"
+              required
+            >${escapeHtml(
+              alumni?.testimonial || "",
+            )}</textarea>
+          </div>
+
+        </div>
+
+        <p
+          id="internship-alumni-form-error"
+          class="thp-admin-form-error"
+          hidden
+        ></p>
+
+        <div class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-button"
+            id="cancel-internship-alumni"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="thp-admin-primary-button"
+          >
+            ${isEdit ? "Save Changes" : "Create Testimonial"}
+          </button>
+
+        </div>
+
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.hidden = false;
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  modal
+    .querySelector("#close-internship-alumni-modal")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#cancel-internship-alumni")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("[data-close-internship-alumni-modal]")
+    ?.addEventListener("click", closeModal);
+
+  modal
+    .querySelector("#internship-alumni-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const errorElement = modal.querySelector(
+        "#internship-alumni-form-error",
+      );
+
+      errorElement.hidden = true;
+      errorElement.textContent = "";
+
+      const data = {
+        name: document.getElementById(
+          "internship-alumni-name",
+        ).value.trim(),
+
+        role: document.getElementById(
+          "internship-alumni-role",
+        ).value.trim(),
+
+        testimonial: document.getElementById(
+          "internship-alumni-testimonial",
+        ).value.trim(),
+
+        photo_url: document.getElementById(
+          "internship-alumni-photo",
+        ).value.trim(),
+
+        is_active:
+          document.getElementById(
+            "internship-alumni-status",
+          ).value === "true",
+
+        display_order: Number(
+          document.getElementById(
+            "internship-alumni-order",
+          ).value,
+        ),
+      };
+
+      try {
+        if (isEdit) {
+          await updateInternshipAlumni(
+            alumni.id,
+            data,
+          );
+
+          showAdminToast(
+            "Alumni testimonial updated successfully.",
+          );
+        } else {
+          await createInternshipAlumni(data);
+
+          showAdminToast(
+            "Alumni testimonial created successfully.",
+          );
+        }
+
+        closeModal();
+
+        loadInternshipAlumni();
+      } catch (error) {
+        errorElement.textContent =
+          error?.message ||
+          "Unable to save alumni testimonial.";
+
+        errorElement.hidden = false;
+      }
+    });
+}
+
+// ============================================================
+// MODULE 14 — SUPPORT & COMMUNICATION
+// ============================================================
+
+export function renderAdminSupport(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("support", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-support-page">
+
+
+      <nav
+        class="thp-marketing-tabs"
+        aria-label="Support sections"
+        role="tablist"
+      >
+        <button
+          type="button"
+          class="thp-marketing-tab is-active"
+          data-support-tab="tickets"
+          role="tab"
+          aria-selected="true"
+        >
+          Support Tickets
+          <span class="thp-admin-tab-count" id="support-ticket-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="queries"
+          role="tab"
+          aria-selected="false"
+        >
+          Contact Queries
+          <span class="thp-admin-tab-count" id="contact-query-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="emergency"
+          role="tab"
+          aria-selected="false"
+        >
+          Emergency Alerts
+          <span class="thp-admin-tab-count" id="emergency-request-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="templates"
+          role="tab"
+          aria-selected="false"
+        >
+          Notification Templates
+          <span class="thp-admin-tab-count" id="notification-template-count">0</span>
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-support-tab="notifications"
+          role="tab"
+          aria-selected="false"
+        >
+          Notifications
+          <span class="thp-admin-tab-count" id="notification-count">0</span>
+        </button>
+      </nav>
+
+      <div id="admin-support-workspace"></div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "support",
+    content,
+    {
+      subtitle: "Support tickets, communication and emergency requests",
+    },
+  );
+
+  const workspace = app.querySelector("#admin-support-workspace");
+  const tabs = Array.from(
+    app.querySelectorAll("[data-support-tab]")
+  );
+
+  let activeTab = "tickets";
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+
+    tabs.forEach((button) => {
+      const active = button.dataset.supportTab === tab;
+
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    renderActiveTab();
+  }
+
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.supportTab);
+    });
+  });
+
+  function loadingState(message = "Loading...") {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>${message}</strong>
+      </section>
+    `;
+  }
+
+  function errorState(message) {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Unable to load data</strong>
+        <p>${escapeHtml(message || "Please try again.")}</p>
+      </section>
+    `;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function getRows(response) {
+    if (Array.isArray(response)) return response;
+
+    if (Array.isArray(response?.results)) {
+      return response.results;
+    }
+
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+
+    return [];
+  }
+
+  function statusClass(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replaceAll("_", "-")
+      .replaceAll(" ", "-");
+  }
+
+  async function renderTickets() {
+    loadingState("Loading support tickets...");
+
+    try {
+      const response = await getSupportTickets();
+      const rows = getRows(response);
+
+      app.querySelector("#support-ticket-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Support Tickets</h2>
+              <p>Manage patient and platform support requests.</p>
+            </div>
+
+            ${
+              hasPermission("support", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    id="create-support-ticket-button"
+                  >
+                    Create Ticket
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-toolbar">
+            <input
+              type="search"
+              id="support-ticket-search"
+              class="thp-admin-search"
+              placeholder="Search tickets..."
+            />
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>Ticket ID</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Assignee</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody id="support-ticket-table-body">
+                ${
+                  rows.length
+                    ? rows.map((ticket) => `
+                      <tr>
+                        <td>${escapeHtml(ticket.ticket_id || ticket.id || "—")}</td>
+                        <td>${escapeHtml(ticket.subject || "—")}</td>
+                        <td>${escapeHtml(ticket.user_name || ticket.user || "—")}</td>
+                        <td>${escapeHtml(ticket.category || "—")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(ticket.priority)}">
+                            ${escapeHtml(ticket.priority || "—")}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(ticket.status)}">
+                            ${escapeHtml(ticket.status || "—")}
+                          </span>
+                        </td>
+                        <td>${escapeHtml(ticket.assignee_name || ticket.assignee || "Unassigned")}</td>
+                        <td>
+                          <div class="thp-admin-row-actions">
+
+                            <button
+                              type="button"
+                              class="thp-admin-row-button"
+                              data-ticket-manage="${escapeHtml(ticket.id)}"
+                            >
+                              Manage
+                            </button>
+
+                            ${
+                              hasPermission("support", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ticket-action="close"
+                                    data-ticket-id="${escapeHtml(ticket.id)}"
+                                  >
+                                    ${
+                                      String(ticket.status).toLowerCase() === "closed"
+                                        ? "Reopen"
+                                        : "Close"
+                                    }
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="8">
+                          <div class="thp-admin-empty-state">
+                            <strong>No support tickets found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelectorAll("[data-ticket-manage]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            const ticketId = button.dataset.ticketManage;
+
+            try {
+              button.disabled = true;
+              button.textContent = "Loading...";
+
+              const response = await getSupportTicket(ticketId);
+              const ticket = response?.data || response;
+
+              const staffResponse = await getAdminStaff();
+              const supportUsers = getRows(staffResponse);
+
+              const messages = Array.isArray(ticket?.messages)
+                ? ticket.messages
+                : [];
+
+              const drawer = document.createElement("div");
+
+              drawer.className = "thp-admin-modal";
+
+              drawer.innerHTML = `
+                <div class="thp-admin-modal-backdrop"></div>
+
+                <section
+                  class="thp-admin-modal-card"
+                  role="dialog"
+                  aria-modal="true"
+                >
+
+                  <header class="thp-admin-modal-header">
+                    <div>
+                      <p class="thp-admin-eyebrow">SUPPORT TICKET</p>
+
+                      <h2>
+                        ${escapeHtml(
+                          ticket.ticket_id ||
+                          ticket.id ||
+                          "Support Ticket"
+                        )}
+                      </h2>
+
+                      <p>
+                        ${escapeHtml(ticket.subject || "")}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="thp-admin-modal-close"
+                      data-ticket-drawer-close
+                    >
+                      ×
+                    </button>
+                  </header>
+
+                  <div style="padding: 24px;">
+
+                    <div class="thp-admin-form-row">
+
+                      <div class="thp-admin-form-group">
+                        <label for="ticket-assignee-${escapeHtml(ticket.id)}">
+                          Assignee
+                        </label>
+
+                        <select id="ticket-assignee-${escapeHtml(ticket.id)}">
+                          <option value="">Unassigned</option>
+
+                          ${(() => {
+
+                            return supportUsers.map((user) => `
+                              <option
+                                value="${escapeHtml(user.user_id ?? user.id)}"
+                                ${String(ticket.assignee || "") === String(user.id) ? "selected" : ""}
+                              >
+                                ${escapeHtml(
+                                  user.name ||
+                                  user.username ||
+                                  user.email ||
+                                  `User ${user.id}`
+                                )}
+                              </option>
+                            `).join("");
+                          })()}
+                        </select>
+                      </div>
+
+                      <div class="thp-admin-form-group">
+                        <label>Status</label>
+
+                        <select id="ticket-status-${escapeHtml(ticket.id)}">
+                          <option value="open"
+                            ${ticket.status === "open" ? "selected" : ""}>
+                            Open
+                          </option>
+
+                          <option value="in_progress"
+                            ${ticket.status === "in_progress" ? "selected" : ""}>
+                            In Progress
+                          </option>
+
+                          <option value="resolved"
+                            ${ticket.status === "resolved" ? "selected" : ""}>
+                            Resolved
+                          </option>
+
+                          <option value="closed"
+                            ${ticket.status === "closed" ? "selected" : ""}>
+                            Closed
+                          </option>
+                        </select>
+                      </div>
+
+                      <div class="thp-admin-form-group">
+                        <label>Priority</label>
+
+                        <select id="ticket-priority-${escapeHtml(ticket.id)}">
+                          <option value="low"
+                            ${ticket.priority === "low" ? "selected" : ""}>
+                            Low
+                          </option>
+
+                          <option value="medium"
+                            ${ticket.priority === "medium" ? "selected" : ""}>
+                            Medium
+                          </option>
+
+                          <option value="high"
+                            ${ticket.priority === "high" ? "selected" : ""}>
+                            High
+                          </option>
+                        </select>
+                      </div>
+
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label>Category</label>
+
+                      <input
+                        id="ticket-category-${escapeHtml(ticket.id)}"
+                        value="${escapeHtml(ticket.category || "")}"
+                      />
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label>Conversation &amp; Internal Notes</label>
+
+                      <div
+                        style="
+                          max-height: 260px;
+                          overflow-y: auto;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 12px;
+                          padding: 14px;
+                        "
+                      >
+                        ${
+                          messages.length
+                            ? messages.map((message) => `
+                                <div
+                                  style="
+                                    padding: 12px;
+                                    margin-bottom: 10px;
+                                    border-radius: 10px;
+                                    background: ${
+                                      message.message_type === "internal_note"
+                                        ? "#fff8e7"
+                                        : "#f5f8f7"
+                                    };
+                                  "
+                                >
+                                  <strong>
+                                    ${
+                                      message.message_type === "internal_note"
+                                        ? "Internal Note"
+                                        : "Reply"
+                                    }
+                                  </strong>
+
+                                  <p>
+                                    ${escapeHtml(message.message || "")}
+                                  </p>
+
+                                  <small>
+                                    ${escapeHtml(message.created_at || "")}
+                                  </small>
+                                </div>
+                              `).join("")
+                            : `
+                              <div class="thp-admin-empty-state">
+                                <strong>No messages yet</strong>
+                              </div>
+                            `
+                        }
+                      </div>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="ticket-reply-${escapeHtml(ticket.id)}">
+                        Reply
+                      </label>
+
+                      <textarea
+                        id="ticket-reply-${escapeHtml(ticket.id)}"
+                        rows="4"
+                        placeholder="Write a reply..."
+                      ></textarea>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="ticket-note-${escapeHtml(ticket.id)}">
+                        Internal Note
+                      </label>
+
+                      <textarea
+                        id="ticket-note-${escapeHtml(ticket.id)}"
+                        rows="3"
+                        placeholder="Add an internal note..."
+                      ></textarea>
+                    </div>
+
+                  </div>
+
+                  <footer class="thp-admin-modal-footer">
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-ticket-drawer-close
+                    >
+                      Close
+                    </button>
+
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button"
+                      id="ticket-save-${escapeHtml(ticket.id)}"
+                    >
+                      Save Changes
+                    </button>
+
+                  </footer>
+
+                </section>
+              `;
+
+              document.body.appendChild(drawer);
+
+              const saveButton = drawer.querySelector(
+                `#ticket-save-${CSS.escape(String(ticket.id))}`
+              );
+
+              saveButton?.addEventListener("click", async () => {
+                const assignee = drawer.querySelector(
+                  `#ticket-assignee-${CSS.escape(String(ticket.id))}`
+                )?.value;
+
+                const status = drawer.querySelector(
+                  `#ticket-status-${CSS.escape(String(ticket.id))}`
+                )?.value;
+
+                const priority = drawer.querySelector(
+                  `#ticket-priority-${CSS.escape(String(ticket.id))}`
+                )?.value;
+
+                const category = drawer.querySelector(
+                  `#ticket-category-${CSS.escape(String(ticket.id))}`
+                )?.value.trim();
+
+                const reply = drawer.querySelector(
+                  `#ticket-reply-${CSS.escape(String(ticket.id))}`
+                )?.value.trim();
+
+                const note = drawer.querySelector(
+                  `#ticket-note-${CSS.escape(String(ticket.id))}`
+                )?.value.trim();
+
+                try {
+                  saveButton.disabled = true;
+                  saveButton.textContent = "Saving...";
+
+                  await updateSupportTicket(ticket.id, {
+                    status,
+                    priority,
+                    category,
+                  });
+
+                  if (assignee) {
+                    await assignSupportTicket(ticket.id, assignee);
+                  }
+
+                  if (reply) {
+                    await replySupportTicket(ticket.id, reply);
+                  }
+
+                  if (note) {
+                    await addSupportTicketInternalNote(ticket.id, note);
+                  }
+
+                  drawer.remove();
+
+                  await renderTickets();
+
+                } catch (error) {
+                  console.error("Failed to update support ticket:", error);
+
+                  saveButton.disabled = false;
+                  saveButton.textContent = "Save Changes";
+
+                  alert(
+                    error?.message ||
+                    "Failed to update the support ticket."
+                  );
+                }
+              });
+
+              drawer
+                .querySelectorAll("[data-ticket-drawer-close]")
+                .forEach((closeButton) => {
+                  closeButton.addEventListener("click", () => {
+                    drawer.remove();
+                  });
+                });
+
+              document.body.appendChild(drawer);
+
+              const closeDrawer = () => {
+                drawer.remove();
+              };
+
+              drawer
+                .querySelectorAll("[data-ticket-drawer-close]")
+                .forEach((element) => {
+                  element.addEventListener("click", closeDrawer);
+                });
+
+              drawer
+                .querySelector(".thp-admin-modal-backdrop")
+                ?.addEventListener("click", closeDrawer);
+
+              drawer
+                .querySelector(`#ticket-save-${CSS.escape(String(ticket.id))}`)
+                ?.addEventListener("click", async () => {
+                  const saveButton = drawer.querySelector(
+                    `#ticket-save-${CSS.escape(String(ticket.id))}`
+                  );
+
+                  try {
+                    saveButton.disabled = true;
+                    saveButton.textContent = "Saving...";
+
+                    const status = drawer.querySelector(
+                      `#ticket-status-${CSS.escape(String(ticket.id))}`
+                    ).value;
+
+                    const priority = drawer.querySelector(
+                      `#ticket-priority-${CSS.escape(String(ticket.id))}`
+                    ).value;
+
+                    const category = drawer.querySelector(
+                      `#ticket-category-${CSS.escape(String(ticket.id))}`
+                    ).value.trim();
+
+                    const assignee = drawer.querySelector(
+                      `#ticket-assignee-${CSS.escape(String(ticket.id))}`
+                    ).value;
+
+                    const reply = drawer.querySelector(
+                      `#ticket-reply-${CSS.escape(String(ticket.id))}`
+                    ).value.trim();
+
+                    const note = drawer.querySelector(
+                      `#ticket-note-${CSS.escape(String(ticket.id))}`
+                    ).value.trim();
+
+                    await updateSupportTicket(ticket.id, {
+                      status,
+                      priority,
+                      category,
+                    });
+
+                    if (assignee) {
+                      await assignSupportTicket(ticket.id, assignee);
+                    }
+
+                    if (reply) {
+                      await replySupportTicket(ticket.id, reply);
+                    }
+
+                    if (note) {
+                      await addSupportTicketInternalNote(
+                        ticket.id,
+                        note
+                      );
+                    }
+
+                    showAdminToast("Ticket updated successfully.");
+
+                    closeDrawer();
+
+                    await renderTickets();
+
+                  } catch (error) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = "Save Changes";
+
+                    showAdminToast(
+                      error?.message || "Unable to update ticket.",
+                      "error"
+                    );
+                  }
+                });
+
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to load ticket.",
+                "error"
+              );
+            } finally {
+              button.disabled = false;
+              button.textContent = "Manage";
+            }
+          });
+        });
+
+      app
+        .querySelector("#create-support-ticket-button")
+        ?.addEventListener("click", async () => {
+          try {
+            const usersResponse = await getAdminUsers();
+            const users = getRows(usersResponse);
+
+            const modal = document.createElement("div");
+
+            modal.className = "thp-admin-modal thp-admin-support-modal";
+
+            modal.innerHTML = `
+              <div class="thp-admin-modal-backdrop"></div>
+
+              <section
+                class="thp-admin-modal-card"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="support-ticket-create-title"
+              >
+                <header class="thp-admin-modal-header">
+                  <div>
+                    <p class="thp-admin-eyebrow">SUPPORT</p>
+                    <h2 id="support-ticket-create-title">Create Support Ticket</h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="thp-admin-modal-close"
+                    data-support-modal-close
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <form id="support-ticket-create-form">
+
+                  <div class="thp-admin-form-group">
+                    <label for="support-ticket-subject">
+                      Subject <b>*</b>
+                    </label>
+
+                    <input
+                      id="support-ticket-subject"
+                      name="subject"
+                      type="text"
+                      required
+                      maxlength="255"
+                      placeholder="Enter ticket subject"
+                    />
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="support-ticket-user">
+                      User
+                    </label>
+
+                    <select
+                      id="support-ticket-user"
+                      name="user"
+                    >
+                      <option value="">Select user</option>
+
+                      ${users.map((user) => `
+                        <option value="${escapeHtml(user.id)}">
+                          ${escapeHtml(
+                            user.name ||
+                            user.username ||
+                            user.email ||
+                            `User ${user.id}`
+                          )}
+                        </option>
+                      `).join("")}
+                    </select>
+                  </div>
+
+                  <div class="thp-admin-form-row">
+
+                    <div class="thp-admin-form-group">
+                      <label for="support-ticket-category">
+                        Category <b>*</b>
+                      </label>
+
+                      <input
+                        id="support-ticket-category"
+                        name="category"
+                        type="text"
+                        required
+                        maxlength="100"
+                        placeholder="e.g. Pharmacy"
+                      />
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="support-ticket-priority">
+                        Priority <b>*</b>
+                      </label>
+
+                      <select
+                        id="support-ticket-priority"
+                        name="priority"
+                        required
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="support-ticket-description">
+                      Description
+                    </label>
+
+                    <textarea
+                      id="support-ticket-description"
+                      name="description"
+                      rows="5"
+                      placeholder="Describe the user's issue..."
+                    ></textarea>
+                  </div>
+
+                  <footer class="thp-admin-modal-footer">
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-support-modal-close
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      class="thp-admin-primary-button"
+                    >
+                      Create Ticket
+                    </button>
+
+                  </footer>
+
+                </form>
+              </section>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => {
+              modal.remove();
+            };
+
+            modal
+              .querySelectorAll("[data-support-modal-close]")
+              .forEach((button) => {
+                button.addEventListener("click", closeModal);
+              });
+
+            modal
+              .querySelector(".thp-admin-modal-backdrop")
+              ?.addEventListener("click", closeModal);
+
+            modal
+              .querySelector("#support-ticket-create-form")
+              ?.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const form = event.currentTarget;
+                const formData = new FormData(form);
+
+                const payload = {
+                  subject: String(formData.get("subject") || "").trim(),
+                  category: String(formData.get("category") || "").trim(),
+                  priority: String(formData.get("priority") || "medium"),
+                  description: String(formData.get("description") || "").trim(),
+                };
+
+                const userId = String(formData.get("user") || "").trim();
+
+                if (userId) {
+                  payload.user = userId;
+                }
+
+                const submitButton = form.querySelector(
+                  'button[type="submit"]'
+                );
+
+                submitButton.disabled = true;
+                submitButton.textContent = "Creating...";
+
+                try {
+                  await createSupportTicket(payload);
+
+                  closeModal();
+
+                  showAdminToast("Support ticket created successfully.");
+
+                  await renderTickets();
+                } catch (error) {
+                  submitButton.disabled = false;
+                  submitButton.textContent = "Create Ticket";
+
+                  showAdminToast(
+                    error?.message || "Unable to create support ticket.",
+                    "error"
+                  );
+                }
+              });
+
+          } catch (error) {
+            showAdminToast(
+              error?.message || "Unable to load users.",
+              "error"
+            );
+          }
+        });
+
+      app
+        .querySelectorAll("[data-ticket-action='close']")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              const id = button.dataset.ticketId;
+              const row = rows.find((item) => String(item.id) === String(id));
+
+              if (String(row?.status).toLowerCase() === "closed") {
+                await reopenSupportTicket(id);
+              } else {
+                await closeSupportTicket(id);
+              }
+
+              showAdminToast("Ticket status updated.");
+              await renderTickets();
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to update ticket.",
+                "error"
+              );
+            }
+          });
+        });
+
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  const queryState = {
+    search: "",
+    status: "",
+  };
+
+  const emergencyState = {
+    search: "",
+    priority: "",
+    status: "",
+    searchTimer: null,
+  };
+
+  const templateState = {
+    search: "",
+    channel: "",
+    searchTimer: null,
+  };
+
+  const notificationState = {
+    search: "",
+    channel: "",
+    audience: "",
+    searchTimer: null,
+  };
+
+
+  async function renderQueries() {
+    loadingState("Loading contact queries...");
+
+    try {
+      const response = await getContactQueries({
+        search: queryState.search,
+        status: queryState.status,
+      });
+      const rows = getRows(response);
+
+
+      app.querySelector("#contact-query-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Contact Queries</h2>
+              <p>Review and respond to messages submitted through the platform.</p>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 18px;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="search"
+              class="thp-admin-search-input"
+              data-query-search
+              placeholder="Search name, email or subject..."
+              value="${escapeHtml(queryState.search)}"
+              style="flex: 1; min-width: 240px;"
+            />
+
+            <select
+              class="thp-admin-select"
+              data-query-status-filter
+              style="min-width: 160px;"
+            >
+              <option value="">All Statuses</option>
+              <option
+                value="unread"
+                ${queryState.status === "unread" ? "selected" : ""}
+              >
+                Unread
+              </option>
+              <option
+                value="read"
+                ${queryState.status === "read" ? "selected" : ""}
+              >
+                Read
+              </option>
+              <option
+                value="replied"
+                ${queryState.status === "replied" ? "selected" : ""}
+              >
+                Replied
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Subject</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rows.length
+                    ? rows.map((query) => `
+                      <tr>
+                        <td>${escapeHtml(query.name || "—")}</td>
+                        <td>${escapeHtml(query.email || "—")}</td>
+                        <td>${escapeHtml(query.subject || "—")}</td>
+                        <td>${escapeHtml(query.created_at || query.date || "—")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(query.status)}">
+                            ${escapeHtml(query.status || "—")}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="thp-admin-row-actions">
+                            <button
+                              type="button"
+                              class="thp-admin-row-button"
+                              data-query-manage="${escapeHtml(query.id)}"
+                            >
+                              Manage
+                            </button>
+
+                            ${
+                              hasPermission("support", "edit") &&
+                              String(query.status).toLowerCase() === "unread"
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-query-read="${escapeHtml(query.id)}"
+                                  >
+                                    Mark Read
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="6">
+                          <div class="thp-admin-empty-state">
+                            <strong>No contact queries found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelectorAll("[data-query-read]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await markContactQueryRead(button.dataset.queryRead);
+              showAdminToast("Query marked as read.");
+              await renderQueries();
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to update query.",
+                "error"
+              );
+            }
+          });
+        });
+
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderEmergency() {
+    loadingState("Loading emergency requests...");
+
+    try {
+      const response = await getEmergencyRequests({
+        search: emergencyState.search,
+        priority: emergencyState.priority,
+        status: emergencyState.status,
+      });
+      const rows = getRows(response);
+
+      app.querySelector("#emergency-request-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Emergency Alerts</h2>
+              <p>Prioritise, assign and handle emergency support requests.</p>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 18px;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="search"
+              class="thp-admin-search-input"
+              data-emergency-search
+              placeholder="Search type or location..."
+              value="${escapeHtml(emergencyState.search)}"
+              style="flex: 1; min-width: 240px;"
+            />
+
+            <select
+              class="thp-admin-select"
+              data-emergency-priority-filter
+              style="min-width: 150px;"
+            >
+              <option value="">All Priorities</option>
+
+              <option
+                value="low"
+                ${emergencyState.priority === "low" ? "selected" : ""}
+              >
+                Low
+              </option>
+
+              <option
+                value="medium"
+                ${emergencyState.priority === "medium" ? "selected" : ""}
+              >
+                Medium
+              </option>
+
+              <option
+                value="high"
+                ${emergencyState.priority === "high" ? "selected" : ""}
+              >
+                High
+              </option>
+
+              <option
+                value="urgent"
+                ${emergencyState.priority === "urgent" ? "selected" : ""}
+              >
+                Urgent
+              </option>
+            </select>
+
+            <select
+              class="thp-admin-select"
+              data-emergency-status-filter
+              style="min-width: 150px;"
+            >
+              <option value="">All Statuses</option>
+
+              <option
+                value="pending"
+                ${emergencyState.status === "pending" ? "selected" : ""}
+              >
+                Pending
+              </option>
+
+              <option
+                value="assigned"
+                ${emergencyState.status === "assigned" ? "selected" : ""}
+              >
+                Assigned
+              </option>
+
+              <option
+                value="handled"
+                ${emergencyState.status === "handled" ? "selected" : ""}
+              >
+                Handled
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Type</th>
+                  <th>Priority</th>
+                  <th>Location</th>
+                  <th>Assigned Staff</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rows.length
+                    ? rows.map((request) => `
+                        <tr class="${
+                          String(request.priority).toLowerCase() === "urgent"
+                            ? "thp-admin-emergency-urgent"
+                            : ""
+                        }">
+                        <td>${escapeHtml(request.user_name || request.user || "—")}</td>
+                        <td>${escapeHtml(request.type || "—")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(request.priority)}">
+                            ${escapeHtml(request.priority || "—")}
+                          </span>
+                        </td>
+                        <td>${escapeHtml(request.location || "—")}</td>
+                        <td>${escapeHtml(request.assigned_staff_name || request.assigned_staff || "Unassigned")}</td>
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(request.status)}">
+                            ${escapeHtml(request.status || "—")}
+                          </span>
+                        </td>
+                        <td>
+                          ${
+                            hasPermission("support", "edit")
+                              ? `
+                                <div class="thp-admin-row-actions">
+
+                                  ${
+                                    String(request.status).toLowerCase() !== "handled"
+                                      ? `
+                                        <button
+                                          type="button"
+                                          class="thp-admin-row-button"
+                                          data-emergency-assign="${escapeHtml(request.id)}"
+                                        >
+                                          Assign Staff
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          class="thp-admin-row-button"
+                                          data-emergency-handled="${escapeHtml(request.id)}"
+                                        >
+                                          Mark Handled
+                                        </button>
+                                      `
+                                      : ""
+                                  }
+
+                                </div>
+                              `
+                              : ""
+                          }
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="7">
+                          <div class="thp-admin-empty-state">
+                            <strong>No emergency requests found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelectorAll("[data-query-manage]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            const queryId = button.dataset.queryManage;
+
+            try {
+              button.disabled = true;
+              button.textContent = "Loading...";
+
+              const response = await getContactQueries();
+              const rows = getRows(response);
+
+              const query = rows.find(
+                (item) => String(item.id) === String(queryId)
+              );
+
+              if (!query) {
+                throw new Error("Contact query not found.");
+              }
+
+              const modal = document.createElement("div");
+
+              modal.className = "thp-admin-modal thp-admin-support-modal";
+
+              modal.innerHTML = `
+                <div class="thp-admin-modal-backdrop"></div>
+
+                <section
+                  class="thp-admin-modal-card"
+                  role="dialog"
+                  aria-modal="true"
+                >
+
+                  <header class="thp-admin-modal-header">
+                    <div>
+                      <p class="thp-admin-eyebrow">CONTACT QUERY</p>
+
+                      <h2>${escapeHtml(query.subject || "Contact Query")}</h2>
+
+                      <p>
+                        ${escapeHtml(query.name || "Unknown")}
+                        ·
+                        ${escapeHtml(query.email || "")}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="thp-admin-modal-close"
+                      data-query-modal-close
+                    >
+                      ×
+                    </button>
+                  </header>
+
+                  <div style="padding: 24px;">
+
+                    <div class="thp-admin-form-group">
+                      <label>Message</label>
+
+                      <div
+                        style="
+                          padding: 16px;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 12px;
+                          background: #f8faf9;
+                          white-space: pre-wrap;
+                        "
+                      >
+                        ${escapeHtml(query.message || "No message")}
+                      </div>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label>Status</label>
+
+                      <select id="contact-query-status-${escapeHtml(query.id)}">
+                        <option value="unread"
+                          ${query.status === "unread" ? "selected" : ""}>
+                          Unread
+                        </option>
+
+                        <option value="read"
+                          ${query.status === "read" ? "selected" : ""}>
+                          Read
+                        </option>
+
+                        <option value="replied"
+                          ${query.status === "replied" ? "selected" : ""}>
+                          Replied
+                        </option>
+                      </select>
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="contact-query-reply-${escapeHtml(query.id)}">
+                        Reply
+                      </label>
+
+                      <textarea
+                        id="contact-query-reply-${escapeHtml(query.id)}"
+                        rows="5"
+                        placeholder="Write your reply..."
+                      ></textarea>
+                    </div>
+
+                  </div>
+
+                  <footer class="thp-admin-modal-footer">
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-query-resolve
+                    >
+                      Resolve
+                    </button>
+
+                    <button
+                      type="button"
+                      class="thp-admin-secondary-button"
+                      data-query-modal-close
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button"
+                      data-query-save
+                    >
+                      Save Changes
+                    </button>
+
+                  </footer>
+
+                </section>
+              `;
+
+              document.body.appendChild(modal);
+
+              modal
+                .querySelectorAll("[data-query-modal-close]")
+                .forEach((closeButton) => {
+                  closeButton.addEventListener("click", () => {
+                    modal.remove();
+                  });
+                });
+
+              modal
+                .querySelector("[data-query-save]")
+                ?.addEventListener("click", async () => {
+                  const status = modal.querySelector(
+                    `#contact-query-status-${CSS.escape(String(query.id))}`
+                  ).value;
+
+                  const reply = modal.querySelector(
+                    `#contact-query-reply-${CSS.escape(String(query.id))}`
+                  ).value.trim();
+
+                  const saveButton = modal.querySelector("[data-query-save]");
+
+                  try {
+                    saveButton.disabled = true;
+                    saveButton.textContent = "Saving...";
+
+                    await updateContactQuery(query.id, {
+                      status,
+                    });
+
+                    if (reply) {
+                      await replyContactQuery(query.id);
+                    }
+
+                    modal.remove();
+
+                    await renderQueries();
+
+                  } catch (error) {
+                    console.error(
+                      "Contact query update failed:",
+                      error
+                    );
+
+                    saveButton.disabled = false;
+                    saveButton.textContent = "Save Changes";
+
+                    alert(
+                      error?.message ||
+                      "Failed to update contact query."
+                    );
+                  }
+                });
+
+              modal
+                .querySelector("[data-query-resolve]")
+                ?.addEventListener("click", async () => {
+                  const resolveButton = modal.querySelector(
+                    "[data-query-resolve]"
+                  );
+
+                  try {
+                    resolveButton.disabled = true;
+                    resolveButton.textContent = "Resolving...";
+
+                    await updateContactQuery(query.id, {
+                      status: "replied",
+                    });
+
+                    modal.remove();
+
+                    await renderQueries();
+
+                  } catch (error) {
+                    console.error(
+                      "Contact query resolve failed:",
+                      error
+                    );
+
+                    resolveButton.disabled = false;
+                    resolveButton.textContent = "Resolve";
+
+                    alert(
+                      error?.message ||
+                      "Failed to resolve contact query."
+                    );
+                  }
+                });
+            } catch (error) {
+              console.error(
+                "Contact query loading failed:",
+                error
+              );
+
+              alert(
+                error?.message ||
+                "Failed to load contact query."
+              );
+
+              button.disabled = false;
+              button.textContent = "Manage";
+            }
+          });
+        });
+
+        async function renderQueries() {
+          loadingState("Loading contact queries...");
+
+          try {
+            // API call
+            // workspace.innerHTML = ...
+
+            // Mark Read handler
+            app
+              .querySelectorAll("[data-query-read]")
+              .forEach((button) => {
+                // existing code
+              });
+
+            // Manage handler
+            app
+              .querySelectorAll("[data-query-manage]")
+              .forEach((button) => {
+                // existing code
+              });
+
+            // 👇 STEP 1D GOES HERE
+            const querySearchInput = app.querySelector("[data-query-search]");
+            const queryStatusFilter = app.querySelector(
+              "[data-query-status-filter]"
+            );
+
+            querySearchInput?.addEventListener("input", (event) => {
+              queryState.search = event.target.value.trim();
+
+              clearTimeout(queryState.searchTimer);
+
+              queryState.searchTimer = setTimeout(() => {
+                renderQueries();
+              }, 300);
+            });
+
+            queryStatusFilter?.addEventListener("change", (event) => {
+              queryState.status = event.target.value;
+
+              renderQueries();
+            });
+
+          } catch (error) {
+            // existing catch
+          }
+        }
+
+      app
+        .querySelectorAll("[data-emergency-handled]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await markEmergencyRequestHandled(
+                button.dataset.emergencyHandled
+              );
+
+              showAdminToast("Emergency request marked as handled.");
+              await renderEmergency();
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to update emergency request.",
+                "error"
+              );
+            }
+          });
+        });
+
+        const emergencySearchInput = app.querySelector(
+          "[data-emergency-search]"
+        );
+
+        const emergencyPriorityFilter = app.querySelector(
+          "[data-emergency-priority-filter]"
+        );
+
+        const emergencyStatusFilter = app.querySelector(
+          "[data-emergency-status-filter]"
+        );
+
+        emergencySearchInput?.addEventListener("input", (event) => {
+          emergencyState.search = event.target.value.trim();
+
+          clearTimeout(emergencyState.searchTimer);
+
+          emergencyState.searchTimer = setTimeout(() => {
+            renderEmergency();
+          }, 300);
+        });
+
+        emergencyPriorityFilter?.addEventListener("change", (event) => {
+          emergencyState.priority = event.target.value;
+
+          renderEmergency();
+        });
+
+        emergencyStatusFilter?.addEventListener("change", (event) => {
+          emergencyState.status = event.target.value;
+
+          renderEmergency();
+        });
+
+        app
+          .querySelectorAll("[data-emergency-assign]")
+          .forEach((button) => {
+            button.addEventListener("click", async () => {
+              const requestId = button.dataset.emergencyAssign;
+
+              try {
+                button.disabled = true;
+                button.textContent = "Loading...";
+
+                const staffResponse = await getAdminStaff();
+                const staffRows = getRows(staffResponse);
+
+                const modal = document.createElement("div");
+                modal.className = "thp-admin-modal thp-admin-support-modal";
+
+                modal.innerHTML = `
+                  <div class="thp-admin-modal-backdrop"></div>
+
+                  <section
+                    class="thp-admin-modal-card"
+                    role="dialog"
+                    aria-modal="true"
+                  >
+                    <header class="thp-admin-modal-header">
+                      <div>
+                        <p class="thp-admin-eyebrow">EMERGENCY REQUEST</p>
+                        <h2>Assign Staff</h2>
+                        <p>Select a staff member to handle this request.</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        class="thp-admin-modal-close"
+                        data-emergency-assign-close
+                      >
+                        ×
+                      </button>
+                    </header>
+
+                    <div style="padding: 24px;">
+                      <div class="thp-admin-form-group">
+                        <label for="emergency-staff-${escapeHtml(requestId)}">
+                          Staff Member
+                        </label>
+
+                        <select
+                          id="emergency-staff-${escapeHtml(requestId)}"
+                        >
+                          <option value="">Select staff member</option>
+
+                          ${
+                            staffRows.length
+                              ? staffRows.map((staff) => `
+                                  <option value="${escapeHtml(staff.id)}">
+                                    ${escapeHtml(
+                                      staff.name ||
+                                      staff.username ||
+                                      staff.email ||
+                                      `Staff ${staff.id}`
+                                    )}
+                                  </option>
+                                `).join("")
+                              : `
+                                  <option value="" disabled>
+                                    No staff members available
+                                  </option>
+                                `
+                          }
+                        </select>
+                      </div>
+                    </div>
+
+                    <footer class="thp-admin-modal-footer">
+                      <button
+                        type="button"
+                        class="thp-admin-secondary-button"
+                        data-emergency-assign-close
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        class="thp-admin-primary-button"
+                        data-emergency-assign-save
+                      >
+                        Assign Staff
+                      </button>
+                    </footer>
+                  </section>
+                `;
+
+                document.body.appendChild(modal);
+
+                modal
+                  .querySelectorAll("[data-emergency-assign-close]")
+                  .forEach((closeButton) => {
+                    closeButton.addEventListener("click", () => {
+                      modal.remove();
+                    });
+                  });
+
+                modal
+                  .querySelector("[data-emergency-assign-save]")
+                  ?.addEventListener("click", async () => {
+                    const staffSelect = modal.querySelector(
+                      `#emergency-staff-${CSS.escape(String(requestId))}`
+                    );
+
+                    const assignedStaff = staffSelect?.value;
+
+                    if (!assignedStaff) {
+                      alert("Please select a staff member.");
+                      return;
+                    }
+
+                    const saveButton = modal.querySelector(
+                      "[data-emergency-assign-save]"
+                    );
+
+                    try {
+                      saveButton.disabled = true;
+                      saveButton.textContent = "Assigning...";
+
+                      await assignEmergencyRequest(
+                        requestId,
+                        assignedStaff
+                      );
+
+                      modal.remove();
+
+                      await renderEmergency();
+
+                    } catch (error) {
+                      console.error(
+                        "Emergency assignment failed:",
+                        error
+                      );
+
+                      saveButton.disabled = false;
+                      saveButton.textContent = "Assign Staff";
+
+                      alert(
+                        error?.message ||
+                        "Failed to assign emergency request."
+                      );
+                    }
+                  });
+
+              } catch (error) {
+                console.error(
+                  "Failed to load staff:",
+                  error
+                );
+
+                alert(
+                  error?.message ||
+                  "Failed to load staff members."
+                );
+
+                button.disabled = false;
+                button.textContent = "Assign Staff";
+              }
+            });
+          });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderTemplates() {
+    loadingState("Loading notification templates...");
+
+    try {
+      const response = await getNotificationTemplates({
+        search: templateState.search,
+        channel: templateState.channel,
+      });
+      const rows = getRows(response);
+
+      app.querySelector("#notification-template-count").textContent = rows.length;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Notification Templates</h2>
+              <p>Manage reusable SMS, Email and Push notification templates.</p>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: center;
+              margin-bottom: 18px;
+              flex-wrap: wrap;
+            "
+          >
+            <input
+              type="search"
+              class="thp-admin-search-input"
+              data-template-search
+              placeholder="Search template name, subject or body..."
+              value="${escapeHtml(templateState.search)}"
+              style="flex: 1; min-width: 240px;"
+            />
+
+            <select
+              class="thp-admin-select"
+              data-template-channel-filter
+              style="min-width: 150px;"
+            >
+              <option value="">All Channels</option>
+
+              <option
+                value="sms"
+                ${templateState.channel === "sms" ? "selected" : ""}
+              >
+                SMS
+              </option>
+
+              <option
+                value="email"
+                ${templateState.channel === "email" ? "selected" : ""}
+              >
+                Email
+              </option>
+
+              <option
+                value="push"
+                ${templateState.channel === "push" ? "selected" : ""}
+              >
+                Push
+              </option>
+            </select>
+
+            ${
+              hasPermission("support", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-template-create
+                  >
+                    Create Template
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Channel</th>
+                  <th>Subject</th>
+                  <th>Body</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                ${
+                  rows.length
+                    ? rows.map((template) => `
+                      <tr>
+                        <td>${escapeHtml(template.name || "—")}</td>
+                        <td>${escapeHtml(template.channel || "—")}</td>
+                        <td>${escapeHtml(template.subject || "—")}</td>
+                        <td>${escapeHtml(template.body || "—")}</td>
+                        <td>
+                          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            ${
+                              hasPermission("support", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-template-edit="${escapeHtml(template.id)}"
+                                  >
+                                    Edit
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-template-test="${escapeHtml(template.id)}"
+                                  >
+                                    Send Test
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("support", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-template-delete="${escapeHtml(template.id)}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="5">
+                          <div class="thp-admin-empty-state">
+                            <strong>No notification templates found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+              </tbody>
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      app
+        .querySelector("[data-template-create]")
+        ?.addEventListener("click", () => {
+          const modal = document.createElement("div");
+
+          modal.className = "thp-admin-modal thp-admin-support-modal";
+
+          modal.innerHTML = `
+            <div class="thp-admin-modal-backdrop"></div>
+
+            <section
+              class="thp-admin-modal-card"
+              role="dialog"
+              aria-modal="true"
+            >
+              <header class="thp-admin-modal-header">
+                <div>
+                  <p class="thp-admin-eyebrow">NOTIFICATION TEMPLATE</p>
+                  <h2>Create Template</h2>
+                  <p>Create a reusable SMS, Email or Push notification.</p>
+                </div>
+
+                <button
+                  type="button"
+                  class="thp-admin-modal-close"
+                  data-template-modal-close
+                >
+                  ×
+                </button>
+              </header>
+
+              <div style="padding: 24px;">
+
+                <div class="thp-admin-form-row">
+
+                  <div class="thp-admin-form-group">
+                    <label for="template-name">Name</label>
+
+                    <input
+                      id="template-name"
+                      type="text"
+                      placeholder="e.g. Order Confirmation"
+                    />
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="template-channel">Channel</label>
+
+                    <select id="template-channel">
+                      <option value="sms">SMS</option>
+                      <option value="email">Email</option>
+                      <option value="push">Push</option>
+                    </select>
+                  </div>
+
+                </div>
+
+                <div class="thp-admin-form-group">
+                  <label for="template-subject">Subject</label>
+
+                  <input
+                    id="template-subject"
+                    type="text"
+                    placeholder="Notification subject"
+                  />
+                </div>
+
+                <div class="thp-admin-form-group">
+                  <label for="template-body">Body</label>
+
+                  <textarea
+                    id="template-body"
+                    rows="7"
+                    placeholder="Hello {{name}}, your order {{orderId}} has been confirmed."
+                  ></textarea>
+
+                  <small>
+                    Supported variables can be written like
+                    <code>{{name}}</code>,
+                    <code>{{orderId}}</code>.
+                  </small>
+                </div>
+
+                <div class="thp-admin-form-group">
+                  <label>Live Preview</label>
+
+                  <div
+                    data-template-preview
+                    style="
+                      padding: 16px;
+                      border: 1px solid #e5e7eb;
+                      border-radius: 12px;
+                      background: #f8faf9;
+                      white-space: pre-wrap;
+                      min-height: 80px;
+                    "
+                  >
+                    Start typing to preview the notification...
+                  </div>
+                </div>
+
+              </div>
+
+              <footer class="thp-admin-modal-footer">
+
+                <button
+                  type="button"
+                  class="thp-admin-secondary-button"
+                  data-template-modal-close
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  class="thp-admin-primary-button"
+                  data-template-save
+                >
+                  Create Template
+                </button>
+
+              </footer>
+            </section>
+          `;
+
+          document.body.appendChild(modal);
+
+          modal
+            .querySelectorAll("[data-template-modal-close]")
+            .forEach((button) => {
+              button.addEventListener("click", () => {
+                modal.remove();
+              });
+            });
+
+          const bodyInput = modal.querySelector("#template-body");
+          const preview = modal.querySelector("[data-template-preview]");
+
+          bodyInput?.addEventListener("input", () => {
+            const value = bodyInput.value.trim();
+
+            const previewText = value
+              .replace(/\{\{name\}\}/g, "Sample User")
+              .replace(/\{\{orderId\}\}/g, "ORD-10025")
+              .replace(/\{\{email\}\}/g, "user@example.com");
+
+            preview.textContent =
+              previewText ||
+              "Start typing to preview the notification...";
+          });
+
+          modal
+            .querySelector("[data-template-save]")
+            ?.addEventListener("click", async () => {
+              const name = modal
+                .querySelector("#template-name")
+                ?.value.trim();
+
+              const channel = modal
+                .querySelector("#template-channel")
+                ?.value;
+
+              const subject = modal
+                .querySelector("#template-subject")
+                ?.value.trim();
+
+              const body = modal
+                .querySelector("#template-body")
+                ?.value.trim();
+
+              if (!name) {
+                alert("Please enter a template name.");
+                return;
+              }
+
+              if (!body) {
+                alert("Please enter the notification body.");
+                return;
+              }
+
+              const saveButton = modal.querySelector(
+                "[data-template-save]"
+              );
+
+              try {
+                saveButton.disabled = true;
+                saveButton.textContent = "Creating...";
+
+                await createNotificationTemplate({
+                  name,
+                  channel,
+                  subject,
+                  body,
+                });
+
+                modal.remove();
+
+                await renderTemplates();
+
+              } catch (error) {
+                console.error(
+                  "Notification template creation failed:",
+                  error
+                );
+
+                saveButton.disabled = false;
+                saveButton.textContent = "Create Template";
+
+                alert(
+                  error?.message ||
+                  "Failed to create notification template."
+                );
+              }
+            });
+        });
+
+      app
+        .querySelectorAll("[data-template-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const templateId = button.dataset.templateEdit;
+
+            const template = rows.find(
+              (item) => String(item.id) === String(templateId)
+            );
+
+            if (!template) {
+              showAdminToast(
+                "Notification template could not be found.",
+                "error"
+              );
+              return;
+            }
+
+            const modal = document.createElement("div");
+
+            modal.className = "thp-admin-modal thp-admin-support-modal";
+
+            modal.innerHTML = `
+              <div class="thp-admin-modal-backdrop"></div>
+
+              <section
+                class="thp-admin-modal-card"
+                role="dialog"
+                aria-modal="true"
+              >
+                <header class="thp-admin-modal-header">
+                  <div>
+                    <p class="thp-admin-eyebrow">NOTIFICATION TEMPLATE</p>
+
+                    <h2>Edit Template</h2>
+
+                    <p>
+                      Update this reusable SMS, Email or Push notification.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="thp-admin-modal-close"
+                    data-template-edit-close
+                  >
+                    ×
+                  </button>
+                </header>
+
+                <div style="padding:24px;">
+
+                  <div class="thp-admin-form-row">
+
+                    <div class="thp-admin-form-group">
+                      <label for="edit-template-name">
+                        Name
+                      </label>
+
+                      <input
+                        id="edit-template-name"
+                        type="text"
+                        value="${escapeHtml(template.name || "")}"
+                      />
+                    </div>
+
+                    <div class="thp-admin-form-group">
+                      <label for="edit-template-channel">
+                        Channel
+                      </label>
+
+                      <select id="edit-template-channel">
+                        <option
+                          value="sms"
+                          ${template.channel === "sms" ? "selected" : ""}
+                        >
+                          SMS
+                        </option>
+
+                        <option
+                          value="email"
+                          ${template.channel === "email" ? "selected" : ""}
+                        >
+                          Email
+                        </option>
+
+                        <option
+                          value="push"
+                          ${template.channel === "push" ? "selected" : ""}
+                        >
+                          Push
+                        </option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="edit-template-subject">
+                      Subject
+                    </label>
+
+                    <input
+                      id="edit-template-subject"
+                      type="text"
+                      value="${escapeHtml(template.subject || "")}"
+                      placeholder="Notification subject"
+                    />
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label for="edit-template-body">
+                      Body
+                    </label>
+
+                    <textarea
+                      id="edit-template-body"
+                      rows="7"
+                      placeholder="Hello {{name}}, your order {{orderId}} has been confirmed."
+                    >${escapeHtml(template.body || "")}</textarea>
+
+                    <small>
+                      Supported variables:
+                      <code>{{name}}</code>,
+                      <code>{{orderId}}</code>,
+                      <code>{{email}}</code>
+                    </small>
+                  </div>
+
+                  <div class="thp-admin-form-group">
+                    <label>Live Preview</label>
+
+                    <div
+                      data-template-edit-preview
+                      style="
+                        padding:16px;
+                        border:1px solid #e5e7eb;
+                        border-radius:12px;
+                        background:#f8faf9;
+                        white-space:pre-wrap;
+                        min-height:80px;
+                      "
+                    ></div>
+                  </div>
+
+                </div>
+
+                <footer class="thp-admin-modal-footer">
+
+                  <button
+                    type="button"
+                    class="thp-admin-secondary-button"
+                    data-template-edit-close
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-template-edit-save
+                  >
+                    Save Changes
+                  </button>
+
+                </footer>
+              </section>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => {
+              modal.remove();
+            };
+
+            modal
+              .querySelectorAll("[data-template-edit-close]")
+              .forEach((closeButton) => {
+                closeButton.addEventListener("click", closeModal);
+              });
+
+            const bodyInput = modal.querySelector(
+              "#edit-template-body"
+            );
+
+            const preview = modal.querySelector(
+              "[data-template-edit-preview]"
+            );
+
+            const updatePreview = () => {
+              const value = bodyInput?.value.trim() || "";
+
+              const previewText = value
+                .replace(/\{\{name\}\}/g, "Sample User")
+                .replace(/\{\{orderId\}\}/g, "ORD-10025")
+                .replace(/\{\{email\}\}/g, "user@example.com");
+
+              preview.textContent =
+                previewText ||
+                "Start typing to preview the notification...";
+            };
+
+            bodyInput?.addEventListener(
+              "input",
+              updatePreview
+            );
+
+            updatePreview();
+
+            modal
+              .querySelector("[data-template-edit-save]")
+              ?.addEventListener("click", async () => {
+                const name = modal
+                  .querySelector("#edit-template-name")
+                  ?.value.trim();
+
+                const channel = modal
+                  .querySelector("#edit-template-channel")
+                  ?.value;
+
+                const subject = modal
+                  .querySelector("#edit-template-subject")
+                  ?.value.trim();
+
+                const body = modal
+                  .querySelector("#edit-template-body")
+                  ?.value.trim();
+
+                if (!name) {
+                  alert("Please enter a template name.");
+                  return;
+                }
+
+                if (!body) {
+                  alert("Please enter the notification body.");
+                  return;
+                }
+
+                const saveButton = modal.querySelector(
+                  "[data-template-edit-save]"
+                );
+
+                try {
+                  saveButton.disabled = true;
+                  saveButton.textContent = "Saving...";
+
+                  await updateNotificationTemplate(
+                    template.id,
+                    {
+                      name,
+                      channel,
+                      subject,
+                      body,
+                    }
+                  );
+
+                  closeModal();
+
+                  showAdminToast(
+                    "Notification template updated."
+                  );
+
+                  await renderTemplates();
+
+                } catch (error) {
+                  console.error(
+                    "Notification template update failed:",
+                    error
+                  );
+
+                  saveButton.disabled = false;
+                  saveButton.textContent = "Save Changes";
+
+                  showAdminToast(
+                    error?.message ||
+                      "Failed to update notification template.",
+                    "error"
+                  );
+                }
+              });
+          });
+        });
+
+      app
+        .querySelectorAll("[data-template-delete]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            const templateId = button.dataset.templateDelete;
+
+            const template = rows.find(
+              (item) => String(item.id) === String(templateId)
+            );
+
+            if (!template) {
+              showAdminToast(
+                "Notification template could not be found.",
+                "error"
+              );
+              return;
+            }
+
+            const confirmed = window.confirm(
+              `Delete notification template "${template.name}"?`
+            );
+
+            if (!confirmed) {
+              return;
+            }
+
+            try {
+              button.disabled = true;
+              button.textContent = "Deleting...";
+
+              await deleteNotificationTemplate(
+                template.id
+              );
+
+              showAdminToast(
+                "Notification template deleted."
+              );
+
+              await renderTemplates();
+
+            } catch (error) {
+              console.error(
+                "Notification template deletion failed:",
+                error
+              );
+
+              button.disabled = false;
+              button.textContent = "Delete";
+
+              showAdminToast(
+                error?.message ||
+                  "Failed to delete notification template.",
+                "error"
+              );
+            }
+          });
+        });
+
+      app
+        .querySelectorAll("[data-template-test]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              await sendNotificationTemplateTest(
+                button.dataset.templateTest,
+                {}
+              );
+
+              showAdminToast("Test notification sent.");
+            } catch (error) {
+              showAdminToast(
+                error?.message || "Unable to send test notification.",
+                "error"
+              );
+            }
+          });
+        });
+
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+    async function renderNotifications() {
+      loadingState("Loading notifications...");
+
+      try {
+        const response = await getAdminNotifications({
+          search: notificationState.search,
+          channel: notificationState.channel,
+          audience: notificationState.audience,
+        });
+
+        const rows = getRows(response);
+
+        app.querySelector("#notification-count").textContent = rows.length;
+
+        workspace.innerHTML = `
+          <section class="thp-admin-card">
+
+            <div class="thp-admin-card-header">
+              <div>
+                <h2>Notifications</h2>
+                <p>
+                  Send notifications to users and provider groups and review
+                  notification history.
+                </p>
+              </div>
+
+              ${
+                hasPermission("support", "create")
+                  ? `
+                    <button
+                      type="button"
+                      class="thp-admin-primary-button"
+                      data-notification-create
+                    >
+                      Send Notification
+                    </button>
+                  `
+                  : ""
+              }
+            </div>
+
+            <div
+              style="
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                margin-bottom: 18px;
+                flex-wrap: wrap;
+              "
+            >
+
+              <input
+                type="search"
+                class="thp-admin-search-input"
+                data-notification-search
+                placeholder="Search notifications..."
+                value="${escapeHtml(notificationState.search)}"
+                style="flex: 1; min-width: 240px;"
+              />
+
+              <select
+                class="thp-admin-select"
+                data-notification-channel-filter
+              >
+                <option value="">All Channels</option>
+                <option value="sms" ${
+                  notificationState.channel === "sms" ? "selected" : ""
+                }>SMS</option>
+                <option value="email" ${
+                  notificationState.channel === "email" ? "selected" : ""
+                }>Email</option>
+                <option value="push" ${
+                  notificationState.channel === "push" ? "selected" : ""
+                }>Push</option>
+              </select>
+
+              <select
+                class="thp-admin-select"
+                data-notification-audience-filter
+              >
+                <option value="">All Audiences</option>
+                <option value="individual" ${
+                  notificationState.audience === "individual"
+                    ? "selected"
+                    : ""
+                }>Individual</option>
+                <option value="all_users" ${
+                  notificationState.audience === "all_users"
+                    ? "selected"
+                    : ""
+                }>All Users</option>
+                <option value="provider_group" ${
+                  notificationState.audience === "provider_group"
+                    ? "selected"
+                    : ""
+                }>Provider Group</option>
+              </select>
+
+            </div>
+
+            <div class="thp-admin-table-wrap">
+
+              <table class="thp-admin-table">
+
+                <thead>
+                  <tr>
+                    <th>Audience</th>
+                    <th>Channel</th>
+                    <th>Message</th>
+                    <th>Sender</th>
+                    <th>Time</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+
+                  ${
+                    rows.length
+                      ? rows.map((notification) => `
+                        <tr>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.audience || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.channel || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.message || "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.sender_name ||
+                              notification.sender ||
+                              "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${escapeHtml(
+                              notification.created_at ||
+                              notification.time ||
+                              "—"
+                            )}
+                          </td>
+
+                          <td>
+                            ${
+                              hasPermission("support", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-notification-edit="${escapeHtml(
+                                      notification.id
+                                    )}"
+                                  >
+                                    Edit
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("support", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-notification-delete="${escapeHtml(
+                                      notification.id
+                                    )}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+                          </td>
+
+                        </tr>
+                      `).join("")
+                      : `
+                        <tr>
+                          <td colspan="6">
+                            <div class="thp-admin-empty-state">
+                              <strong>No notifications found</strong>
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                  }
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </section>
+        `;
+
+        /* CREATE */
+
+        app
+          .querySelector("[data-notification-create]")
+          ?.addEventListener("click", async () => {
+
+            let users = [];
+            let providerGroups = [
+              "doctors",
+              "hospitals",
+              "clinics",
+              "diagnostic_centres",
+              "pharmacies",
+            ];
+
+            try {
+              const usersResponse = await getAdminUsers();
+              users = getRows(usersResponse);
+            } catch (error) {
+              console.error("Unable to load users:", error);
+            }
+
+            const modal = document.createElement("div");
+
+            modal.className = "thp-admin-modal thp-admin-support-modal";
+
+            modal.innerHTML = `
+              <div class="thp-admin-modal-backdrop"></div>
+
+              <section
+                class="thp-admin-modal-card"
+                role="dialog"
+                aria-modal="true"
+              >
+
+                <header class="thp-admin-modal-header">
+
+                  <div>
+                    <p class="thp-admin-eyebrow">
+                      NOTIFICATION
+                    </p>
+
+                    <h2>Send Notification</h2>
+
+                    <p>
+                      Send a notification to users or provider groups.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="thp-admin-modal-close"
+                    data-notification-close
+                  >
+                    ×
+                  </button>
+
+                </header>
+
+                <div style="padding: 24px;">
+
+                  <div class="thp-admin-form-row">
+
+                    <div class="thp-admin-form-group">
+
+                      <label for="notification-audience">
+                        Audience
+                      </label>
+
+                      <select id="notification-audience">
+
+                        <option value="individual">
+                          Individual User
+                        </option>
+
+                        <option value="all_users">
+                          All Users
+                        </option>
+
+                        <option value="provider_group">
+                          Provider Group
+                        </option>
+
+                      </select>
+
+                    </div>
+
+                    <div class="thp-admin-form-group">
+
+                      <label for="notification-channel">
+                        Channel
+                      </label>
+
+                      <select id="notification-channel">
+
+                        <option value="sms">SMS</option>
+                        <option value="email">Email</option>
+                        <option value="push">Push</option>
+
+                      </select>
+
+                    </div>
+
+                  </div>
+
+                  <div
+                    class="thp-admin-form-group"
+                    id="notification-recipient-group"
+                  >
+
+                    <label for="notification-recipient">
+                      Recipient
+                    </label>
+
+                    <select id="notification-recipient">
+
+                      <option value="">
+                        Select user
+                      </option>
+
+                      ${users.map((user) => `
+                        <option value="${escapeHtml(user.id)}">
+                          ${escapeHtml(
+                            user.name ||
+                            user.username ||
+                            user.email ||
+                            `User ${user.id}`
+                          )}
+                        </option>
+                      `).join("")}
+
+                    </select>
+
+                  </div>
+
+                  <div
+                    class="thp-admin-form-group"
+                    id="notification-provider-group"
+                    style="display:none;"
+                  >
+
+                    <label for="notification-provider">
+                      Provider Group
+                    </label>
+
+                    <select id="notification-provider">
+
+                      ${providerGroups.map((group) => `
+                        <option value="${group}">
+                          ${group
+                            .replaceAll("_", " ")
+                            .replace(/\b\w/g, (char) =>
+                              char.toUpperCase()
+                            )}
+                        </option>
+                      `).join("")}
+
+                    </select>
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+
+                    <label for="notification-subject">
+                      Subject
+                    </label>
+
+                    <input
+                      id="notification-subject"
+                      type="text"
+                      placeholder="Notification subject"
+                    />
+
+                  </div>
+
+                  <div class="thp-admin-form-group">
+
+                    <label for="notification-message">
+                      Message
+                    </label>
+
+                    <textarea
+                      id="notification-message"
+                      rows="6"
+                      placeholder="Write your notification..."
+                    ></textarea>
+
+                  </div>
+
+                </div>
+
+                <footer class="thp-admin-modal-footer">
+
+                  <button
+                    type="button"
+                    class="thp-admin-secondary-button"
+                    data-notification-close
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-notification-save
+                  >
+                    Send Notification
+                  </button>
+
+                </footer>
+
+              </section>
+            `;
+
+            document.body.appendChild(modal);
+
+            const closeModal = () => modal.remove();
+
+            modal
+              .querySelectorAll("[data-notification-close]")
+              .forEach((button) => {
+                button.addEventListener("click", closeModal);
+              });
+
+            const audienceSelect = modal.querySelector(
+              "#notification-audience"
+            );
+
+            const recipientGroup = modal.querySelector(
+              "#notification-recipient-group"
+            );
+
+            const providerGroup = modal.querySelector(
+              "#notification-provider-group"
+            );
+
+            audienceSelect?.addEventListener("change", () => {
+
+              if (audienceSelect.value === "individual") {
+
+                recipientGroup.style.display = "";
+
+                providerGroup.style.display = "none";
+
+              } else if (
+                audienceSelect.value === "provider_group"
+              ) {
+
+                recipientGroup.style.display = "none";
+
+                providerGroup.style.display = "";
+
+              } else {
+
+                recipientGroup.style.display = "none";
+
+                providerGroup.style.display = "none";
+
+              }
+
+            });
+
+            modal
+              .querySelector("[data-notification-save]")
+              ?.addEventListener("click", async () => {
+
+                const audience =
+                  modal.querySelector(
+                    "#notification-audience"
+                  ).value;
+
+                const channel =
+                  modal.querySelector(
+                    "#notification-channel"
+                  ).value;
+
+                const recipient =
+                  modal.querySelector(
+                    "#notification-recipient"
+                  ).value;
+
+                const provider_group =
+                  modal.querySelector(
+                    "#notification-provider"
+                  ).value;
+
+                const subject =
+                  modal.querySelector(
+                    "#notification-subject"
+                  ).value.trim();
+
+                const message =
+                  modal.querySelector(
+                    "#notification-message"
+                  ).value.trim();
+
+                if (!message) {
+                  alert("Please enter the notification message.");
+                  return;
+                }
+
+                if (
+                  audience === "individual" &&
+                  !recipient
+                ) {
+                  alert("Please select a user.");
+                  return;
+                }
+
+                const saveButton = modal.querySelector(
+                  "[data-notification-save]"
+                );
+
+                try {
+
+                  saveButton.disabled = true;
+                  saveButton.textContent = "Sending...";
+
+                  await createAdminNotification({
+                    audience,
+                    channel,
+                    recipient:
+                      audience === "individual"
+                        ? recipient
+                        : "",
+                    provider_group:
+                      audience === "provider_group"
+                        ? provider_group
+                        : "",
+                    subject,
+                    message,
+                  });
+
+                  closeModal();
+
+                  showAdminToast(
+                    "Notification sent successfully."
+                  );
+
+                  await renderNotifications();
+
+                } catch (error) {
+
+                  console.error(
+                    "Notification creation failed:",
+                    error
+                  );
+
+                  saveButton.disabled = false;
+                  saveButton.textContent =
+                    "Send Notification";
+
+                  showAdminToast(
+                    error?.message ||
+                      "Unable to send notification.",
+                    "error"
+                  );
+
+                }
+
+              });
+
+          });
+
+        /* DELETE */
+
+        app
+          .querySelectorAll("[data-notification-delete]")
+          .forEach((button) => {
+
+            button.addEventListener("click", async () => {
+
+              const notification = rows.find(
+                (item) =>
+                  String(item.id) ===
+                  String(button.dataset.notificationDelete)
+              );
+
+              if (!notification) return;
+
+              if (
+                !window.confirm(
+                  "Delete this notification record?"
+                )
+              ) {
+                return;
+              }
+
+              try {
+
+                await deleteAdminNotification(
+                  notification.id
+                );
+
+                showAdminToast(
+                  "Notification deleted."
+                );
+
+                await renderNotifications();
+
+              } catch (error) {
+
+                showAdminToast(
+                  error?.message ||
+                    "Unable to delete notification.",
+                  "error"
+                );
+
+              }
+
+            });
+
+          });
+
+        /* SEARCH */
+
+        const searchInput = app.querySelector(
+          "[data-notification-search]"
+        );
+
+        searchInput?.addEventListener(
+          "input",
+          (event) => {
+
+            notificationState.search =
+              event.target.value.trim();
+
+            clearTimeout(
+              notificationState.searchTimer
+            );
+
+            notificationState.searchTimer =
+              setTimeout(() => {
+                renderNotifications();
+              }, 300);
+
+          }
+        );
+
+        /* FILTERS */
+
+        app
+          .querySelector(
+            "[data-notification-channel-filter]"
+          )
+          ?.addEventListener("change", (event) => {
+
+            notificationState.channel =
+              event.target.value;
+
+            renderNotifications();
+
+          });
+
+        app
+          .querySelector(
+            "[data-notification-audience-filter]"
+          )
+          ?.addEventListener("change", (event) => {
+
+            notificationState.audience =
+              event.target.value;
+
+            renderNotifications();
+
+          });
+
+      } catch (error) {
+
+        errorState(error?.message);
+
+      }
+    }
+
+  async function renderActiveTab() {
+    if (activeTab === "queries") {
+      await renderQueries();
+      return;
+    }
+
+    if (activeTab === "emergency") {
+      await renderEmergency();
+      return;
+    }
+
+    if (activeTab === "templates") {
+      await renderTemplates();
+      return;
+    }
+
+    if (activeTab === "notifications") {
+      await renderNotifications();
+      return;
+    }
+
+    await renderTickets();
+  }
+
+  renderActiveTab();
+}
+
+export function renderAdminAIAssistant(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("ai_assistant", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-ai-page">
+
+      <nav
+        class="thp-marketing-tabs"
+        aria-label="AI Assistant sections"
+        role="tablist"
+      >
+        <button
+          type="button"
+          class="thp-marketing-tab is-active"
+          data-ai-tab="settings"
+          role="tab"
+          aria-selected="true"
+        >
+          Settings
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="chips"
+          role="tab"
+          aria-selected="false"
+        >
+          Suggested Chips
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="logs"
+          role="tab"
+          aria-selected="false"
+        >
+          Query Logs
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="safety"
+          role="tab"
+          aria-selected="false"
+        >
+          Safety Rules
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="test"
+          role="tab"
+          aria-selected="false"
+        >
+          Test Assistant
+        </button>
+      </nav>
+
+      <div id="admin-ai-workspace"></div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "ai_assistant",
+    content,
+    {
+      subtitle: "Configure and monitor the Tatito AI health assistant",
+    },
+  );
+
+  const workspace = app.querySelector("#admin-ai-workspace");
+  const tabs = Array.from(
+    app.querySelectorAll("[data-ai-tab]")
+  );
+
+  let activeTab = "settings";
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function getRows(response) {
+    if (Array.isArray(response)) return response;
+
+    if (Array.isArray(response?.results)) {
+      return response.results;
+    }
+
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+
+    return [];
+  }
+
+  function statusClass(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replaceAll("_", "-")
+      .replaceAll(" ", "-");
+  }
+
+  function loadingState(message = "Loading...") {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>${escapeHtml(message)}</strong>
+      </section>
+    `;
+  }
+
+  function errorState(message) {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Unable to load data</strong>
+        <p>${escapeHtml(message || "Please try again.")}</p>
+      </section>
+    `;
+  }
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+
+    tabs.forEach((button) => {
+      const active = button.dataset.aiTab === tab;
+
+      button.classList.toggle("is-active", active);
+      button.setAttribute(
+        "aria-selected",
+        active ? "true" : "false",
+      );
+    });
+
+    renderActiveTab();
+  }
+
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.aiTab);
+    });
+  });
+
+  async function renderSettings() {
+    loadingState("Loading AI assistant settings...");
+
+    try {
+      const response = await getAIAssistantSettings();
+      const settings = response?.data || response;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Assistant Settings</h2>
+              <p>
+                Configure the assistant name, availability and medical
+                disclaimer.
+              </p>
+            </div>
+          </div>
+
+          <form id="ai-settings-form">
+
+            <div class="thp-admin-form-row">
+
+              <div class="thp-admin-form-group">
+                <label for="ai-assistant-name">
+                  Assistant Name
+                </label>
+
+                <input
+                  id="ai-assistant-name"
+                  type="text"
+                  maxlength="150"
+                  value="${escapeHtml(settings?.assistant_name || "")}"
+                  required
+                />
+              </div>
+
+              <div class="thp-admin-form-group">
+                <label for="ai-assistant-enabled">
+                  Status
+                </label>
+
+                <select id="ai-assistant-enabled">
+                  <option
+                    value="true"
+                    ${settings?.is_enabled ? "selected" : ""}
+                  >
+                    Enabled
+                  </option>
+
+                  <option
+                    value="false"
+                    ${!settings?.is_enabled ? "selected" : ""}
+                  >
+                    Disabled
+                  </option>
+                </select>
+              </div>
+
+            </div>
+
+            <div class="thp-admin-form-group">
+              <label for="ai-disclaimer">
+                Medical Disclaimer
+              </label>
+
+              <textarea
+                id="ai-disclaimer"
+                rows="6"
+                required
+              >${escapeHtml(settings?.disclaimer_text || "")}</textarea>
+
+              <small>
+                This disclaimer should accompany AI health answers.
+              </small>
+            </div>
+
+            ${
+              hasPermission("ai_assistant", "edit")
+                ? `
+                  <button
+                    type="submit"
+                    class="thp-admin-primary-button"
+                  >
+                    Save Settings
+                  </button>
+                `
+                : ""
+            }
+
+          </form>
+
+        </section>
+      `;
+
+      workspace
+        .querySelector("#ai-settings-form")
+        ?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          const form = event.currentTarget;
+          const button = form.querySelector(
+            'button[type="submit"]',
+          );
+
+          const payload = {
+            assistant_name: form
+              .querySelector("#ai-assistant-name")
+              .value.trim(),
+
+            is_enabled:
+              form.querySelector("#ai-assistant-enabled").value ===
+              "true",
+
+            disclaimer_text: form
+              .querySelector("#ai-disclaimer")
+              .value.trim(),
+          };
+
+          try {
+            if (button) {
+              button.disabled = true;
+              button.textContent = "Saving...";
+            }
+
+            await updateAIAssistantSettings(settings.id, payload);
+
+            showAdminToast(
+              "AI assistant settings saved successfully.",
+            );
+
+            await renderSettings();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to save AI assistant settings.",
+              "error",
+            );
+
+            if (button) {
+              button.disabled = false;
+              button.textContent = "Save Settings";
+            }
+          }
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderChips() {
+    loadingState("Loading suggested chips...");
+
+    try {
+      const response = await getAISuggestedChips();
+      const rows = getRows(response);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Suggested Chips</h2>
+              <p>
+                Manage health topics shown as quick suggestions.
+              </p>
+            </div>
+
+            ${
+              hasPermission("ai_assistant", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    id="ai-create-chip"
+                  >
+                    Add Chip
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+
+              <thead>
+                <tr>
+                  <th>Chip</th>
+                  <th>Display Order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                ${
+                  rows.length
+                    ? rows.map((chip) => `
+                      <tr>
+
+                        <td>
+                          ${escapeHtml(chip.text || "—")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(chip.display_order ?? 0)}
+                        </td>
+
+                        <td>
+                          <div class="thp-admin-row-actions">
+
+                            ${
+                              hasPermission("ai_assistant", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-chip-edit="${escapeHtml(chip.id)}"
+                                  >
+                                    Edit
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("ai_assistant", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-chip-delete="${escapeHtml(chip.id)}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="3">
+                          <div class="thp-admin-empty-state">
+                            <strong>No suggested chips found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+
+              </tbody>
+
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      workspace
+        .querySelector("#ai-create-chip")
+        ?.addEventListener("click", () => {
+          openChipModal();
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-chip-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const chip = rows.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.aiChipEdit),
+            );
+
+            if (chip) {
+              openChipModal(chip);
+            }
+          });
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-chip-delete]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Delete this suggested chip?")) {
+              return;
+            }
+
+            try {
+              await deleteAISuggestedChip(
+                button.dataset.aiChipDelete,
+              );
+
+              showAdminToast("Suggested chip deleted.");
+
+              await renderChips();
+            } catch (error) {
+              showAdminToast(
+                error?.message ||
+                  "Unable to delete suggested chip.",
+                "error",
+              );
+            }
+          });
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  function openChipModal(chip = null) {
+    const editing = Boolean(chip);
+
+    const modal = document.createElement("div");
+    modal.className = "thp-admin-modal";
+
+    modal.innerHTML = `
+      <div class="thp-admin-modal-backdrop"></div>
+
+      <section
+        class="thp-admin-modal-card"
+        role="dialog"
+        aria-modal="true"
+      >
+
+        <header class="thp-admin-modal-header">
+          <div>
+            <p class="thp-admin-eyebrow">AI ASSISTANT</p>
+            <h2>${editing ? "Edit Suggested Chip" : "Add Suggested Chip"}</h2>
+          </div>
+
+          <button
+            type="button"
+            class="thp-admin-modal-close"
+            data-ai-chip-close
+          >
+            ×
+          </button>
+        </header>
+
+        <div style="padding: 24px;">
+
+          <div class="thp-admin-form-group">
+            <label for="ai-chip-text">Chip Text</label>
+
+            <input
+              id="ai-chip-text"
+              type="text"
+              maxlength="150"
+              value="${escapeHtml(chip?.text || "")}"
+              placeholder="e.g. Fever and Cold"
+              required
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="ai-chip-order">Display Order</label>
+
+            <input
+              id="ai-chip-order"
+              type="number"
+              min="0"
+              value="${escapeHtml(chip?.display_order ?? 0)}"
+            />
+          </div>
+
+        </div>
+
+        <footer class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-secondary-button"
+            data-ai-chip-close
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="thp-admin-primary-button"
+            id="ai-chip-save"
+          >
+            ${editing ? "Save Changes" : "Add Chip"}
+          </button>
+
+        </footer>
+
+      </section>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+
+    modal
+      .querySelectorAll("[data-ai-chip-close]")
+      .forEach((button) => {
+        button.addEventListener("click", close);
+      });
+
+    modal
+      .querySelector(".thp-admin-modal-backdrop")
+      ?.addEventListener("click", close);
+
+    modal
+      .querySelector("#ai-chip-save")
+      ?.addEventListener("click", async () => {
+        const button = modal.querySelector("#ai-chip-save");
+
+        const payload = {
+          text: modal
+            .querySelector("#ai-chip-text")
+            .value.trim(),
+
+          display_order: Number(
+            modal.querySelector("#ai-chip-order").value || 0,
+          ),
+        };
+
+        if (!payload.text) {
+          showAdminToast("Chip text is required.", "error");
+          return;
+        }
+
+        try {
+          button.disabled = true;
+          button.textContent = "Saving...";
+
+          if (editing) {
+            await updateAISuggestedChip(chip.id, payload);
+          } else {
+            await createAISuggestedChip(payload);
+          }
+
+          close();
+
+          showAdminToast(
+            editing
+              ? "Suggested chip updated."
+              : "Suggested chip created.",
+          );
+
+          await renderChips();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = editing
+            ? "Save Changes"
+            : "Add Chip";
+
+          showAdminToast(
+            error?.message ||
+              "Unable to save suggested chip.",
+            "error",
+          );
+        }
+      });
+  }
+
+  async function renderLogs() {
+    loadingState("Loading AI query logs...");
+
+    try {
+      const response = await getAIQueryLogs();
+      const rows = getRows(response);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Query Logs</h2>
+              <p>
+                Review AI queries, responses and safety flags.
+              </p>
+            </div>
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Query</th>
+                  <th>Reply Summary</th>
+                  <th>Time</th>
+                  <th>Flag</th>
+                  <th>Doctor Review</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                ${
+                  rows.length
+                    ? rows.map((log) => `
+                      <tr>
+
+                        <td>
+                          ${escapeHtml(log.patient_name || "Unknown")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(log.query || "—")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(log.reply_summary || "—")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(log.created_at || "—")}
+                        </td>
+
+                        <td>
+                          <span class="thp-admin-status-pill ${
+                            log.flagged
+                              ? "high"
+                              : "resolved"
+                          }">
+                            ${log.flagged ? "Flagged" : "Normal"}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span class="thp-admin-status-pill ${
+                            log.doctor_review_requested
+                              ? "in-progress"
+                              : "resolved"
+                          }">
+                            ${
+                              log.doctor_review_requested
+                                ? "Requested"
+                                : "Not Requested"
+                            }
+                          </span>
+                        </td>
+
+                        <td>
+
+                          ${
+                            hasPermission("ai_assistant", "edit") &&
+                            log.flagged &&
+                            !log.doctor_review_requested
+                              ? `
+                                <button
+                                  type="button"
+                                  class="thp-admin-row-button"
+                                  data-ai-doctor-review="${escapeHtml(log.id)}"
+                                >
+                                  Send to Doctor
+                                </button>
+                              `
+                              : "—"
+                          }
+
+                        </td>
+
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="7">
+                          <div class="thp-admin-empty-state">
+                            <strong>No AI query logs found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+
+              </tbody>
+
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      workspace
+        .querySelectorAll("[data-ai-doctor-review]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              button.disabled = true;
+              button.textContent = "Sending...";
+
+              await sendAIQueryToDoctor(
+                button.dataset.aiDoctorReview,
+              );
+
+              showAdminToast(
+                "Query sent for doctor review.",
+              );
+
+              await renderLogs();
+            } catch (error) {
+              button.disabled = false;
+              button.textContent = "Send to Doctor";
+
+              showAdminToast(
+                error?.message ||
+                  "Unable to send query for review.",
+                "error",
+              );
+            }
+          });
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderSafetyRules() {
+    loadingState("Loading safety rules...");
+
+    try {
+      const response = await getAISafetyRules();
+      const rows = getRows(response);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Safety Rules</h2>
+              <p>
+                Configure keywords that require medical escalation.
+              </p>
+            </div>
+
+            ${
+              hasPermission("ai_assistant", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    id="ai-create-rule"
+                  >
+                    Add Safety Rule
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+
+              <thead>
+                <tr>
+                  <th>Keyword</th>
+                  <th>Severity</th>
+                  <th>Escalation Message</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                ${
+                  rows.length
+                    ? rows.map((rule) => `
+                      <tr>
+
+                        <td>
+                          ${escapeHtml(rule.keyword || "—")}
+                        </td>
+
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(rule.severity)}">
+                            ${escapeHtml(rule.severity || "—")}
+                          </span>
+                        </td>
+
+                        <td>
+                          ${escapeHtml(rule.escalation_message || "—")}
+                        </td>
+
+                        <td>
+                          <div class="thp-admin-row-actions">
+
+                            ${
+                              hasPermission("ai_assistant", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-rule-edit="${escapeHtml(rule.id)}"
+                                  >
+                                    Edit
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("ai_assistant", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-rule-delete="${escapeHtml(rule.id)}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="4">
+                          <div class="thp-admin-empty-state">
+                            <strong>No safety rules found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+
+              </tbody>
+
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      workspace
+        .querySelector("#ai-create-rule")
+        ?.addEventListener("click", () => {
+          openSafetyRuleModal();
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-rule-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const rule = rows.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.aiRuleEdit),
+            );
+
+            if (rule) {
+              openSafetyRuleModal(rule);
+            }
+          });
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-rule-delete]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Delete this safety rule?")) {
+              return;
+            }
+
+            try {
+              await deleteAISafetyRule(
+                button.dataset.aiRuleDelete,
+              );
+
+              showAdminToast("Safety rule deleted.");
+
+              await renderSafetyRules();
+            } catch (error) {
+              showAdminToast(
+                error?.message ||
+                  "Unable to delete safety rule.",
+                "error",
+              );
+            }
+          });
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  function openSafetyRuleModal(rule = null) {
+    const editing = Boolean(rule);
+
+    const modal = document.createElement("div");
+    modal.className = "thp-admin-modal";
+
+    modal.innerHTML = `
+      <div class="thp-admin-modal-backdrop"></div>
+
+      <section
+        class="thp-admin-modal-card"
+        role="dialog"
+        aria-modal="true"
+      >
+
+        <header class="thp-admin-modal-header">
+          <div>
+            <p class="thp-admin-eyebrow">AI SAFETY</p>
+            <h2>
+              ${editing ? "Edit Safety Rule" : "Add Safety Rule"}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            class="thp-admin-modal-close"
+            data-ai-rule-close
+          >
+            ×
+          </button>
+        </header>
+
+        <div style="padding: 24px;">
+
+          <div class="thp-admin-form-group">
+            <label for="ai-rule-keyword">Keyword</label>
+
+            <input
+              id="ai-rule-keyword"
+              type="text"
+              maxlength="150"
+              value="${escapeHtml(rule?.keyword || "")}"
+              placeholder="e.g. chest pain"
+              required
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="ai-rule-severity">Severity</label>
+
+            <select id="ai-rule-severity">
+
+              <option
+                value="low"
+                ${rule?.severity === "low" ? "selected" : ""}
+              >
+                Low
+              </option>
+
+              <option
+                value="medium"
+                ${rule?.severity === "medium" ? "selected" : ""}
+              >
+                Medium
+              </option>
+
+              <option
+                value="high"
+                ${!rule || rule?.severity === "high" ? "selected" : ""}
+              >
+                High
+              </option>
+
+              <option
+                value="critical"
+                ${rule?.severity === "critical" ? "selected" : ""}
+              >
+                Critical
+              </option>
+
+            </select>
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="ai-rule-message">
+              Escalation Message
+            </label>
+
+            <textarea
+              id="ai-rule-message"
+              rows="5"
+              required
+            >${escapeHtml(
+              rule?.escalation_message ||
+                "Consult a doctor now.",
+            )}</textarea>
+          </div>
+
+        </div>
+
+        <footer class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-secondary-button"
+            data-ai-rule-close
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="thp-admin-primary-button"
+            id="ai-rule-save"
+          >
+            ${editing ? "Save Changes" : "Add Safety Rule"}
+          </button>
+
+        </footer>
+
+      </section>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+
+    modal
+      .querySelectorAll("[data-ai-rule-close]")
+      .forEach((button) => {
+        button.addEventListener("click", close);
+      });
+
+    modal
+      .querySelector(".thp-admin-modal-backdrop")
+      ?.addEventListener("click", close);
+
+    modal
+      .querySelector("#ai-rule-save")
+      ?.addEventListener("click", async () => {
+        const button = modal.querySelector("#ai-rule-save");
+
+        const payload = {
+          keyword: modal
+            .querySelector("#ai-rule-keyword")
+            .value.trim(),
+
+          severity: modal
+            .querySelector("#ai-rule-severity")
+            .value,
+
+          escalation_message: modal
+            .querySelector("#ai-rule-message")
+            .value.trim(),
+        };
+
+        if (!payload.keyword || !payload.escalation_message) {
+          showAdminToast(
+            "Keyword and escalation message are required.",
+            "error",
+          );
+          return;
+        }
+
+        try {
+          button.disabled = true;
+          button.textContent = "Saving...";
+
+          if (editing) {
+            await updateAISafetyRule(rule.id, payload);
+          } else {
+            await createAISafetyRule(payload);
+          }
+
+          close();
+
+          showAdminToast(
+            editing
+              ? "Safety rule updated."
+              : "Safety rule created.",
+          );
+
+          await renderSafetyRules();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = editing
+            ? "Save Changes"
+            : "Add Safety Rule";
+
+          showAdminToast(
+            error?.message ||
+              "Unable to save safety rule.",
+            "error",
+          );
+        }
+      });
+  }
+
+  async function renderTest() {
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+
+        <div class="thp-admin-card-header">
+          <div>
+            <h2>Test AI Assistant</h2>
+            <p>
+              Test a query against the configured safety rules.
+            </p>
+          </div>
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label for="ai-test-query">
+            Test Query
+          </label>
+
+          <textarea
+            id="ai-test-query"
+            rows="5"
+            placeholder="Type a health-related query..."
+          ></textarea>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-primary-button"
+          id="ai-test-button"
+        >
+          Test Query
+        </button>
+
+        <div
+          id="ai-test-result"
+          style="margin-top: 20px;"
+        ></div>
+
+      </section>
+    `;
+
+    workspace
+      .querySelector("#ai-test-button")
+      ?.addEventListener("click", async () => {
+        const queryInput =
+          workspace.querySelector("#ai-test-query");
+
+        const result =
+          workspace.querySelector("#ai-test-result");
+
+        const button =
+          workspace.querySelector("#ai-test-button");
+
+        const query = queryInput.value.trim();
+
+        if (!query) {
+          showAdminToast(
+            "Please enter a query.",
+            "error",
+          );
+          return;
+        }
+
+        try {
+          button.disabled = true;
+          button.textContent = "Testing...";
+
+          const response =
+            await testAIAssistantQuery(query);
+
+          const data = response?.data || response;
+
+          result.innerHTML = `
+            <div
+              style="
+                padding: 18px;
+                border-radius: 12px;
+                border: 1px solid ${
+                  data.flagged
+                    ? "#f5b5b5"
+                    : "#d8e5df"
+                };
+                background: ${
+                  data.flagged
+                    ? "#fff5f5"
+                    : "#f7faf8"
+                };
+              "
+            >
+
+              <strong>
+                ${
+                  data.flagged
+                    ? "Consult a doctor now"
+                    : "Sample AI Response"
+                }
+              </strong>
+
+              <p style="white-space: pre-wrap;">
+                ${escapeHtml(data.reply || "No response.")}
+              </p>
+
+              ${
+                data.flagged
+                  ? `
+                    <span class="thp-admin-status-pill high">
+                      Safety Rule Matched
+                    </span>
+                  `
+                  : ""
+              }
+
+            </div>
+          `;
+
+          showAdminToast(
+            data.flagged
+              ? "Query flagged by a safety rule."
+              : "Query tested successfully.",
+          );
+        } catch (error) {
+          showAdminToast(
+            error?.message ||
+              "Unable to test the AI assistant.",
+            "error",
+          );
+        } finally {
+          button.disabled = false;
+          button.textContent = "Test Query";
+        }
+      });
+  }
+
+  async function renderActiveTab() {
+    if (activeTab === "chips") {
+      await renderChips();
+      return;
+    }
+
+    if (activeTab === "logs") {
+      await renderLogs();
+      return;
+    }
+
+    if (activeTab === "safety") {
+      await renderSafetyRules();
+      return;
+    }
+
+    if (activeTab === "test") {
+      await renderTest();
+      return;
+    }
+
+    await renderSettings();
+  }
+
+  renderActiveTab();
+}
+
+export async function renderAdminReports(app) {
+  if (!isAdminAuthenticated()) {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  try {
+    await refreshAdminSession();
+  } catch {
+    window.location.hash = "#/admin/login";
+    return;
+  }
+
+  if (!window.location.hash.startsWith("#/admin/reports")) {
+    return;
+  }
+
+  if (!hasPermission("reports", "view")) {
+    window.location.hash = "#/admin/access-denied";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-reports-page">
+
+      <div class="thp-admin-panel">
+
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>Reports &amp; Analytics</h3>
+            <p>
+              Review live platform reports using a selected date range and report type.
+            </p>
+          </div>
+        </div>
+
+        <nav class="thp-admin-reports-tabs" aria-label="Reports">
+          <button type="button" class="thp-admin-reports-tab is-active" data-report-tab="registrations">
+            Registrations
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="appointments">
+            Appointments
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="orders">
+            Orders
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="lab_tests">
+            Lab Tests
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="payments">
+            Payments
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="subscriptions">
+            Subscriptions
+          </button>
+
+          <button type="button" class="thp-admin-reports-tab" data-report-tab="applications">
+            Applications
+          </button>
+        </nav>
+
+        <div class="thp-admin-reports-filters">
+
+          <label>
+            <span>Start Date</span>
+            <input id="reports-start-date" type="date">
+          </label>
+
+          <label>
+            <span>End Date</span>
+            <input id="reports-end-date" type="date">
+          </label>
+
+          <div class="thp-admin-reports-actions">
+            <button
+              type="button"
+              class="thp-admin-primary-button"
+              id="reports-load-btn"
+            >
+              Load Report
+            </button>
+
+            <button
+              type="button"
+              class="thp-admin-secondary-button"
+              id="reports-export-btn"
+            >
+              Export CSV
+            </button>
+          </div>
+
+        </div>
+
+      <div id="reports-content">
+        <section class="thp-admin-empty-state">
+          <strong>Loading reports...</strong>
+        </section>
+      </div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "reports",
+    content,
+    {
+      subtitle: "Reports, analytics and downloadable operational data",
+    },
+  );
+
+  const startDate = app.querySelector("#reports-start-date");
+  const endDate = app.querySelector("#reports-end-date");
+  const loadButton = app.querySelector("#reports-load-btn");
+  const exportButton = app.querySelector("#reports-export-btn");
+
+  let currentReportData = null;
+  const reportTabs = Array.from(
+    app.querySelectorAll("[data-report-tab]"),
+  );
+
+  let activeReport = "registrations";
+  const contentArea = app.querySelector("#reports-content");
+
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
+  startDate.value = formatDate(thirtyDaysAgo);
+  endDate.value = formatDate(today);
+
+  const escapeHtml = (value = "") =>
+    String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const formatTitle = (value) =>
+    String(value || "")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const renderReportCard = (title, value) => {
+    if (value?.available === false) {
+      return `
+        <section class="thp-admin-panel">
+          <div class="thp-admin-panel-heading">
+            <div>
+              <h3>${escapeHtml(formatTitle(title))}</h3>
+              <p>${escapeHtml(value.reason || "Report data is unavailable.")}</p>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    const metricEntries = Object.entries(value || {}).filter(
+      ([key, item]) =>
+        typeof item === "number" ||
+        typeof item === "string"
+    );
+
+    const breakdownEntries = Object.entries(value || {}).filter(
+      ([, item]) => Array.isArray(item)
+    );
+
+    return `
+      <section class="thp-admin-panel thp-admin-report-card">
+
+        <div class="thp-admin-panel-heading">
+          <div>
+            <h3>${escapeHtml(formatTitle(title))}</h3>
+            <p>Report data for the selected date range.</p>
+          </div>
+        </div>
+
+        ${
+          metricEntries.length
+            ? `
+              <div class="thp-admin-report-metrics">
+                ${metricEntries
+                  .map(
+                    ([key, item]) => `
+                      <div class="thp-admin-report-metric">
+                        <span>${escapeHtml(formatTitle(key))}</span>
+                        <strong>${escapeHtml(item)}</strong>
+                      </div>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          breakdownEntries.length
+            ? `
+              <div class="thp-admin-report-breakdowns">
+                ${breakdownEntries
+                  .map(([key, items]) => {
+                    if (!items.length) {
+                      return `
+                        <div class="thp-admin-report-breakdown">
+                          <h4>${escapeHtml(formatTitle(key))}</h4>
+                          <div class="thp-admin-empty-state">
+                            <strong>No data available</strong>
+                          </div>
+                        </div>
+                      `;
+                    }
+
+                    const columns = Object.keys(items[0] || {});
+
+                    return `
+                      <div class="thp-admin-report-breakdown">
+                        <h4>${escapeHtml(formatTitle(key))}</h4>
+
+                        <div class="thp-admin-table-wrap">
+                          <table class="thp-admin-table">
+                            <thead>
+                              <tr>
+                                ${columns
+                                  .map(
+                                    (column) =>
+                                      `<th>${escapeHtml(
+                                        formatTitle(column),
+                                      )}</th>`,
+                                  )
+                                  .join("")}
+                              </tr>
+                            </thead>
+
+                            <tbody>
+                              ${items
+                                .map(
+                                  (item) => `
+                                    <tr>
+                                      ${columns
+                                        .map(
+                                          (column) =>
+                                            `<td>${escapeHtml(
+                                              item[column] ?? "—",
+                                            )}</td>`,
+                                        )
+                                        .join("")}
+                                    </tr>
+                                  `,
+                                )
+                                .join("")}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            `
+            : ""
+        }
+
+      </section>
+    `;
+  };
+
+  const loadReports = async () => {
+    contentArea.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Loading reports...</strong>
+      </section>
+    `;
+
+    try {
+      const response = await getAdminReports({
+        report: activeReport,
+        start_date: startDate.value,
+        end_date: endDate.value,
+      });
+
+      const reports = response?.reports || {};
+
+      currentReportData = reports[activeReport] || null;
+
+      if (!Object.keys(reports).length) {
+        contentArea.innerHTML = `
+          <section class="thp-admin-empty-state">
+            <strong>No report data available</strong>
+            <span>Try another report or date range.</span>
+          </section>
+        `;
+        return;
+      }
+
+      contentArea.innerHTML = Object.entries(reports)
+        .map(([key, value]) => renderReportCard(key, value))
+        .join("");
+    } catch (error) {
+      console.error("Reports load failed:", error);
+
+      contentArea.innerHTML = `
+        <section class="thp-admin-empty-state">
+          <strong>Unable to load reports</strong>
+          <span>${escapeHtml(
+            error?.message || "Please try again.",
+          )}</span>
+        </section>
+      `;
+    }
+  };
+
+  const exportCurrentReport = () => {
+    if (!currentReportData) {
+      return;
+    }
+
+    const rows = [];
+
+    Object.entries(currentReportData).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          rows.push({
+            section: key,
+            ...item,
+          });
+        });
+      } else if (
+        typeof value === "number" ||
+        typeof value === "string"
+      ) {
+        rows.push({
+          metric: key,
+          value,
+        });
+      }
+    });
+
+    if (!rows.length) {
+      return;
+    }
+
+    const columns = [
+      ...new Set(rows.flatMap((row) => Object.keys(row))),
+    ];
+
+    const csv = [
+      columns.join(","),
+      ...rows.map((row) =>
+        columns
+          .map((column) => {
+            const value = row[column] ?? "";
+            return `"${String(value).replaceAll('"', '""')}"`;
+          })
+          .join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${activeReport}-report-${startDate.value}-to-${endDate.value}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  };
+
+  reportTabs.forEach((tab) => {
+    tab.addEventListener("click", async () => {
+      reportTabs.forEach((item) => {
+        item.classList.toggle(
+          "is-active",
+          item === tab,
+        );
+      });
+
+      activeReport = tab.dataset.reportTab;
+
+      await loadReports();
+    });
+  });
+
+  exportButton.addEventListener("click", exportCurrentReport);
+
+  loadButton.addEventListener("click", loadReports);
+
+  await loadReports();
+}
+
+export async function renderAdminUploadedFiles(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("uploaded_files", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const state = {
+    activeTab: "documents",
+    documents: [],
+    media: [],
+    loading: false,
+    error: "",
+    search: "",
+    owner: "",
+    documentType: "",
+    status: "",
+    mediaSearch: "",
+  };
+
+  renderAdminLayout(
+    app,
+    "uploaded_files",
+    `
+      <section class="thp-admin-module-page thp-admin-uploaded-files-page">
+        <nav
+          class="thp-marketing-tabs"
+          role="tablist"
+          aria-label="Uploaded files sections"
+        >
+          <button
+            type="button"
+            class="thp-marketing-tab is-active"
+            role="tab"
+            aria-selected="true"
+            data-uploaded-files-tab="documents"
+          >
+            Document Verification
+          </button>
+
+          <button
+            type="button"
+            class="thp-marketing-tab"
+            role="tab"
+            aria-selected="false"
+            data-uploaded-files-tab="media"
+          >
+            Media Manager
+          </button>
+        </nav>
+
+        <div id="uploaded-files-workspace"></div>
+      </section>
+
+      <div id="uploaded-files-modal-root"></div>
+
+      <div
+        id="admin-toast"
+        class="thp-admin-toast"
+        role="status"
+        aria-live="polite"
+      >
+        <span id="admin-toast-message"></span>
+      </div>
+    `,
+    {
+      subtitle:
+        "Verify submitted documents and manage platform media files.",
+    },
+  );
+
+  const workspace = app.querySelector("#uploaded-files-workspace");
+  const modalRoot = app.querySelector("#uploaded-files-modal-root");
+
+  function showToast(message, type = "success") {
+    const toast = app.querySelector("#admin-toast");
+    const messageElement = app.querySelector("#admin-toast-message");
+
+    if (!toast || !messageElement) return;
+
+    messageElement.textContent = message;
+    toast.classList.remove("is-visible", "is-error");
+
+    if (type === "error") {
+      toast.classList.add("is-error");
+    }
+
+    toast.classList.add("is-visible");
+
+    window.clearTimeout(showToast.timeout);
+
+    showToast.timeout = window.setTimeout(() => {
+      toast.classList.remove("is-visible");
+    }, 3000);
+  }
+
+  function getRows(response) {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.results)) return response.results;
+    return [];
+  }
+
+  function normalizeProviderDocuments(providers) {
+    return providers.flatMap((provider) => {
+      const documents = Array.isArray(provider?.documents)
+        ? provider.documents
+        : [];
+
+      return documents.map((document) => ({
+        id: document.id,
+        source: "provider",
+        sourceId: provider.id,
+        ownerId: provider.id,
+        ownerName:
+          provider.name ||
+          provider.legal_name ||
+          provider.email ||
+          "Healthcare Provider",
+        ownerType:
+          provider.provider_type ||
+          provider.type ||
+          "Provider",
+        documentType:
+          document.kind === "licence"
+            ? "medical_license"
+            : document.kind === "registration_certificate"
+              ? "registration_certificate"
+              : "other",
+        documentTypeLabel:
+          document.kind === "licence"
+            ? "Licence"
+            : document.kind === "registration_certificate"
+              ? "Registration Certificate"
+              : "Other",
+        originalName: document.original_name || "Document",
+        status: document.status || "pending",
+        rejectionReason: document.rejection_reason || "",
+        uploadedAt: document.uploaded_at,
+        reviewedAt: document.reviewed_at,
+        raw: document,
+      }));
+    });
+  }
+
+  function normalizeUserDocuments(rows) {
+    return rows.map((document) => ({
+      id: document.id,
+      source: "user",
+      sourceId: document.owner,
+      ownerId: document.owner,
+      ownerName: document.owner_name || "User",
+      ownerType: "User",
+      documentType: document.document_type,
+      documentTypeLabel:
+        document.document_type_label || document.document_type,
+      originalName: document.original_name || "Document",
+      status: document.status || "pending",
+      rejectionReason: document.rejection_reason || "",
+      uploadedAt: document.uploaded_at,
+      reviewedAt: document.reviewed_at,
+      fileUrl: document.file_url || "",
+      raw: document,
+    }));
+  }
+
+  async function loadDocuments() {
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+        <div class="thp-admin-loading-state">
+          Loading documents...
+        </div>
+      </section>
+    `;
+
+    try {
+      const [userResponse, providerResponse] = await Promise.all([
+        getAdminUploadedDocuments(),
+        getHealthcareProviders({}),
+      ]);
+
+      const userDocuments = normalizeUserDocuments(
+        getRows(userResponse),
+      );
+
+      const providers = getRows(providerResponse);
+
+      const providerDetails = await Promise.all(
+        providers.map(async (provider) => {
+          try {
+            return await getHealthcareProvider(provider.id);
+          } catch {
+            return provider;
+          }
+        }),
+      );
+
+      const providerDocuments =
+        normalizeProviderDocuments(providerDetails);
+
+      state.documents = [
+        ...userDocuments,
+        ...providerDocuments,
+      ];
+
+      renderDocuments();
+    } catch (error) {
+      console.error("Unable to load Module 17 documents:", error);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+          <div class="thp-admin-empty-state">
+            <div class="thp-admin-empty-icon">!</div>
+            <strong>Unable to load documents</strong>
+            <span>${escapeHtml(error.message || "Please try again.")}</span>
+            <button
+              type="button"
+              class="thp-admin-secondary-button"
+              data-uploaded-files-retry
+            >
+              Try Again
+            </button>
+          </div>
+        </section>
+      `;
+
+      workspace
+        .querySelector("[data-uploaded-files-retry]")
+        ?.addEventListener("click", loadDocuments);
+    }
+  }
+
+  function filteredDocuments() {
+    const search = state.search.trim().toLowerCase();
+
+    return state.documents.filter((document) => {
+      const matchesSearch =
+        !search ||
+        String(document.ownerName || "")
+          .toLowerCase()
+          .includes(search) ||
+        String(document.originalName || "")
+          .toLowerCase()
+          .includes(search);
+
+      const matchesOwner =
+        !state.owner ||
+        String(document.ownerId) === String(state.owner);
+
+      const matchesType =
+        !state.documentType ||
+        document.documentType === state.documentType;
+
+      const matchesStatus =
+        !state.status ||
+        document.status === state.status;
+
+      return (
+        matchesSearch &&
+        matchesOwner &&
+        matchesType &&
+        matchesStatus
+      );
+    });
+  }
+
+  function renderDocuments() {
+    const rows = filteredDocuments();
+
+    const owners = Array.from(
+      new Map(
+        state.documents.map((document) => [
+          String(document.ownerId),
+          document,
+        ]),
+      ).values(),
+    );
+
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+
+        <div class="thp-admin-card-header">
+          <div>
+            <h2>Document Verification</h2>
+            <p>
+              Review medical licences, ID proofs, certificates and
+              registration documents.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="thp-admin-table-toolbar"
+          style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;"
+        >
+          <div class="thp-admin-search-box" style="flex:1;min-width:240px;">
+            <input
+              type="search"
+              class="thp-admin-search"
+              data-document-search
+              placeholder="Search owner or document..."
+              value="${escapeHtml(state.search)}"
+            />
+          </div>
+
+          <div class="thp-admin-filter-box">
+            <select
+              class="thp-admin-select"
+              data-document-owner
+            >
+              <option value="">All Owners</option>
+              ${owners
+                .map(
+                  (owner) => `
+                    <option
+                      value="${escapeHtml(String(owner.ownerId))}"
+                      ${
+                        String(state.owner) ===
+                        String(owner.ownerId)
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      ${escapeHtml(owner.ownerName)}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </div>
+
+          <div class="thp-admin-filter-box">
+            <select
+              class="thp-admin-select"
+              data-document-type
+            >
+              <option value="">All Document Types</option>
+              <option
+                value="medical_license"
+                ${state.documentType === "medical_license" ? "selected" : ""}
+              >
+                Medical Licence
+              </option>
+              <option
+                value="id_proof"
+                ${state.documentType === "id_proof" ? "selected" : ""}
+              >
+                ID Proof
+              </option>
+              <option
+                value="degree_certificate"
+                ${state.documentType === "degree_certificate" ? "selected" : ""}
+              >
+                Degree Certificate
+              </option>
+              <option
+                value="registration_certificate"
+                ${state.documentType === "registration_certificate" ? "selected" : ""}
+              >
+                Registration Certificate
+              </option>
+              <option
+                value="pharmacy_license"
+                ${state.documentType === "pharmacy_license" ? "selected" : ""}
+              >
+                Pharmacy Licence
+              </option>
+              <option
+                value="other"
+                ${state.documentType === "other" ? "selected" : ""}
+              >
+                Other
+              </option>
+            </select>
+          </div>
+
+          <div class="thp-admin-filter-box">
+            <select
+              class="thp-admin-select"
+              data-document-status
+            >
+              <option value="">All Status</option>
+              <option
+                value="pending"
+                ${state.status === "pending" ? "selected" : ""}
+              >
+                Pending
+              </option>
+              <option
+                value="verified"
+                ${state.status === "verified" ? "selected" : ""}
+              >
+                Verified
+              </option>
+              <option
+                value="rejected"
+                ${state.status === "rejected" ? "selected" : ""}
+              >
+                Rejected
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="thp-admin-table-wrap">
+          <table class="thp-admin-table">
+            <thead>
+              <tr>
+                <th>OWNER</th>
+                <th>DOCUMENT</th>
+                <th>TYPE</th>
+                <th>STATUS</th>
+                <th>UPLOADED</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${
+                rows.length
+                  ? rows
+                      .map(
+                        (document) => `
+                          <tr>
+                            <td>
+                              <strong>
+                                ${escapeHtml(document.ownerName)}
+                              </strong>
+                              <small>
+                                ${escapeHtml(document.ownerType)}
+                              </small>
+                            </td>
+
+                            <td>
+                              ${escapeHtml(document.originalName)}
+                            </td>
+
+                            <td>
+                              ${escapeHtml(
+                                document.documentTypeLabel,
+                              )}
+                            </td>
+
+                            <td>
+                              <span class="thp-admin-status-badge ${escapeHtml(
+                                document.status,
+                              )}">
+                                ${escapeHtml(
+                                  document.status
+                                    .charAt(0)
+                                    .toUpperCase() +
+                                    document.status.slice(1),
+                                )}
+                              </span>
+                            </td>
+
+                            <td>
+                              ${
+                                document.uploadedAt
+                                  ? escapeHtml(
+                                      new Date(
+                                        document.uploadedAt,
+                                      ).toLocaleDateString(),
+                                    )
+                                  : "—"
+                              }
+                            </td>
+
+                            <td>
+                              <div class="thp-admin-row-actions">
+
+                                <button
+                                  type="button"
+                                  class="thp-admin-row-button"
+                                  data-document-preview="${escapeHtml(
+                                    String(document.id),
+                                  )}"
+                                >
+                                  Preview
+                                </button>
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "edit",
+                                  ) &&
+                                  document.status !== "verified"
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button"
+                                        data-document-verify="${escapeHtml(
+                                          String(document.id),
+                                        )}"
+                                      >
+                                        Verify
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "edit",
+                                  ) &&
+                                  document.status !== "rejected"
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button is-danger"
+                                        data-document-reject="${escapeHtml(
+                                          String(document.id),
+                                        )}"
+                                      >
+                                        Reject
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join("")
+                  : `
+                    <tr>
+                      <td colspan="6">
+                        <div class="thp-admin-empty-state">
+                          <div class="thp-admin-empty-icon">✓</div>
+                          <strong>No documents found</strong>
+                          <span>
+                            ${
+                              state.search ||
+                              state.owner ||
+                              state.documentType ||
+                              state.status
+                                ? "Try changing your filters."
+                                : "No uploaded documents are available."
+                            }
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+              }
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+    `;
+
+    workspace
+      .querySelector("[data-document-search]")
+      ?.addEventListener("input", (event) => {
+        state.search = event.target.value;
+        renderDocuments();
+      });
+
+    workspace
+      .querySelector("[data-document-owner]")
+      ?.addEventListener("change", (event) => {
+        state.owner = event.target.value;
+        renderDocuments();
+      });
+
+    workspace
+      .querySelector("[data-document-type]")
+      ?.addEventListener("change", (event) => {
+        state.documentType = event.target.value;
+        renderDocuments();
+      });
+
+    workspace
+      .querySelector("[data-document-status]")
+      ?.addEventListener("change", (event) => {
+        state.status = event.target.value;
+        renderDocuments();
+      });
+  }
+
+  function findDocument(id) {
+    return state.documents.find(
+      (document) => String(document.id) === String(id),
+    );
+  }
+
+  async function previewDocument(document) {
+    try {
+      if (
+        document.source === "provider"
+      ) {
+        const blob =
+          await downloadHealthcareProviderDocument(
+            document.id,
+          );
+
+        const url = URL.createObjectURL(blob);
+
+        window.open(url, "_blank", "noopener,noreferrer");
+
+        window.setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 60000);
+
+        return;
+      }
+
+      if (document.fileUrl) {
+        window.open(
+          document.fileUrl,
+          "_blank",
+          "noopener,noreferrer",
+        );
+        return;
+      }
+
+      throw new Error("Preview is not available for this document.");
+    } catch (error) {
+      showToast(
+        error.message || "Unable to preview document.",
+        "error",
+      );
+    }
+  }
+
+  async function verifyDocument(document) {
+    try {
+      if (document.source === "provider") {
+        await reviewHealthcareProviderDocument(
+          document.sourceId,
+          document.id,
+          {
+            status: "verified",
+          },
+        );
+      } else {
+        await reviewAdminUploadedDocument(
+          document.id,
+          "verified",
+        );
+      }
+
+      showToast("Document verified successfully.");
+      await loadDocuments();
+    } catch (error) {
+      showToast(
+        error.message || "Unable to verify document.",
+        "error",
+      );
+    }
+  }
+
+  function openRejectModal(document) {
+    modalRoot.innerHTML = `
+      <div class="thp-admin-modal">
+        <div
+          class="thp-admin-modal-backdrop"
+          data-reject-close
+        ></div>
+
+        <section
+          class="thp-admin-modal-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="uploaded-document-reject-title"
+        >
+          <header class="thp-admin-modal-header">
+            <div>
+              <p class="thp-admin-eyebrow">DOCUMENT REVIEW</p>
+              <h2 id="uploaded-document-reject-title">
+                Reject Document
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              class="thp-admin-modal-close"
+              data-reject-close
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </header>
+
+          <form
+            class="thp-admin-staff-form"
+            data-reject-form
+          >
+            <p class="thp-admin-form-note">
+              Rejecting
+              <strong>
+                ${escapeHtml(document.originalName)}
+              </strong>
+              requires a written reason.
+            </p>
+
+            <div class="thp-admin-form-group">
+              <label for="uploaded-document-rejection-reason">
+                Rejection reason <b>*</b>
+              </label>
+
+              <textarea
+                id="uploaded-document-rejection-reason"
+                name="rejection_reason"
+                rows="5"
+                required
+                placeholder="Enter the reason for rejection..."
+              ></textarea>
+            </div>
+
+            <footer class="thp-admin-modal-footer">
+              <button
+                type="button"
+                class="thp-admin-secondary-button"
+                data-reject-close
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                class="thp-admin-primary-button"
+              >
+                Reject Document
+              </button>
+            </footer>
+          </form>
+        </section>
+      </div>
+    `;
+
+    modalRoot
+      .querySelectorAll("[data-reject-close]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          modalRoot.innerHTML = "";
+        });
+      });
+
+    modalRoot
+      .querySelector("[data-reject-form]")
+      ?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const form = event.currentTarget;
+        const reason = String(
+          new FormData(form).get("rejection_reason") || "",
+        ).trim();
+
+        if (!reason) {
+          showToast(
+            "Rejection reason is required.",
+            "error",
+          );
+          return;
+        }
+
+        try {
+          if (document.source === "provider") {
+            await reviewHealthcareProviderDocument(
+              document.sourceId,
+              document.id,
+              {
+                status: "rejected",
+                rejection_reason: reason,
+              },
+            );
+          } else {
+            await reviewAdminUploadedDocument(
+              document.id,
+              "rejected",
+              reason,
+            );
+          }
+
+          modalRoot.innerHTML = "";
+          showToast("Document rejected.");
+          await loadDocuments();
+        } catch (error) {
+          showToast(
+            error.message || "Unable to reject document.",
+            "error",
+          );
+        }
+      });
+  }
+
+  async function loadMedia() {
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+        <div class="thp-admin-loading-state">
+          Loading media files...
+        </div>
+      </section>
+    `;
+
+    try {
+      const response = await getAdminMediaFiles();
+      state.media = getRows(response);
+      renderMedia();
+    } catch (error) {
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+          <div class="thp-admin-empty-state">
+            <div class="thp-admin-empty-icon">!</div>
+            <strong>Unable to load media files</strong>
+            <span>${escapeHtml(error.message || "Please try again.")}</span>
+          </div>
+        </section>
+      `;
+    }
+  }
+
+  function renderMedia() {
+    const search = state.mediaSearch.trim().toLowerCase();
+
+    const rows = state.media.filter((media) =>
+      !search
+        ? true
+        : String(media.original_name || "")
+            .toLowerCase()
+            .includes(search),
+    );
+
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+
+        <div class="thp-admin-card-header">
+          <div>
+            <h2>Media Manager</h2>
+            <p>
+              Upload, preview, rename and delete platform media files.
+            </p>
+          </div>
+
+          ${
+            hasPermission("uploaded_files", "create")
+              ? `
+                <div>
+                  <input
+                    type="file"
+                    id="uploaded-media-file"
+                    hidden
+                  />
+
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    data-media-upload
+                  >
+                    Upload File
+                  </button>
+                </div>
+              `
+              : ""
+          }
+        </div>
+
+        <div class="thp-admin-table-toolbar">
+          <div
+            class="thp-admin-search-box"
+            style="flex:1;min-width:240px;"
+          >
+            <input
+              type="search"
+              class="thp-admin-search"
+              data-media-search
+              placeholder="Search media files..."
+              value="${escapeHtml(state.mediaSearch)}"
+            />
+          </div>
+        </div>
+
+        <div class="thp-admin-table-wrap">
+          <table class="thp-admin-table">
+            <thead>
+              <tr>
+                <th>FILE</th>
+                <th>UPLOADED</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${
+                rows.length
+                  ? rows
+                      .map(
+                        (media) => `
+                          <tr>
+                            <td>
+                              <strong>
+                                ${escapeHtml(
+                                  media.original_name ||
+                                    "Unnamed file",
+                                )}
+                              </strong>
+                            </td>
+
+                            <td>
+                              ${
+                                media.uploaded_at
+                                  ? escapeHtml(
+                                      new Date(
+                                        media.uploaded_at,
+                                      ).toLocaleDateString(),
+                                    )
+                                  : "—"
+                              }
+                            </td>
+
+                            <td>
+                              <div class="thp-admin-row-actions">
+
+                                <button
+                                  type="button"
+                                  class="thp-admin-row-button"
+                                  data-media-preview="${escapeHtml(
+                                    String(media.id),
+                                  )}"
+                                >
+                                  Preview
+                                </button>
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "edit",
+                                  )
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button"
+                                        data-media-rename="${escapeHtml(
+                                          String(media.id),
+                                        )}"
+                                      >
+                                        Rename
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                                ${
+                                  hasPermission(
+                                    "uploaded_files",
+                                    "delete",
+                                  )
+                                    ? `
+                                      <button
+                                        type="button"
+                                        class="thp-admin-row-button is-danger"
+                                        data-media-delete="${escapeHtml(
+                                          String(media.id),
+                                        )}"
+                                      >
+                                        Delete
+                                      </button>
+                                    `
+                                    : ""
+                                }
+
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join("")
+                  : `
+                    <tr>
+                      <td colspan="3">
+                        <div class="thp-admin-empty-state">
+                          <div class="thp-admin-empty-icon">+</div>
+                          <strong>No media files found</strong>
+                          <span>
+                            Upload an image or other media file to get started.
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  `
+              }
+            </tbody>
+          </table>
+        </div>
+
+      </section>
+    `;
+
+    workspace
+      .querySelector("[data-media-search]")
+      ?.addEventListener("input", (event) => {
+        state.mediaSearch = event.target.value;
+        renderMedia();
+      });
+
+    workspace
+      .querySelector("[data-media-upload]")
+      ?.addEventListener("click", () => {
+        workspace
+          .querySelector("#uploaded-media-file")
+          ?.click();
+      });
+
+    workspace
+      .querySelector("#uploaded-media-file")
+      ?.addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) return;
+
+        try {
+          await uploadAdminMediaFile(file);
+          showToast("Media file uploaded successfully.");
+          await loadMedia();
+        } catch (error) {
+          showToast(
+            error.message || "Unable to upload media file.",
+            "error",
+          );
+        } finally {
+          event.target.value = "";
+        }
+      });
+  }
+
+  async function renameMedia(media) {
+    const currentName = media.original_name || "";
+
+    const newName = window.prompt(
+      "Enter the new file name:",
+      currentName,
+    );
+
+    if (newName === null) return;
+
+    const trimmedName = newName.trim();
+
+    if (!trimmedName) {
+      showToast("File name is required.", "error");
+      return;
+    }
+
+    try {
+      await renameAdminMediaFile(
+        media.id,
+        trimmedName,
+      );
+
+      showToast("Media file renamed successfully.");
+      await loadMedia();
+    } catch (error) {
+      showToast(
+        error.message || "Unable to rename media file.",
+        "error",
+      );
+    }
+  }
+
+  async function deleteMedia(media) {
+    const confirmed = window.confirm(
+      `Delete "${media.original_name}" permanently?`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteAdminMediaFile(media.id);
+      showToast("Media file deleted.");
+      await loadMedia();
+    } catch (error) {
+      showToast(
+        error.message || "Unable to delete media file.",
+        "error",
+      );
+    }
+  }
+
+  function previewMedia(media) {
+    if (!media.file_url) {
+      showToast(
+        "Preview is not available for this file.",
+        "error",
+      );
+      return;
+    }
+
+    window.open(
+      media.file_url,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  }
+
+  function bindWorkspaceEvents() {
+    workspace.addEventListener("click", async (event) => {
+      const previewDocumentButton =
+        event.target.closest("[data-document-preview]");
+
+      if (previewDocumentButton) {
+        const document = findDocument(
+          previewDocumentButton.dataset.documentPreview,
+        );
+
+        if (document) {
+          await previewDocument(document);
+        }
+
+        return;
+      }
+
+      const verifyButton =
+        event.target.closest("[data-document-verify]");
+
+      if (verifyButton) {
+        const document = findDocument(
+          verifyButton.dataset.documentVerify,
+        );
+
+        if (document) {
+          await verifyDocument(document);
+        }
+
+        return;
+      }
+
+      const rejectButton =
+        event.target.closest("[data-document-reject]");
+
+      if (rejectButton) {
+        const document = findDocument(
+          rejectButton.dataset.documentReject,
+        );
+
+        if (document) {
+          openRejectModal(document);
+        }
+
+        return;
+      }
+
+      const previewMediaButton =
+        event.target.closest("[data-media-preview]");
+
+      if (previewMediaButton) {
+        const media = state.media.find(
+          (item) =>
+            String(item.id) ===
+            String(previewMediaButton.dataset.mediaPreview),
+        );
+
+        if (media) {
+          previewMedia(media);
+        }
+
+        return;
+      }
+
+      const renameButton =
+        event.target.closest("[data-media-rename]");
+
+      if (renameButton) {
+        const media = state.media.find(
+          (item) =>
+            String(item.id) ===
+            String(renameButton.dataset.mediaRename),
+        );
+
+        if (media) {
+          await renameMedia(media);
+        }
+
+        return;
+      }
+
+      const deleteButton =
+        event.target.closest("[data-media-delete]");
+
+      if (deleteButton) {
+        const media = state.media.find(
+          (item) =>
+            String(item.id) ===
+            String(deleteButton.dataset.mediaDelete),
+        );
+
+        if (media) {
+          await deleteMedia(media);
+        }
+      }
+    });
+  }
+
+  app
+    .querySelectorAll("[data-uploaded-files-tab]")
+    .forEach((tab) => {
+      tab.addEventListener("click", async () => {
+        const selectedTab =
+          tab.dataset.uploadedFilesTab;
+
+        state.activeTab = selectedTab;
+
+        app
+          .querySelectorAll("[data-uploaded-files-tab]")
+          .forEach((candidate) => {
+            const active =
+              candidate === tab;
+
+            candidate.classList.toggle(
+              "is-active",
+              active,
+            );
+
+            candidate.setAttribute(
+              "aria-selected",
+              String(active),
+            );
+          });
+
+        if (selectedTab === "documents") {
+          await loadDocuments();
+        } else {
+          await loadMedia();
+        }
+      });
+    });
+
+  bindWorkspaceEvents();
+
+  await loadDocuments();
 }
