@@ -33,15 +33,47 @@ from dashboard.models import (
     PlatformUser,
 )
 from health_records.models import Allergy, LabBooking, PrescriptionUpload, Vaccination, VitalReading
+from lab_tests.models import (
+    HealthCheckBundle,
+    LabTest,
+    LabTestCategory,
+    LabTestPackage,
+    OrganProfileCategory,
+    Phlebotomist,
+    RadiologyService,
+    ScanBooking,
+)
 from marketing.models import Coupon, FeaturedPromotion, Promotion, PromotionalContent
 from providers.models import HealthcareProvider, ProviderDocument
+from pharmacy.models import (
+    PharmacyBatch,
+    PharmacyBrand,
+    PharmacyCategory,
+    PharmacyCouponUse,
+    PharmacyDeliveryAssignment,
+    PharmacyInventoryAdjustment,
+    PharmacyOrder,
+    PharmacyOrderBatchAllocation,
+    PharmacyOrderLine,
+    PharmacyProduct,
+    PharmacyRefund,
+)
 
 
 MODEL_ORDER = (
     Specialty,
     Doctor,
+    HealthcareProvider,
+    LabTestCategory,
+    OrganProfileCategory,
+    LabTest,
+    LabTestPackage,
+    HealthCheckBundle,
+    RadiologyService,
+    Phlebotomist,
     CarePatient,
     LabBooking,
+    ScanBooking,
     Vaccination,
     Allergy,
     VitalReading,
@@ -61,12 +93,22 @@ MODEL_ORDER = (
     PlatformDoctor,
     PlatformUser,
     PlatformReview,
-    HealthcareProvider,
     ProviderDocument,
     Coupon,
     Promotion,
     FeaturedPromotion,
     PromotionalContent,
+    PharmacyCategory,
+    PharmacyBrand,
+    PharmacyProduct,
+    PharmacyBatch,
+    PharmacyOrder,
+    PharmacyOrderLine,
+    PharmacyInventoryAdjustment,
+    PharmacyCouponUse,
+    PharmacyOrderBatchAllocation,
+    PharmacyDeliveryAssignment,
+    PharmacyRefund,
     AuditLog,
 )
 MODEL_BY_LABEL = {model._meta.label_lower: model for model in MODEL_ORDER}
@@ -119,6 +161,57 @@ def _safe_fields(model, field_name, value, record):
             return "Fictional development laboratory summary."
         if field_name == "report_pdf_url":
             return ""
+        if field_name == "report_file":
+            return ""
+        if field_name == "clinical_summary":
+            return "Fictional development laboratory summary." if value else ""
+    if model is ScanBooking:
+        if field_name == "notes":
+            return "Fictional development scan booking notes." if value else ""
+        if field_name == "report_file":
+            return ""
+    if model is LabTest:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Lab Test")
+        if field_name == "code":
+            return f"DEV-{hashlib.sha256(record.development_key.encode()).hexdigest()[:12].upper()}"
+    if model is LabTestCategory:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Lab Category")
+        if field_name == "description":
+            return "Fictional development lab test category." if value else ""
+    if model is OrganProfileCategory:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Organ Profile")
+        if field_name == "description":
+            return "Fictional development organ profile category." if value else ""
+    if model is LabTestPackage:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Lab Package")
+        if field_name == "description":
+            return "Fictional development lab package." if value else ""
+    if model is HealthCheckBundle:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Health Check")
+        if field_name in {"description", "recommended_target"}:
+            return (
+                "Fictional development health check information."
+                if value
+                else ""
+            )
+    if model is RadiologyService:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Radiology Service")
+        if field_name == "description":
+            return "Fictional development radiology service." if value else ""
+    if model is Phlebotomist:
+        if field_name == "name":
+            return _development_label(record, "DEV Sample Phlebotomist")
+        if field_name == "email":
+            digest = hashlib.sha256(record.development_key.encode()).hexdigest()[:12]
+            return f"dev-phlebotomist-{digest}@example.test"
+        if field_name == "phone":
+            return ""
     if model is PrescriptionUpload:
         if field_name == "prescription_number":
             return _development_label(record, "DEV Prescription")
@@ -136,6 +229,19 @@ def _safe_fields(model, field_name, value, record):
             return "Fictional development prescription instructions." if value else ""
         if field_name == "pdf_url":
             return ""
+        if field_name in {"file", "internal_notes", "rejection_reason"}:
+            return ""
+    if model is PharmacyProduct:
+        if field_name == "image_url":
+            return ""
+        if field_name == "description":
+            return "Fictional development pharmacy product."
+    if model is PharmacyOrder and field_name == "address":
+        return "Development sample address."
+    if model is PharmacyInventoryAdjustment and field_name == "reason":
+        return "Development sample inventory adjustment."
+    if model is PharmacyRefund and field_name == "reason":
+        return "Development sample refund."
     if model is Vaccination and field_name == "vaccine":
         return "DEV Sample Vaccine"
     if model is Allergy and field_name == "allergy":
@@ -233,6 +339,8 @@ def _safe_fields(model, field_name, value, record):
             return "Fictional development review."
     if model is HealthcareProvider:
         if field_name == "name":
+            if record.provider_type == HealthcareProvider.ProviderType.DIAGNOSTIC_CENTRE:
+                return _development_label(record, "DEV Sample Diagnostic Centre")
             return "DEV Sample Healthcare Provider"
         if field_name in {"phone", "address", "pincode", "registration_date"}:
             return "" if field_name != "registration_date" else None
@@ -275,6 +383,7 @@ def record_snapshot(record):
 
     fields = {}
     relations = {}
+    many_to_many = {}
     for field in record._meta.concrete_fields:
         if (
             (field.primary_key and (model._meta.label_lower, field.name) not in NATURAL_PRIMARY_KEY_FIELDS)
@@ -309,11 +418,27 @@ def record_snapshot(record):
                 timespec="microseconds"
             ).replace("+00:00", "Z")
         fields[field.name] = value
+    for field in record._meta.many_to_many:
+        related_keys = []
+        for related in getattr(record, field.name).all():
+            if (
+                not hasattr(related, "development_key")
+                or not related.is_development_data
+                or not related.development_key
+                or not related.development_key.startswith("dev-")
+            ):
+                raise ValueError(
+                    f"{model._meta.label} {key} references untagged "
+                    f"{field.remote_field.model._meta.label} data through {field.name}."
+                )
+            related_keys.append(related.development_key)
+        many_to_many[field.name] = sorted(related_keys)
     return {
         "model": model._meta.label_lower,
         "development_key": key,
         "fields": fields,
         "relations": relations,
+        "many_to_many": many_to_many,
     }
 
 
@@ -479,6 +604,27 @@ def _prepare_rows(rows):
                     raise ValueError(f"Unknown relation {name} on {model._meta.label}.") from error
                 if not field.is_relation or field.many_to_many or field.auto_created:
                     raise ValueError(f"Invalid relation {name} on {model._meta.label}.")
+            for name, related_keys in row.get("many_to_many", {}).items():
+                try:
+                    field = model._meta.get_field(name)
+                except Exception as error:
+                    raise ValueError(
+                        f"Unknown many-to-many relation {name} on {model._meta.label}."
+                    ) from error
+                if (
+                    not field.is_relation
+                    or not field.many_to_many
+                    or field.auto_created
+                    or not isinstance(related_keys, list)
+                    or not all(
+                        isinstance(related_key, str)
+                        and related_key.startswith("dev-")
+                        for related_key in related_keys
+                    )
+                ):
+                    raise ValueError(
+                        f"Invalid many-to-many relation {name} on {model._meta.label}."
+                    )
             prepared.append((model, row, values))
     return prepared
 
@@ -596,6 +742,25 @@ def import_snapshot(path):
                     )
                 setattr(instance, field.name, related)
             instance.save()
+            for name, related_keys in row.get("many_to_many", {}).items():
+                field = model._meta.get_field(name)
+                related_model = field.remote_field.model
+                related_rows = list(
+                    related_model.objects.filter(
+                        development_key__in=related_keys,
+                        is_development_data=True,
+                    )
+                )
+                if len(related_rows) != len(set(related_keys)):
+                    missing = sorted(
+                        set(related_keys)
+                        - {item.development_key for item in related_rows}
+                    )
+                    raise ValueError(
+                        f"Missing {related_model._meta.label} development records "
+                        f"{', '.join(missing)} referenced through {name}."
+                    )
+                getattr(instance, name).set(related_rows)
             auto_timestamp_values = {
                 field.attname: values[field.attname]
                 for field in model._meta.concrete_fields

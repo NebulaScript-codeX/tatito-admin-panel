@@ -2,12 +2,20 @@ import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav, account
 import { products, labTests, doctors, articles, categories, doctorSpecialties, doctorCities, doctorHealthChecks, vitalOrgans, labPackages, internshipPrograms } from './data.js'
 import { isAuthenticated, getAuthUser, getAuthToken, requireAuth, logoutUser } from './auth.js'
 import { openAuthModal } from './authPages.js'
+import { formatINR } from './currency.js'
+import { calculateBestPlanSavings } from './healthPlanCalculator.js'
 import { languages, getLanguage, setLanguage, t } from './translations.js'
 import {
   createDoctorAppointment,
   getDoctorAvailability,
   getMyDoctorAppointments,
   getMyDoctorPayments,
+  getMyHealthPlanSubscriptions,
+  addMyHealthPlanFamilyMember,
+  updateMyHealthPlanFamilyMember,
+  removeMyHealthPlanFamilyMember,
+  getPublicHealthPlans,
+  HEALTH_PLANS_API_URL,
 } from './api.js'
 
 
@@ -297,17 +305,6 @@ export function renderProductDetail(appRoot, ctx) {
                 </div>
               </div>
 
-              <!-- PHARMACIST ADVICE CARD -->
-              <div class="pd-pharmacist-banner">
-                <div class="ppb-icon">${icon("phone")}</div>
-                <div>
-                  <strong>Need Dosage Advice?</strong>
-                  <p>Speak with Dr. Maya Chen, Clinical Pharmacist, for free medication guidance.</p>
-                  <button class="button button-small button-outline full-button" id="btn-pd-pharmacist-chat" style="margin-top: 8px;">
-                    ${icon("video")} Free Pharmacist Consult
-                  </button>
-                </div>
-              </div>
             </div>
 
             <!-- RIGHT COLUMN: PRODUCT INFO & PRICING ACTIONS -->
@@ -334,9 +331,9 @@ export function renderProductDetail(appRoot, ctx) {
               <!-- PRICING CARD -->
               <div class="pd-pricing-card">
                 <div class="pd-price-row">
-                  <strong class="pd-main-price">$${p.price.toFixed(2)}</strong>
-                  ${discount > 0 ? `<s class="pd-mrp-price">$${p.mrp.toFixed(2)}</s>` : ""}
-                  ${discount > 0 ? `<span class="pd-save-tag">${icon("spark")} Save $${savings} (${discount}% OFF)</span>` : ""}
+                  <strong class="pd-main-price">${formatINR(p.price)}</strong>
+                  ${discount > 0 ? `<s class="pd-mrp-price">${formatINR(p.mrp)}</s>` : ""}
+                  ${discount > 0 ? `<span class="pd-save-tag">${icon("spark")} Save ${formatINR(Number(savings))} (${discount}% OFF)</span>` : ""}
                 </div>
                 <span class="pd-tax-note">Inclusive of all taxes & local pharmacy delivery fees</span>
               </div>
@@ -385,7 +382,7 @@ export function renderProductDetail(appRoot, ctx) {
 
               <!-- DELIVERY TRUST BADGES -->
               <div class="pd-delivery-features">
-                <div class="pdf-item">${icon("check")} <span><strong>Free express delivery</strong> on orders over $25</span></div>
+                <div class="pdf-item">${icon("check")} <span><strong>Free express delivery</strong> on orders over ₹499</span></div>
                 <div class="pdf-item">${icon("check")} <span><strong>Same-day doorstep delivery</strong> in Brooklyn & NYC</span></div>
                 <div class="pdf-item">${icon("check")} <span><strong>256-bit encrypted</strong> private healthcare packaging</span></div>
               </div>
@@ -473,7 +470,6 @@ export function renderProductDetail(appRoot, ctx) {
   const addCartBtn = appRoot.querySelector("#detail-add-cart");
   const buyNowBtn = appRoot.querySelector("#detail-buy-now");
   const wishlistBtn = appRoot.querySelector("#detail-wishlist");
-  const pharmacistChatBtn = appRoot.querySelector("#btn-pd-pharmacist-chat");
 
   if (incBtn && qtyDisplay)
     incBtn.addEventListener("click", () => {
@@ -500,11 +496,6 @@ export function renderProductDetail(appRoot, ctx) {
     wishlistBtn.addEventListener("click", () => {
       showToast(`Saved ${p.name} to your wishlist.`);
     });
-  if (pharmacistChatBtn)
-    pharmacistChatBtn.addEventListener("click", () => {
-      showToast("Connecting to Dr. Maya Chen via private chat...");
-    });
-
   appRoot.querySelectorAll("[data-product]").forEach((el) => {
     el.addEventListener("click", (e) => {
       if (!e.target.closest("[data-add]"))
@@ -523,7 +514,7 @@ export function renderProductDetail(appRoot, ctx) {
 
 function relatedCard(p) {
   const discount = Math.round((1 - p.price / p.mrp) * 100);
-  return `<article class="product-card" data-product="${p.id}"><div class="product-image"><span class="product-avatar avatar-${p.color}">${p.initials}</span>${discount > 0 ? `<span class="product-discount">-${discount}%</span>` : ""}</div><div class="product-info"><span class="product-manufacturer">${p.manufacturer}</span><h4 class="product-name">${p.name}</h4><span class="product-pack">${p.pack}</span><div class="product-rating">★ ${p.rating} <span>(${p.reviews})</span></div><div class="product-price-row"><div class="product-price"><strong>$${p.price.toFixed(2)}</strong>${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s>` : ""}</div><button class="add-to-cart-btn" data-add="${p.id}">${icon("plus")} Add</button></div></div></article>`;
+  return `<article class="product-card" data-product="${p.id}"><div class="product-image"><span class="product-avatar avatar-${p.color}">${p.initials}</span>${discount > 0 ? `<span class="product-discount">-${discount}%</span>` : ""}</div><div class="product-info"><span class="product-manufacturer">${p.manufacturer}</span><h4 class="product-name">${p.name}</h4><span class="product-pack">${p.pack}</span><div class="product-rating">★ ${p.rating} <span>(${p.reviews})</span></div><div class="product-price-row"><div class="product-price"><strong>${formatINR(p.price)}</strong>${discount > 0 ? `<s>${formatINR(p.mrp)}</s>` : ""}</div><button class="add-to-cart-btn" data-add="${p.id}">${icon("plus")} Add</button></div></div></article>`;
 }
 
 // === Doctors Page ===
@@ -3017,7 +3008,7 @@ export function renderCheckout(appRoot, ctx) {
     return;
   }
   const subtotal = getCartTotal();
-  const deliveryFee = subtotal >= 25 ? 0 : 3.99;
+  const deliveryFee = subtotal >= 499 ? 0 : 49;
   const total = subtotal + deliveryFee;
   const hasRx = cartState.some((i) => i.rx);
   const orderId = "THP" + Date.now().toString().slice(-6);
@@ -3071,11 +3062,11 @@ export function renderCheckout(appRoot, ctx) {
               <div class="delivery-options">
                 <button class="delivery-option selected">
                   <div><strong>Standard Delivery</strong><span>2-3 business days · Encrypted packaging</span></div>
-                  <span class="delivery-price">${deliveryFee === 0 ? "FREE" : "$3.99"}</span>
+                  <span class="delivery-price">${deliveryFee === 0 ? "FREE" : formatINR(49)}</span>
                 </button>
                 <button class="delivery-option">
                   <div><strong>Express Express Delivery</strong><span>Same day · Order before 2 PM</span></div>
-                  <span class="delivery-price">$7.99</span>
+                  <span class="delivery-price">${formatINR(99)}</span>
                 </button>
                 <button class="delivery-option">
                   <div><strong>Store Pickup</strong><span>Ready in 1 hour at Brooklyn Pharmacy</span></div>
@@ -3111,17 +3102,17 @@ export function renderCheckout(appRoot, ctx) {
                   <span class="cart-item-avatar avatar-${item.color}">${item.initials}</span>
                   <div>
                     <strong>${item.name}</strong>
-                    <span>${item.qty} × $${item.price.toFixed(2)}</span>
+                    <span>${item.qty} × ${formatINR(item.price)}</span>
                   </div>
-                  <strong>$${(item.price * item.qty).toFixed(2)}</strong>
+                  <strong>${formatINR(item.price * item.qty)}</strong>
                 </div>
               `,
                 )
                 .join("")}
               
-              <div class="summary-row"><span>Subtotal</span><strong>$${subtotal.toFixed(2)}</strong></div>
-              <div class="summary-row"><span>Delivery</span><strong>${deliveryFee === 0 ? "FREE" : "$" + deliveryFee.toFixed(2)}</strong></div>
-              <div class="summary-row summary-total"><span>Total Amount</span><strong>$${total.toFixed(2)}</strong></div>
+              <div class="summary-row"><span>Subtotal</span><strong>${formatINR(subtotal)}</strong></div>
+              <div class="summary-row"><span>Delivery</span><strong>${deliveryFee === 0 ? "FREE" : formatINR(deliveryFee)}</strong></div>
+              <div class="summary-row summary-total"><span>Total Amount</span><strong>${formatINR(total)}</strong></div>
               
               <button class="button button-primary full-button" id="place-order">Place Order ${icon("arrow")}</button>
             </div>
@@ -3176,7 +3167,7 @@ export function renderOrderSuccess(appRoot, ctx) {
         <div class="order-success-content">
           <div class="success-check-large">${icon("check")}</div>
           <h1>Order Confirmed!</h1>
-          <p>Order <strong>#${currentParams.id || "THP928104"}</strong> · Total <strong>$${(currentParams.total || 42.5).toFixed(2)}</strong></p>
+          <p>Order <strong>#${currentParams.id || "THP928104"}</strong> · Total <strong>${formatINR(currentParams.total || 3540)}</strong></p>
           
           <div class="order-tracking-page">
             <div class="track-step completed"><span class="track-dot">${icon("check")}</span><div><strong>Order Confirmed</strong><small>Just now</small></div></div>
@@ -3234,231 +3225,113 @@ export function renderPlans(appRoot, ctx) {
   const { navigate, showToast, requireAuth } = ctx;
   let isAnnual = true;
   let selectedCategory = "family"; // family, individual, senior, executive
+  const plansApiUrl = HEALTH_PLANS_API_URL;
+  let plansData = [];
+  const planText = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]);
 
-  const plansData = [
-    {
-      id: "starter",
-      name: "Tatito Starter",
-      badge: "ESSENTIAL CARE",
-      tagline:
-        "Ideal for individuals seeking everyday wellness & quick GP visits.",
-      monthlyPrice: 12,
-      annualPrice: 9,
-      color: "teal",
-      features: [
-        "2 Free Doctor Consultations / month",
-        "15% Off All Pharmacy Orders",
-        "10% Discount on Lab Tests & Diagnostics",
-        "Digital Encrypted Health Vault (HIPAA)",
-        "Standard Email & Chat Support",
-      ],
-      notIncluded: [
-        "Free Home Sample Collection",
-        "Annual Full Body Health Checkup",
-        "Dedicated Family Care Manager",
-        "Free Emergency Ambulance Service",
-      ],
-    },
-    {
-      id: "family",
-      name: "Tatito Family Care",
-      badge: "MOST POPULAR",
-      featured: true,
-      tagline: "Complete medical protection for up to 4 family members.",
-      monthlyPrice: 29,
-      annualPrice: 22,
-      color: "coral",
-      features: [
-        "Up to 4 Family Members Included",
-        "6 Free Doctor Consultations / month",
-        "25% Off All Pharmacy Orders + Free Express Delivery",
-        "25% Discount on All Lab Tests",
-        "1 Free Full Body Health Checkup / year",
-        "24/7 Priority Telehealth Helpline",
-        "Free Home Sample Collection",
-      ],
-      notIncluded: [
-        "Dedicated Personal Doctor",
-        "100% Covered Emergency Ambulance",
-      ],
-    },
-    {
-      id: "executive",
-      name: "Tatito Executive Gold",
-      badge: "PREMIUM HEALTH",
-      tagline:
-        "Comprehensive coverage for high-performing professionals & seniors.",
-      monthlyPrice: 59,
-      annualPrice: 44,
-      color: "gold",
-      features: [
-        "Unlimited 24/7 Online Video Consultations",
-        "35% Off All Pharmacy Orders & Medical Devices",
-        "35% Off All Lab Tests & Radiology Scans",
-        "2 Free Executive Health Packages / year",
-        "Dedicated Personal Care Manager",
-        "Free Doorstep Sample Collection 24/7",
-        "Priority Appointment Booking (< 2 hrs)",
-      ],
-      notIncluded: ["Global Specialist Second Opinion"],
-    },
-    {
-      id: "vip",
-      name: "Tatito VIP Concierge",
-      badge: "ULTIMATE VIP CARE",
-      tagline:
-        "White-glove concierge healthcare & emergency coverage for the entire family.",
-      monthlyPrice: 99,
-      annualPrice: 79,
-      color: "navy",
-      features: [
-        "Unlimited Consultations for Entire Household",
-        "50% Off Pharmacy & Free Same-Day Express Delivery",
-        "Free Annual Comprehensive Health & Genome Screening",
-        "Dedicated Named Personal Doctor & Care Team",
-        "100% Covered Emergency Ambulance Dispatch",
-        "Global Specialist 2nd Opinion Concierge",
-        "Zero Co-pay Specialist Visits & Direct Hospital Desk",
-      ],
-      notIncluded: [],
-    },
-  ];
-
-  const comparisonMatrix = [
-    {
-      feature: "Doctor Visits Included",
-      starter: "2 / month",
-      family: "6 / month",
-      executive: "Unlimited 24/7",
-      vip: "Unlimited 24/7",
-    },
-    {
-      feature: "Family Members Covered",
-      starter: "1 Person",
-      family: "4 Members",
-      executive: "4 Members",
-      vip: "Entire Household",
-    },
-    {
-      feature: "Pharmacy Discount",
-      starter: "15% Off",
-      family: "25% Off",
-      executive: "35% Off",
-      vip: "50% Off",
-    },
-    {
-      feature: "Lab Test Discount",
-      starter: "10% Off",
-      family: "25% Off",
-      executive: "35% Off",
-      vip: "Free Annual Panel",
-    },
-    {
-      feature: "Annual Full Body Checkup",
-      starter: "❌ Not Included",
-      family: "1 Checkup / Yr",
-      executive: "2 Checkups / Yr",
-      vip: "Genome + Full Screening",
-    },
-    {
-      feature: "Home Sample Collection",
-      starter: "$4.99 / Visit",
-      family: "FREE",
-      executive: "FREE 24/7",
-      vip: "FREE 24/7 Priority",
-    },
-    {
-      feature: "Dedicated Care Manager",
-      starter: "❌",
-      family: "Standard",
-      executive: "Dedicated Manager",
-      vip: "Named Personal Doctor",
-    },
-    {
-      feature: "Emergency Ambulance",
-      starter: "Standard Rate",
-      family: "50% Off",
-      executive: "75% Off",
-      vip: "100% FREE Covered",
-    },
-  ];
+  let calculatorSettings = null;
 
   const memberPerks = [
     {
       icon: "spark",
-      title: "Zero Co-Pay Stress",
-      desc: "Predictable monthly billing with no hidden fees or surprise hospital co-pays.",
+      title: "Plan-specific benefits",
+      desc: "Review consultation, checkup and home-sample allowances on each plan.",
     },
     {
       icon: "shield",
-      title: "24/7 Instant Doctor Access",
-      desc: "Connect with a board-certified physician in under 15 minutes, anytime.",
-    },
-    {
-      icon: "pills",
-      title: "Automatic Rx Refills",
-      desc: "We track your daily medication schedule and ship refills before you run out.",
+      title: "Eligible service discounts",
+      desc: "See pharmacy and lab discounts included with each available plan.",
     },
     {
       icon: "phone",
-      title: "Priority Emergency Response",
-      desc: "Direct emergency desk dispatch and immediate ambulance coordination.",
+      title: "Family membership",
+      desc: "Add family members up to the limit configured for your subscription.",
+    },
+    {
+      icon: "shield",
+      title: "Clear billing",
+      desc: "Compare current monthly and annual prices before choosing a plan.",
     },
   ];
 
   const planFaqs = [
     {
       q: "Can I switch or upgrade my plan later?",
-      a: "Yes! You can upgrade, downgrade, or change your billing cycle at any time from your member dashboard with instant prorated adjustments.",
+      a: "Plan changes depend on the options available for your subscription. Contact support if the change you need is not available in your account.",
     },
     {
-      q: "How do I add family members to Tatito Family Care?",
-      a: "Once subscribed, go to Dashboard > Health Records > Family Members to invite up to 3 additional household members for free.",
+      q: "Can I add family members?",
+      a: "Family members can be managed for an active subscription, up to the maximum configured for its plan.",
     },
     {
       q: "Is there a money-back guarantee?",
-      a: "Yes. We offer a 30-day no-questions-asked money-back guarantee if you have not utilized any free consultations.",
+      a: "Eligible subscriptions can request a refund within 30 days. Requests are reviewed by the support team.",
     },
     {
-      q: "Are pre-existing conditions covered?",
-      a: "Absolutely. Tatito Health+ plans provide immediate discounts and consultation access regardless of prior medical history.",
+      q: "Which benefits are included?",
+      a: "Benefits and limits vary by plan. Check the current plan details above before subscribing.",
     },
   ];
 
   function renderPlansGrid() {
+    if (!plansData.length) {
+      return `<p class="plan-catalog-state" role="status">Loading available plans…</p>`;
+    }
     return plansData
       .map((p) => {
         const price = isAnnual ? p.annualPrice : p.monthlyPrice;
         const yearlyTotal = isAnnual ? p.annualPrice * 12 : p.monthlyPrice * 12;
         return `
         <div class="deluxe-plan-card ${p.featured ? "plan-featured" : ""}">
-          ${p.featured ? `<div class="plan-popular-ribbon">${icon("spark")} ${p.badge}</div>` : `<span class="plan-type-tag">${p.badge}</span>`}
-          <h3>${p.name}</h3>
-          <p class="plan-tagline">${p.tagline}</p>
+          ${p.featured ? `<div class="plan-popular-ribbon">${icon("spark")} ${planText(p.badge)}</div>` : `<span class="plan-type-tag">${planText(p.badge)}</span>`}
+          <h3>${planText(p.name)}</h3>
+          <p class="plan-tagline">${planText(p.tagline)}</p>
           
           <div class="plan-pricing-box">
             <div class="price-val-wrap">
-              <span class="currency-symbol">$</span>
-              <strong class="price-num">${price}</strong>
+              <span class="currency-symbol">₹</span>
+              <strong class="price-num">${planText(price)}</strong>
               <span class="price-period">/ mo</span>
             </div>
-            <span class="billing-note">${isAnnual ? `Billed annually ($${yearlyTotal}/yr)` : "Billed monthly"}</span>
+            <span class="billing-note">${isAnnual ? `Billed annually (${formatINR(yearlyTotal)}/yr)` : "Billed monthly"}</span>
           </div>
 
-          <button class="button ${p.featured ? "button-primary" : "button-outline"} full-button btn-subscribe-plan" data-plan-id="${p.id}" data-plan-name="${p.name}">
+          <button class="button ${p.featured ? "button-primary" : "button-outline"} full-button btn-subscribe-plan" data-plan-id="${planText(p.id)}" data-plan-name="${planText(p.name)}">
             Subscribe Now ${icon("arrow")}
           </button>
 
           <div class="plan-features-divider"><span>WHAT'S INCLUDED</span></div>
 
           <ul class="plan-feature-list">
-            ${p.features.map((f) => `<li><span class="check-icon-wrap">${icon("check")}</span> <span>${f}</span></li>`).join("")}
-            ${p.notIncluded.map((nf) => `<li class="not-included"><span class="cross-icon-wrap">×</span> <span>${nf}</span></li>`).join("")}
+            ${p.features.map((f) => `<li><span class="check-icon-wrap">${icon("check")}</span> <span>${planText(f)}</span></li>`).join("")}
+            ${p.notIncluded.map((nf) => `<li class="not-included"><span class="cross-icon-wrap">×</span> <span>${planText(nf)}</span></li>`).join("")}
           </ul>
         </div>
       `;
       })
       .join("");
+  }
+
+  function renderComparisonMatrix() {
+    if (!plansData.length) {
+      return `<p class="plan-catalog-state">Plan benefits will appear here when plans are available.</p>`;
+    }
+    const rows = [
+      ["Free consultations / month", (plan) => plan.benefits.free_consultations_per_month == null ? "Unlimited" : `${plan.benefits.free_consultations_per_month}`],
+      ["Family members covered", (plan) => `${plan.maximumFamilyMembers}`],
+      ["Pharmacy discount", (plan) => `${Number(plan.benefits.pharmacy_discount_percent) || 0}%`],
+      ["Lab discount", (plan) => `${Number(plan.benefits.lab_discount_percent) || 0}%`],
+      ["Free home samples / year", (plan) => `${Number(plan.benefits.free_home_sample_count) || 0}`],
+      ["Annual checkups", (plan) => `${Number(plan.benefits.annual_checkup_count) || 0}`],
+      ["Care manager", (plan) => plan.benefits.care_manager ? "Included" : "Not included"],
+      ["Ambulance discount", (plan) => `${Number(plan.benefits.ambulance_discount_percent) || 0}%`],
+    ];
+    return `<table class="comparison-matrix-table">
+      <thead><tr><th>Coverage feature</th>${plansData.map((plan) => `<th class="${plan.featured ? "th-featured" : ""}">${planText(plan.name)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map(([feature, display]) => `<tr><td><strong>${planText(feature)}</strong></td>${plansData.map((plan) => `<td class="${plan.featured ? "td-featured" : ""}">${planText(display(plan))}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table>`;
   }
 
   appRoot.innerHTML = `
@@ -3472,7 +3345,7 @@ export function renderPlans(appRoot, ctx) {
             <div class="plans-hero-content">
               <span class="eyebrow-tag">${icon("spark")} TATITO HEALTH PLUS MEMBERSHIP</span>
               <h1>Complete Medical Protection for<br><em class="editorial">You & Your Family.</em></h1>
-              <p>Save up to 45% on doctor visits, daily medicines, and diagnostic lab tests with zero out-of-pocket stress.</p>
+              <p>Compare live plan pricing, allowances and eligible service discounts, all managed from your membership.</p>
 
               <!-- BILLING TOGGLE SWITCH -->
               <div class="billing-toggle-container">
@@ -3482,22 +3355,22 @@ export function renderPlans(appRoot, ctx) {
                 </button>
                 <span class="toggle-label ${isAnnual ? "active" : ""}">
                   Annual Billing 
-                  <span class="save-badge-glow">${icon("spark")} SAVE 25%</span>
+                  <span class="save-badge-glow" id="annual-saving-badge">${icon("spark")} Annual pricing</span>
                 </span>
               </div>
 
               <div class="plans-hero-trust-row">
-                <span class="pht-item">${icon("verified")} 100,000+ Active Members</span>
-                <span class="pht-item">${icon("shield")} 30-Day Money-Back Guarantee</span>
-                <span class="pht-item">${icon("clock")} Instant Family Coverage</span>
+                <span class="pht-item">${icon("verified")} Current plan details</span>
+                <span class="pht-item">${icon("shield")} 30-Day Refund Requests</span>
+                <span class="pht-item">${icon("clock")} Configurable family limits</span>
               </div>
             </div>
 
             <div class="plans-hero-graphic">
               <div class="graphic-vip-card">
                 <div class="gvc-icon">${icon("spark")}</div>
-                <span class="gvc-title">TATITO VIP</span>
-                <span class="gvc-tag">UNLIMITED CARE</span>
+                <span class="gvc-title">HEALTH PLAN</span>
+                <span class="gvc-tag">BENEFITS THAT FIT</span>
               </div>
             </div>
           </div>
@@ -3507,6 +3380,20 @@ export function renderPlans(appRoot, ctx) {
         <section class="section-wrap plans-grid-section">
           <div class="plans-grid-deluxe" id="plans-grid-deluxe">
             ${renderPlansGrid()}
+          </div>
+        </section>
+
+        <section class="section-wrap my-health-plans-section" id="my-health-plans-section" hidden>
+          <div class="my-health-plans-heading">
+            <div>
+              <span class="section-kicker">${icon("shield")} MEMBER ACCOUNT</span>
+              <h2>My Health Plans</h2>
+              <p>View your subscription, benefit usage and covered family members.</p>
+            </div>
+            <button class="button button-outline" id="refresh-my-health-plans" type="button">${icon("refresh")} Refresh</button>
+          </div>
+          <div id="my-health-plans-content" aria-live="polite">
+            <p class="plan-catalog-state" role="status">Loading your memberships…</p>
           </div>
         </section>
 
@@ -3524,33 +3411,37 @@ export function renderPlans(appRoot, ctx) {
                 <div class="calc-slider-group">
                   <div class="cs-label-row">
                     <label>Doctor Consultations / Month</label>
-                    <span class="cs-value" id="calc-doc-val">2 visits</span>
+                    <span class="cs-value" id="calc-doc-val">—</span>
                   </div>
-                  <input type="range" id="slider-doc-visits" min="1" max="10" value="2" />
+                  <input type="range" id="slider-doc-visits" min="0" max="0" value="0" disabled />
                 </div>
 
                 <div class="calc-slider-group">
                   <div class="cs-label-row">
-                    <label>Monthly Pharmacy & Supplement Bills ($)</label>
-                    <span class="cs-value" id="calc-pharm-val">$80 / mo</span>
+                    <label>Monthly Pharmacy & Supplement Bills (₹)</label>
+                    <span class="cs-value" id="calc-pharm-val">—</span>
                   </div>
-                  <input type="range" id="slider-pharm-spend" min="20" max="400" step="10" value="80" />
+                  <input type="range" id="slider-pharm-spend" min="0" max="0" value="0" disabled />
                 </div>
 
                 <div class="calc-slider-group">
                   <div class="cs-label-row">
-                    <label>Annual Family Lab Checkups ($)</label>
-                    <span class="cs-value" id="calc-lab-val">$200 / yr</span>
+                    <label>Annual Family Lab Checkups (₹)</label>
+                    <span class="cs-value" id="calc-lab-val">—</span>
                   </div>
-                  <input type="range" id="slider-lab-spend" min="50" max="800" step="25" value="200" />
+                  <input type="range" id="slider-lab-spend" min="0" max="0" value="0" disabled />
                 </div>
               </div>
 
               <div class="calc-result-box">
                 <span class="cr-label">YOUR ESTIMATED ANNUAL SAVINGS</span>
-                <strong class="cr-savings-num" id="calc-savings-total">$468</strong>
-                <span class="cr-sub">Equivalent to <strong>2.5x return</strong> on your Tatito Family Care plan!</span>
-                <button class="button button-primary full-button btn-calc-subscribe">${icon("spark")} Claim Savings & Subscribe</button>
+                <strong class="cr-savings-num" id="calc-savings-total">—</strong>
+                <span class="cr-sub">Estimated net savings with <strong id="calc-selected-plan">Loading plan data…</strong></span>
+                <div class="calc-savings-breakdown">
+                  <span>Estimated benefit value <strong id="calc-gross-savings">—</strong></span>
+                  <span>Annual plan cost <strong id="calc-plan-cost">—</strong></span>
+                </div>
+                <button class="button button-primary full-button btn-calc-subscribe" disabled>${icon("spark")} Claim Savings & Subscribe</button>
               </div>
             </div>
           </div>
@@ -3561,7 +3452,7 @@ export function renderPlans(appRoot, ctx) {
           <div class="section-heading">
             <div>
               <span class="section-kicker">${icon("shield")} VIP BENEFITS</span>
-              <h2>Why 100,000+ Families Choose <em class="editorial">Tatito Health+</em></h2>
+              <h2>Explore <em class="editorial">Tatito Health+</em> benefits</h2>
             </div>
           </div>
           <div class="perks-grid">
@@ -3588,32 +3479,9 @@ export function renderPlans(appRoot, ctx) {
             </div>
           </div>
           <div class="matrix-table-wrapper">
-            <table class="comparison-matrix-table">
-              <thead>
-                <tr>
-                  <th>Coverage Feature</th>
-                  <th>Starter</th>
-                  <th class="th-featured">Family Care</th>
-                  <th>Executive Gold</th>
-                  <th>VIP Concierge</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${comparisonMatrix
-                  .map(
-                    (row) => `
-                  <tr>
-                    <td><strong>${row.feature}</strong></td>
-                    <td>${row.starter}</td>
-                    <td class="td-featured"><strong>${row.family}</strong></td>
-                    <td>${row.executive}</td>
-                    <td>${row.vip}</td>
-                  </tr>
-                `,
-                  )
-                  .join("")}
-              </tbody>
-            </table>
+            <div id="plan-comparison-dynamic">
+              <p class="plan-catalog-state">Loading plan benefits…</p>
+            </div>
           </div>
         </section>
 
@@ -3679,13 +3547,19 @@ export function renderPlans(appRoot, ctx) {
           </div>
 
           <div class="booking-label">02. Primary Member Details</div>
-          <input type="text" class="modal-input" placeholder="Full Name" value="Jordan Davis" />
-          <input type="email" class="modal-input" placeholder="Email Address" value="jordan.davis@example.com" />
+          <p>Your signed-in patient account will be used for this plan order.</p>
+
+          <label class="booking-label" for="sub-modal-payment-method">03. Payment Method</label>
+          <select class="modal-input" id="sub-modal-payment-method">
+            <option value="card">Card</option>
+            <option value="upi">UPI</option>
+            <option value="cash">Cash</option>
+          </select>
           
           <div class="booking-summary">
             <div><span>Membership Plan</span><strong id="sub-modal-plan-name">Tatito Family Care</strong></div>
-            <div><span>Billing Term</span><strong id="sub-modal-term">Annual ($264/yr)</strong></div>
-            <div class="summary-total"><span>Amount Payable Today</span><strong id="sub-modal-amount">$264.00</strong></div>
+            <div><span>Billing Term</span><strong id="sub-modal-term">Annual (₹264/yr)</strong></div>
+            <div class="summary-total"><span>Amount Payable Today</span><strong id="sub-modal-amount">₹264.00</strong></div>
           </div>
           
           <button class="button button-primary full-button" id="confirm-subscribe-btn">Complete Subscription ${icon("arrow")}</button>
@@ -3700,6 +3574,60 @@ export function renderPlans(appRoot, ctx) {
 
   const toggleBtn = appRoot.querySelector("#billing-toggle-btn");
   const plansGrid = appRoot.querySelector("#plans-grid-deluxe");
+  const myPlansSection = appRoot.querySelector("#my-health-plans-section");
+  const myPlansContent = appRoot.querySelector("#my-health-plans-content");
+  let myPlanSubscriptions = [];
+  let editingPlanFamilyMember = null;
+
+  function renderMyPlanSubscriptions() {
+    if (!myPlanSubscriptions.length) {
+      return `<div class="my-health-plans-empty"><span>${icon("shield")}</span><strong>No memberships yet</strong><p>Subscribe to a Health Plan above and your membership details will appear here.</p></div>`;
+    }
+    return `<div class="my-health-plan-list">${myPlanSubscriptions.map((subscription) => {
+      const members = Array.isArray(subscription.family_members) ? subscription.family_members : [];
+      const familyLimit = Math.max(0, Number(subscription.maximum_family_members || 1) - 1);
+      const editing = editingPlanFamilyMember?.subscriptionId === subscription.id ? editingPlanFamilyMember.member : null;
+      const active = subscription.status === "active" && subscription.payment_status === "paid";
+      const usage = Array.isArray(subscription.usage) ? subscription.usage : [];
+      return `
+        <article class="my-health-plan-card">
+          <header class="my-health-plan-card-head">
+            <div><span class="section-kicker">${planText(subscription.order_number || "MEMBERSHIP")}</span><h3>${planText(subscription.plan_name)}</h3><p>${planText(subscription.billing_period)} billing · ${formatINR(Number(subscription.amount || 0))}</p></div>
+            <span class="my-health-plan-status is-${planText(subscription.status)}">${planText(subscription.status)}</span>
+          </header>
+          <div class="my-health-plan-meta"><span>Payment: <strong>${planText(subscription.payment_status)}</strong></span><span>Renews/ends: <strong>${subscription.ends_at ? planText(new Date(subscription.ends_at).toLocaleDateString()) : "Not started"}</strong></span>${subscription.payment?.reference ? `<span>Payment ref: <strong>${planText(subscription.payment.reference)}</strong></span>` : ""}</div>
+          ${usage.length ? `<h4>Benefit usage</h4><div class="my-health-plan-usage">${usage.map((item) => {
+            const limit = item.limit == null ? null : Number(item.limit);
+            const used = Number(item.used || 0);
+            const usageText = limit == null
+              ? `${used} used · ${item.status === "unlimited" ? "unlimited" : `${item.allowed || "uncapped"}; no quantity limit`}`
+              : `${used} / ${limit} used · ${Math.max(0, limit - used)} remaining`;
+            return `<div><span>${planText(item.label)}</span><strong>${planText(usageText)}</strong></div>`;
+          }).join("")}</div>` : ""}
+          <div class="my-health-plan-family-head"><div><h4>Covered family members</h4><small>${members.length} of ${familyLimit} available</small></div></div>
+          ${members.length ? `<ul class="my-health-plan-family">${members.map((member) => `<li><span><strong>${planText(member.name)}</strong><small>${planText(member.relationship || "Family member")}${member.email ? ` · ${planText(member.email)}` : ""}</small></span>${active ? `<span class="my-health-plan-member-actions"><button type="button" class="text-button" data-edit-plan-member="${planText(member.id)}" data-subscription-id="${planText(subscription.id)}">Edit</button><button type="button" class="text-button is-danger" data-remove-plan-member="${planText(member.id)}" data-subscription-id="${planText(subscription.id)}">Remove</button></span>` : ""}</li>`).join("")}</ul>` : `<p class="my-health-plan-no-family">No family members have been added.</p>`}
+          ${active && familyLimit > 0 ? `<form class="my-health-plan-family-form" data-subscription-id="${planText(subscription.id)}"><strong>${editing ? "Edit family member" : members.length < familyLimit ? "Add family member" : "Family-member limit reached"}</strong>${members.length < familyLimit || editing ? `<input type="hidden" name="member_id" value="${planText(editing?.id || "")}"><label>Name<input name="name" maxlength="160" required value="${planText(editing?.name || "")}"></label><label>Relationship<input name="relationship" maxlength="60" value="${planText(editing?.relationship || "")}"></label><label>Email<input name="email" type="email" maxlength="254" value="${planText(editing?.email || "")}"></label><div class="my-health-plan-form-actions"><button class="button button-primary" type="submit">${editing ? "Save member" : "Add member"}</button>${editing ? `<button class="button button-outline" type="button" data-cancel-edit-member>Cancel</button>` : ""}</div>` : ""}</form>` : ""}
+        </article>`;
+    }).join("")}</div>`;
+  }
+
+  async function refreshMyPlanSubscriptions() {
+    if (!myPlansSection || !myPlansContent) return;
+    if (!isAuthenticated() || !getAuthToken()) {
+      myPlansSection.hidden = true;
+      return;
+    }
+    myPlansSection.hidden = false;
+    myPlansContent.innerHTML = `<p class="plan-catalog-state" role="status">Loading your memberships…</p>`;
+    try {
+      const data = await getMyHealthPlanSubscriptions(getAuthToken());
+      myPlanSubscriptions = Array.isArray(data?.results) ? data.results : [];
+      editingPlanFamilyMember = null;
+      myPlansContent.innerHTML = renderMyPlanSubscriptions();
+    } catch (error) {
+      myPlansContent.innerHTML = `<div class="my-health-plans-error" role="alert"><span>${planText(error?.message || "Unable to load your memberships.")}</span><button class="button button-outline" id="retry-my-health-plans" type="button">Try again</button></div>`;
+    }
+  }
 
   function updatePricingDisplay() {
     if (plansGrid) plansGrid.innerHTML = renderPlansGrid();
@@ -3722,6 +3650,10 @@ export function renderPlans(appRoot, ctx) {
   const pharmVal = appRoot.querySelector("#calc-pharm-val");
   const labVal = appRoot.querySelector("#calc-lab-val");
   const totalSavingsEl = appRoot.querySelector("#calc-savings-total");
+  const grossSavingsEl = appRoot.querySelector("#calc-gross-savings");
+  const planCostEl = appRoot.querySelector("#calc-plan-cost");
+  const selectedPlanEl = appRoot.querySelector("#calc-selected-plan");
+  let estimatedBestPlan = null;
 
   function recalculateSavings() {
     if (!sliderDoc || !sliderPharm || !sliderLab || !totalSavingsEl) return;
@@ -3730,19 +3662,21 @@ export function renderPlans(appRoot, ctx) {
     const lab = parseInt(sliderLab.value, 10);
 
     if (docVal) docVal.textContent = `${visits} visit${visits > 1 ? "s" : ""}`;
-    if (pharmVal) pharmVal.textContent = `$${pharm} / mo`;
-    if (labVal) labVal.textContent = `$${lab} / yr`;
+    if (pharmVal) pharmVal.textContent = `${formatINR(pharm)} / mo`;
+    if (labVal) labVal.textContent = `${formatINR(lab)} / yr`;
 
-    // Savings formula:
-    // Doc visit without plan: $80 each. 6 included in family plan ($480 value).
-    // Pharmacy savings: 25% of annual spend.
-    // Lab savings: 25% of annual lab spend.
-    const docSavings = Math.min(visits * 12, 12) * 50;
-    const pharmSavings = pharm * 12 * 0.25;
-    const labSavings = lab * 0.25;
-    const totalSavings = Math.round(docSavings + pharmSavings + labSavings);
-
-    totalSavingsEl.textContent = `$${totalSavings}`;
+    const best = calculateBestPlanSavings(
+      plansData,
+      { doctorVisits: visits, pharmacySpend: pharm, labSpend: lab },
+      calculatorSettings?.consultation_value,
+    );
+    estimatedBestPlan = best.plan;
+    totalSavingsEl.textContent = formatINR(best.estimate.netSavings);
+    if (grossSavingsEl) grossSavingsEl.textContent = formatINR(Math.round(best.estimate.grossSavings));
+    if (planCostEl) planCostEl.textContent = formatINR(best.estimate.annualPlanCost);
+    if (selectedPlanEl) {
+      selectedPlanEl.textContent = best.plan?.name || "No active plan available";
+    }
   }
 
   if (sliderDoc) sliderDoc.addEventListener("input", recalculateSavings);
@@ -3752,7 +3686,7 @@ export function renderPlans(appRoot, ctx) {
   const calcSubscribeBtn = appRoot.querySelector(".btn-calc-subscribe");
   if (calcSubscribeBtn) {
     calcSubscribeBtn.addEventListener("click", () =>
-      openSubModal("family", "Tatito Family Care"),
+      openSubModal(estimatedBestPlan?.id || plansData.find((plan) => plan.featured)?.id || plansData[0]?.id),
     );
   }
 
@@ -3764,21 +3698,46 @@ export function renderPlans(appRoot, ctx) {
   const subModalTerm = appRoot.querySelector("#sub-modal-term");
   const subModalAmount = appRoot.querySelector("#sub-modal-amount");
   const confirmSubBtn = appRoot.querySelector("#confirm-subscribe-btn");
+  const cycleAnnual = appRoot.querySelector("#sub-cycle-annual");
+  const cycleMonthly = appRoot.querySelector("#sub-cycle-monthly");
+  const paymentMethodInput = appRoot.querySelector("#sub-modal-payment-method");
 
-  function openSubModal(planId, planName) {
+  function updateSubscriptionCycle(annual) {
+    isAnnual = annual;
+    toggleBtn?.classList.toggle("switch-annual", annual);
+    cycleAnnual?.classList.toggle("selected", annual);
+    cycleMonthly?.classList.toggle("selected", !annual);
+    updatePricingDisplay();
+    const selectedPlan = plansData.find((plan) => plan.id === subModal?.dataset.planId);
+    if (!selectedPlan) return;
+    const monthlyPrice = annual ? selectedPlan.annualPrice : selectedPlan.monthlyPrice;
+    const total = annual ? monthlyPrice * 12 : monthlyPrice;
+    if (subModalTerm) {
+      subModalTerm.textContent = annual
+        ? `Annual Billing (${formatINR(monthlyPrice)}/mo)`
+        : `Monthly Billing (${formatINR(monthlyPrice)}/mo)`;
+    }
+    if (subModalAmount) subModalAmount.textContent = formatINR(total);
+  }
+
+  function openSubModal(planId) {
     requireAuth(() => {
       const p = plansData.find((plan) => plan.id === planId);
-      if (!p || !subModal) return;
+      if (!p || !subModal) {
+        showToast("Plan catalog is unavailable. Please refresh and try again.");
+        return;
+      }
       const price = isAnnual ? p.annualPrice : p.monthlyPrice;
       const total = isAnnual ? p.annualPrice * 12 : p.monthlyPrice;
+      subModal.dataset.planId = p.id;
 
       if (subPlanTitle) subPlanTitle.textContent = `Subscribe to ${p.name}`;
       if (subPlanName) subPlanName.textContent = p.name;
       if (subModalTerm)
         subModalTerm.textContent = isAnnual
-          ? `Annual Billing ($${p.annualPrice}/mo)`
-          : `Monthly Billing ($${p.monthlyPrice}/mo)`;
-      if (subModalAmount) subModalAmount.textContent = `$${total.toFixed(2)}`;
+          ? `Annual Billing (${formatINR(p.annualPrice)}/mo)`
+          : `Monthly Billing (${formatINR(p.monthlyPrice)}/mo)`;
+      if (subModalAmount) subModalAmount.textContent = formatINR(total);
 
       subModal.hidden = false;
     }, "SUBSCRIBE_PLAN");
@@ -3791,11 +3750,50 @@ export function renderPlans(appRoot, ctx) {
     });
   }
 
+  cycleAnnual?.addEventListener("click", (event) => {
+    event.preventDefault();
+    updateSubscriptionCycle(true);
+  });
+  cycleMonthly?.addEventListener("click", (event) => {
+    event.preventDefault();
+    updateSubscriptionCycle(false);
+  });
+
   if (confirmSubBtn && subModal) {
-    confirmSubBtn.addEventListener("click", () => {
-      subModal.hidden = true;
-      showToast("Welcome to Tatito Health+! Membership activated.");
-      navigate("dashboard");
+    confirmSubBtn.addEventListener("click", async () => {
+      const plan = plansData.find((item) => item.id === subModal.dataset.planId);
+      const token = getAuthToken();
+      if (!plan || !token) {
+        showToast("Sign in with an online patient account before subscribing.");
+        return;
+      }
+      confirmSubBtn.disabled = true;
+      try {
+        const response = await fetch(`${plansApiUrl}subscribe/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            plan_code: plan.id,
+            billing_period: isAnnual ? "annual" : "monthly",
+            method: paymentMethodInput?.value || "card",
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.detail || data?.error || `Plan order failed (${response.status}).`);
+        }
+        subModal.hidden = true;
+        showToast(`Plan order ${data.order_number} created. Payment is pending confirmation.`);
+        void refreshMyPlanSubscriptions();
+        navigate("dashboard");
+      } catch (error) {
+        showToast(error?.message || "Unable to place the plan order.");
+      } finally {
+        confirmSubBtn.disabled = false;
+      }
     });
   }
 
@@ -3803,12 +3801,148 @@ export function renderPlans(appRoot, ctx) {
     appRoot.querySelectorAll(".btn-subscribe-plan").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        openSubModal(btn.dataset.planId, btn.dataset.planName);
+        openSubModal(btn.dataset.planId);
       });
     });
   }
 
+  appRoot.querySelector("#refresh-my-health-plans")?.addEventListener("click", () => {
+    void refreshMyPlanSubscriptions();
+  });
+  myPlansContent?.addEventListener("click", async (event) => {
+    const retry = event.target.closest("#retry-my-health-plans");
+    if (retry) {
+      void refreshMyPlanSubscriptions();
+      return;
+    }
+    const edit = event.target.closest("[data-edit-plan-member]");
+    if (edit) {
+      const subscription = myPlanSubscriptions.find(
+        (item) => String(item.id) === edit.dataset.subscriptionId,
+      );
+      const member = subscription?.family_members?.find(
+        (item) => String(item.id) === edit.dataset.editPlanMember,
+      );
+      if (subscription && member) {
+        editingPlanFamilyMember = { subscriptionId: subscription.id, member };
+        myPlansContent.innerHTML = renderMyPlanSubscriptions();
+      }
+      return;
+    }
+    if (event.target.closest("[data-cancel-edit-member]")) {
+      editingPlanFamilyMember = null;
+      myPlansContent.innerHTML = renderMyPlanSubscriptions();
+      return;
+    }
+    const remove = event.target.closest("[data-remove-plan-member]");
+    if (!remove || !window.confirm("Remove this covered family member?")) return;
+    try {
+      await removeMyHealthPlanFamilyMember(
+        remove.dataset.subscriptionId,
+        remove.dataset.removePlanMember,
+        getAuthToken(),
+      );
+      showToast("Family member removed.");
+      await refreshMyPlanSubscriptions();
+    } catch (error) {
+      showToast(error?.message || "Unable to remove this family member.");
+    }
+  });
+  myPlansContent?.addEventListener("submit", async (event) => {
+    const form = event.target.closest("form.my-health-plan-family-form");
+    if (!form) return;
+    event.preventDefault();
+    const values = new FormData(form);
+    const memberId = String(values.get("member_id") || "");
+    const payload = {
+      name: String(values.get("name") || "").trim(),
+      relationship: String(values.get("relationship") || "").trim(),
+      email: String(values.get("email") || "").trim(),
+    };
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    try {
+      if (memberId) {
+        await updateMyHealthPlanFamilyMember(
+          form.dataset.subscriptionId,
+          memberId,
+          payload,
+          getAuthToken(),
+        );
+        showToast("Family member updated.");
+      } else {
+        await addMyHealthPlanFamilyMember(
+          form.dataset.subscriptionId,
+          payload,
+          getAuthToken(),
+        );
+        showToast("Family member added.");
+      }
+      await refreshMyPlanSubscriptions();
+    } catch (error) {
+      showToast(error?.message || "Unable to save this family member.");
+      if (submitButton) submitButton.disabled = false;
+    }
+  });
+
   bindSubscribeEvents();
+  void refreshMyPlanSubscriptions();
+
+  void (async () => {
+    try {
+      const data = await getPublicHealthPlans();
+      plansData = (Array.isArray(data?.results) ? data.results : []).map((plan) => ({
+        id: plan.code,
+        name: plan.name,
+        badge: plan.badge || "",
+        featured: Boolean(plan.is_popular),
+        tagline: plan.tagline || "",
+        monthlyPrice: Number(plan.monthly_price),
+        annualPrice: Number(plan.annual_monthly_price),
+        color: plan.color || "",
+        features: Array.isArray(plan.features) ? plan.features : [],
+        notIncluded: Array.isArray(plan.exclusions) ? plan.exclusions : [],
+        maximumFamilyMembers: Number(plan.maximum_family_members) || 1,
+        benefits: plan.benefits || {},
+      }));
+      calculatorSettings = data?.calculator || null;
+      if (calcSubscribeBtn) calcSubscribeBtn.disabled = !plansData.length;
+      if (!plansData.length) {
+        plansGrid.innerHTML = `<p class="plan-catalog-state" role="alert">No health plans are currently available.</p>`;
+      } else {
+        plansGrid.innerHTML = renderPlansGrid();
+        bindSubscribeEvents();
+      }
+      const popularPlan = plansData.find((plan) => plan.featured) || plansData[0];
+      const savingBadge = appRoot.querySelector("#annual-saving-badge");
+      if (savingBadge && popularPlan) {
+        const percent = popularPlan.annualPrice && popularPlan.monthlyPrice > 0
+          ? Math.max(0, Math.round((popularPlan.monthlyPrice - popularPlan.annualPrice) * 100 / popularPlan.monthlyPrice))
+          : 0;
+        savingBadge.innerHTML = `${icon("spark")} SAVE ${percent}%`;
+      }
+      const comparison = appRoot.querySelector("#plan-comparison-dynamic");
+      if (comparison) comparison.innerHTML = renderComparisonMatrix();
+      if (calculatorSettings) {
+        const sliderConfig = [
+          [sliderDoc, "doctor_visits_min", "doctor_visits_max", "doctor_visits_default"],
+          [sliderPharm, "pharmacy_spend_min", "pharmacy_spend_max", "pharmacy_spend_default", "pharmacy_spend_step"],
+          [sliderLab, "lab_spend_min", "lab_spend_max", "lab_spend_default", "lab_spend_step"],
+        ];
+        sliderConfig.forEach(([slider, min, max, initial, step]) => {
+          if (!slider) return;
+          slider.min = calculatorSettings[min];
+          slider.max = calculatorSettings[max];
+          slider.value = calculatorSettings[initial];
+          if (step) slider.step = calculatorSettings[step];
+          slider.disabled = false;
+        });
+      }
+      recalculateSavings();
+    } catch (error) {
+      plansGrid.innerHTML = `<p class="plan-catalog-state" role="alert">${planText(error?.message || "Unable to load health plans.")}</p>`;
+    }
+  })();
 
   const helplineBtn = appRoot.querySelector("#btn-subscription-helpline");
   if (helplineBtn)
@@ -3885,7 +4019,7 @@ export function renderDashboard(appRoot, ctx) {
             <div class="dash-order-head">
               <div>
                 <strong>Order #THP-928104</strong>
-                <span>Placed on Jun 17, 2026 · 2 items · Total $42.50</span>
+                <span>Placed on Jun 17, 2026 · 2 items · Total ₹3,540.00</span>
               </div>
               <span class="status-badge status-confirmed">${icon("pin")} Out for Delivery</span>
             </div>
@@ -3921,7 +4055,7 @@ export function renderDashboard(appRoot, ctx) {
                   <strong>Amoxicillin 500mg (21 Capsules)</strong>
                   <span>Rx Medicine · 1 Pack</span>
                 </div>
-                <strong>$18.50</strong>
+                <strong>₹1,540.00</strong>
               </div>
               <div class="dash-order-item-row">
                 <span class="cart-item-avatar avatar-blue">VC</span>
@@ -3929,7 +4063,7 @@ export function renderDashboard(appRoot, ctx) {
                   <strong>Vitamin C 1000mg Immunity Boost</strong>
                   <span>Wellness Supplement · 1 Bottle</span>
                 </div>
-                <strong>$24.00</strong>
+                <strong>₹2,000.00</strong>
               </div>
             </div>
           </div>
@@ -4787,7 +4921,7 @@ export function renderInternships(appRoot, ctx) {
     },
     {
       q: "Are all internship positions paid with a monthly stipend?",
-      a: "Yes, 100%. Every intern and fellow receives a competitive monthly stipend ranging from $2,100 to $2,800/month along with CME/NABL accredited certifications.",
+      a: "Yes, 100%. Every intern and fellow receives a competitive monthly stipend ranging from ₹21,000 to ₹28,000/month along with CME/NABL accredited certifications.",
     },
     {
       q: "Can international medical candidates apply for remote AI tracks?",

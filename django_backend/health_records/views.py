@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
+from django.http import FileResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework import status
@@ -71,6 +72,7 @@ def patient_payload(patient):
         "external_id": patient.external_id,
         "name": patient.name,
         "date_of_birth": account.date_of_birth if account else "",
+        "gender": account.gender if account else "",
         "blood_group": account.blood_group if account else "",
         "mobile": account.mobile if account else "",
         "email": account.email if account else "",
@@ -98,6 +100,9 @@ def audit_access(request, patient, record_type):
 
 
 def serialize_lab_booking(item):
+    report_url = item.report_pdf_url
+    if item.report_file:
+        report_url = f"/api/admin/health-records/lab-reports/{item.pk}/file/"
     return {
         "id": item.pk,
         "test_name": item.test_name,
@@ -106,15 +111,26 @@ def serialize_lab_booking(item):
         "pathologist": item.pathologist,
         "status": item.status,
         "clinical_summary": item.clinical_summary,
-        "report_pdf_url": item.report_pdf_url,
+        "report_pdf_url": report_url,
         "completed_at": item.completed_at.isoformat() if item.completed_at else None,
     }
+
+
+def lab_report_queryset():
+    return LabBooking.objects.filter(
+        Q(status=LabBooking.Status.COMPLETED)
+        | (
+            Q(status=LabBooking.Status.REPORT_READY)
+            & ~Q(report_file="")
+        )
+    )
 
 
 def serialize_appointment_prescription(item):
     return {
         "id": str(item.pk),
         "source": "completed_appointment",
+        "status": item.status,
         "prescription_number": "",
         "doctor_name": item.doctor_name,
         "diagnosis": item.diagnosis,
@@ -130,6 +146,7 @@ def serialize_upload(item):
     return {
         "id": item.pk,
         "source": "approved_upload",
+        "status": item.status,
         "prescription_number": item.prescription_number,
         "doctor_name": item.doctor_name or (
             item.appointment.doctor_name if item.appointment else ""
@@ -184,7 +201,14 @@ class HealthRecordPatientListView(APIView):
     permission_classes = [HealthRecordPermission]
 
     def get(self, request):
-        patients = CarePatient.objects.all()
+        patients = CarePatient.objects.filter(
+            Q(external_id__gt="")
+            | Q(appointments__isnull=False)
+            | Q(lab_bookings__isnull=False)
+            | Q(vaccinations__isnull=False)
+            | Q(allergies__isnull=False)
+            | Q(vital_readings__isnull=False)
+        ).distinct()
         search = (request.query_params.get("search") or "").strip()[:100]
         if search:
             patients = patients.filter(
@@ -219,7 +243,7 @@ class HealthRecordCountsView(APIView):
             if not patient:
                 return error("Choose a valid patient.")
 
-        lab_reports = LabBooking.objects.filter(status=LabBooking.Status.COMPLETED)
+        lab_reports = lab_report_queryset()
         completed_appointments = Appointment.objects.filter(
             status=Appointment.Status.COMPLETED,
         )
@@ -270,9 +294,7 @@ class HealthRecordCollectionView(APIView):
             return error("Choose a valid patient.", status.HTTP_400_BAD_REQUEST)
         if resource == "lab-reports":
             audit_access(request, patient, "lab_reports")
-            rows = LabBooking.objects.filter(
-                patient=patient, status=LabBooking.Status.COMPLETED
-            )
+            rows = lab_report_queryset().filter(patient=patient)
             return Response({
                 "success": True,
                 "results": [serialize_lab_booking(item) for item in rows],
@@ -429,7 +451,7 @@ class HealthRecordItemView(APIView):
         return Response({"success": True, "record": serializer(item)})
 
     def delete(self, request, resource, pk):
-        if resource not in {"vaccinations", "allergies"}:
+        if resource not in self.writable_resources:
             return error("This record type cannot be deleted.", status.HTTP_405_METHOD_NOT_ALLOWED)
         model, _ = self.writable_resources[resource]
         item = model.objects.filter(pk=pk).select_related("patient").first()
@@ -447,6 +469,24 @@ class HealthRecordItemView(APIView):
                 description=f"Deleted {resource_label(resource)} for {patient_name}",
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class HealthRecordLabReportFileView(APIView):
+    permission_classes = [HealthRecordPermission]
+
+    def get(self, request, pk):
+        item = LabBooking.objects.select_related("patient").filter(
+            pk=pk,
+            status__in=(LabBooking.Status.REPORT_READY, LabBooking.Status.COMPLETED),
+        ).first()
+        if not item or not item.report_file:
+            return error("Lab report not found.", status.HTTP_404_NOT_FOUND)
+        audit_access(request, item.patient, "lab_reports")
+        return FileResponse(
+            item.report_file.open("rb"),
+            content_type="application/pdf",
+            filename=f"lab-report-{item.pk}.pdf",
+        )
 
 
 class HealthRecordAccessLogView(APIView):

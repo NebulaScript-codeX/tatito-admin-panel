@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
+  <rect width="900" height="1200" fill="#fff"/>
+  <rect x="48" y="48" width="804" height="1104" rx="18" fill="#fbfdfb" stroke="#b9cec3" stroke-width="4"/>
+  <text x="90" y="150" fill="#174c3d" font-family="sans-serif" font-size="38" font-weight="700">DEVELOPMENT SAMPLE ONLY</text>
+  <text x="90" y="220" fill="#49665c" font-family="sans-serif" font-size="25">Not a valid prescription or medical instruction.</text>
+  <path d="M90 290h720M90 420h720M90 550h720M90 680h720M90 810h720" stroke="#d8e4dd" stroke-width="4"/>
+  <text x="90" y="370" fill="#49665c" font-family="sans-serif" font-size="25">Patient: DEV Sample Patient</text>
+  <text x="90" y="500" fill="#49665c" font-family="sans-serif" font-size="25">Medicine: Development sample medicine</text>
+  <text x="90" y="630" fill="#49665c" font-family="sans-serif" font-size="25">Instructions: For UI workflow testing only.</text>
+  <text x="90" y="1040" fill="#9a3747" font-family="sans-serif" font-size="30" font-weight="700">VOID — FICTIONAL DEVELOPMENT RECORD</text>
+</svg>

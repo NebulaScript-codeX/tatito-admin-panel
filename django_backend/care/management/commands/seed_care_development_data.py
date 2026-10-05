@@ -170,7 +170,7 @@ class Command(BaseCommand):
                 patients[slug], _ = CarePatient.objects.update_or_create(
                     development_key=key(f"patient-{slug}"),
                     defaults={
-                        "external_id": f"dev-patient-{slug}",
+                        "external_id": f"dev-admin-user-patient-{slug}",
                         "name": name,
                         "is_development_data": True,
                     },

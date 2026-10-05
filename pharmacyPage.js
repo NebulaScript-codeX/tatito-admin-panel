@@ -1,6 +1,7 @@
 import { icons, icon, avatar, showToast, premiumFooter, mobileBottomNav } from './ui.js'
 import { categories, products } from './data.js'
 import { sharedHeader, bindNav } from './pages.js'
+import { formatINR } from './currency.js'
 
 export function renderPharmacy(appRoot, ctx) {
   const { navigate, currentParams, getCartCount, addToCart, requireAuth, showToast } = ctx
@@ -26,7 +27,6 @@ export function renderPharmacy(appRoot, ctx) {
     { q: 'How does 30-minute medicine delivery work?', a: 'Once your order is confirmed, our nearest partner pharmacy packs your medicines in temperature-controlled packaging. A dedicated courier delivers it directly to your doorstep with live GPS tracking.' },
     { q: 'Do I need a prescription for all medicines?', a: 'Medicines marked with "Rx Required" badge require a valid prescription. You can upload a photo of your doctor note during checkout, and our licensed pharmacist will verify it before dispatching.' },
     { q: 'Are all products authentic and genuine?', a: 'Yes, 100%. We source directly from WHO-GMP certified manufacturers and authorized distributors. All medicines carry verified batch numbers and expiry dates.' },
-    { q: 'Can I consult a pharmacist before ordering?', a: 'Absolutely! Click the "Connect with Pharmacist" banner on this page to start a free, confidential chat with a registered pharmacist.' },
   ]
 
   appRoot.innerHTML = `
@@ -73,7 +73,7 @@ export function renderPharmacy(appRoot, ctx) {
             </div>
             <div class="pharmacy-banner banner-teal">
               <div class="pb-icon">${icon('pills')}</div>
-              <div><strong>Free Express Delivery Over $25</strong><span>On all valid medicine orders</span></div>
+              <div><strong>Free Express Delivery Over ₹499</strong><span>On all valid medicine orders</span></div>
             </div>
           </div>
         </section>
@@ -105,16 +105,6 @@ export function renderPharmacy(appRoot, ctx) {
                   <strong>Upload Prescription</strong>
                   <p>Snap a photo of your Rx and our licensed pharmacists will select your medicines.</p>
                   <button class="button button-small button-outline full-button" id="sidebar-rx-btn">${icon('plus')} Upload Now</button>
-                </div>
-              </div>
-
-              <!-- PHARMACIST HOTLINE CARD -->
-              <div class="sidebar-section">
-                <div class="pharmacist-consult-card">
-                  <div class="pc-icon">${icon('phone')}</div>
-                  <strong>Free Pharmacist Chat</strong>
-                  <p>Have questions about dosage or interactions? Speak with a licensed pharmacist.</p>
-                  <button class="button button-small button-primary full-button" id="chat-pharmacist-btn">${icon('video')} Talk to Pharmacist</button>
                 </div>
               </div>
 
@@ -202,14 +192,6 @@ export function renderPharmacy(appRoot, ctx) {
                       <span>Brooklyn, NY · Verified Buyer</span>
                     </div>
                   </div>
-                  <div class="pharm-review-card">
-                    <div class="pr-stars">★★★★★</div>
-                    <p>"The free pharmacist chat was incredibly helpful. Dr. Maya verified my antibiotic dosage and suggested daily probiotics."</p>
-                    <div class="pr-author">
-                      <strong>Sophia Reynolds</strong>
-                      <span>Manhattan, NY · Verified Patient</span>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -251,7 +233,7 @@ export function renderPharmacy(appRoot, ctx) {
         <span class="fcb-icon">${icon('bag')}</span>
         <div>
           <strong id="fcb-count-text">${ctx.getCartCount()} item${ctx.getCartCount() === 1 ? '' : 's'} added</strong>
-          <span id="fcb-total-text">Total: $${ctx.getCartTotal().toFixed(2)}</span>
+          <span id="fcb-total-text">Total: ${formatINR(ctx.getCartTotal())}</span>
         </div>
       </div>
       <button class="button button-small button-light" data-nav="cart">View Cart & Checkout ${icon('arrow')}</button>
@@ -311,7 +293,7 @@ export function renderPharmacy(appRoot, ctx) {
       else bar.classList.remove('visible')
     }
     if (countEl) countEl.textContent = `${count} item${count === 1 ? '' : 's'} added`
-    if (totalEl) totalEl.textContent = `Total: $${total.toFixed(2)}`
+    if (totalEl) totalEl.textContent = `Total: ${formatINR(total)}`
   }
 
   function renderProducts() {
@@ -374,8 +356,8 @@ export function renderPharmacy(appRoot, ctx) {
           <div class="product-rating">★ ${p.rating} <span>(${p.reviews} reviews)</span></div>
           <div class="product-price-row">
             <div class="product-price">
-              <strong>$${p.price.toFixed(2)}</strong>
-              ${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s>` : ''}
+              <strong>${formatINR(p.price)}</strong>
+              ${discount > 0 ? `<s>${formatINR(p.mrp)}</s>` : ''}
             </div>
             ${cartItem ? `
               <div class="card-qty-controller">
@@ -434,10 +416,6 @@ function bindPharmacyEvents(appRoot, ctx, state) {
   if (heroRxBtn) heroRxBtn.addEventListener('click', () => requireAuth(() => navigate('prescription'), 'UPLOAD_PRESCRIPTION'))
   if (sidebarRxBtn) sidebarRxBtn.addEventListener('click', () => requireAuth(() => navigate('prescription'), 'UPLOAD_PRESCRIPTION'))
 
-  // Pharmacist Chat button
-  const chatBtn = appRoot.querySelector('#chat-pharmacist-btn')
-  if (chatBtn) chatBtn.addEventListener('click', () => showToast('Connecting to licensed pharmacist chat...'))
-
   function handleSearch(value) {
     state.searchQuery.set(value)
     if (searchInput) searchInput.value = value
@@ -482,8 +460,8 @@ function bindPharmacyEvents(appRoot, ctx, state) {
           <div class="qv-rating">★ ${p.rating} · (${p.reviews} verified reviews)</div>
           
           <div class="qv-price-row">
-            <strong>$${p.price.toFixed(2)}</strong>
-            ${discount > 0 ? `<s>$${p.mrp.toFixed(2)}</s><span class="save-chip">Save ${(p.mrp - p.price).toFixed(2)}</span>` : ''}
+            <strong>${formatINR(p.price)}</strong>
+            ${discount > 0 ? `<s>${formatINR(p.mrp)}</s><span class="save-chip">Save ${formatINR(p.mrp - p.price)}</span>` : ''}
           </div>
 
           <p class="qv-desc">${p.desc}</p>
@@ -492,7 +470,7 @@ function bindPharmacyEvents(appRoot, ctx, state) {
           <div class="qv-tags">${p.tags.map(t => `<span class="qv-tag-chip">${t}</span>`).join('')}</div>
 
           <div class="qv-actions">
-            <button class="button button-primary full-button" id="qv-add-cart">${icon('bag')} Add to Cart — $${p.price.toFixed(2)}</button>
+            <button class="button button-primary full-button" id="qv-add-cart">${icon('bag')} Add to Cart — ${formatINR(p.price)}</button>
           </div>
         </div>
       </div>
@@ -573,4 +551,3 @@ function bindPharmacyEvents(appRoot, ctx, state) {
     if (event.target.closest('#clear-search')) { state.currentCategory.set('all'); state.selectedBrand.set('all'); handleSearch(''); state.update() }
   })
 }
-

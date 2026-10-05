@@ -1,12 +1,29 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from pathlib import Path
+import uuid
 
 from care.models import Appointment, CarePatient, DevelopmentRecord
+
+
+def prescription_file_upload_to(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"health-records/prescriptions/{uuid.uuid4().hex}{extension}"
+
+
+def lab_report_upload_to(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"health-records/lab-reports/{uuid.uuid4().hex}{extension}"
 
 
 class LabBooking(DevelopmentRecord):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
+        BOOKED = "booked", "Booked"
+        ASSIGNED = "assigned", "Assigned"
+        COLLECTED = "collected", "Collected"
+        IN_LAB = "in_lab", "In lab"
+        REPORT_READY = "report_ready", "Report ready"
         COMPLETED = "completed", "Completed"
         CANCELLED = "cancelled", "Cancelled"
 
@@ -15,6 +32,9 @@ class LabBooking(DevelopmentRecord):
     )
     test_name = models.CharField(max_length=200)
     specimen_date = models.DateField()
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    plan_discount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     phlebotomist = models.CharField(max_length=150, blank=True)
     pathologist = models.CharField(max_length=150, blank=True)
     status = models.CharField(
@@ -22,6 +42,53 @@ class LabBooking(DevelopmentRecord):
     )
     clinical_summary = models.TextField(blank=True)
     report_pdf_url = models.URLField(max_length=1000, blank=True)
+    report_file = models.FileField(
+        upload_to=lab_report_upload_to, blank=True
+    )
+    lab_test = models.ForeignKey(
+        "lab_tests.LabTest",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+    )
+    lab_package = models.ForeignKey(
+        "lab_tests.LabTestPackage",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+    )
+    health_check_bundle = models.ForeignKey(
+        "lab_tests.HealthCheckBundle",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+    )
+    lab_tests = models.ManyToManyField(
+        "lab_tests.LabTest", blank=True, related_name="multi_bookings"
+    )
+    lab_packages = models.ManyToManyField(
+        "lab_tests.LabTestPackage", blank=True, related_name="multi_bookings"
+    )
+    centre = models.ForeignKey(
+        "providers.HealthcareProvider",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="lab_bookings",
+    )
+    address = models.CharField(max_length=500, blank=True)
+    time_slot = models.CharField(max_length=100, blank=True)
+    scheduled_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    assigned_phlebotomist = models.ForeignKey(
+        "lab_tests.Phlebotomist",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="lab_bookings",
+    )
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -58,6 +125,17 @@ class PrescriptionUpload(DevelopmentRecord):
         max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True
     )
     pdf_url = models.URLField(max_length=1000, blank=True)
+    file = models.FileField(upload_to=prescription_file_upload_to, blank=True)
+    internal_notes = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        "auth.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_pharmacy_prescriptions",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

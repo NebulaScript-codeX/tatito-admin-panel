@@ -21,6 +21,7 @@ from care.models import (
     CareSetting,
     Doctor,
     DoctorLeave,
+    DoctorSlotExclusion,
     DoctorPayout,
     InstantConsult,
     RefundRequest,
@@ -28,6 +29,7 @@ from care.models import (
     Specialty,
     WeeklySchedule,
 )
+from care.services import care_dashboard_stats
 
 
 class CareAdminApiTests(TestCase):
@@ -98,6 +100,33 @@ class CareAdminApiTests(TestCase):
             status=status,
             payment_status=payment_status,
         )
+
+    def test_upcoming_appointment_dashboard_list_contains_only_active_future_visits(self):
+        today = timezone.localdate()
+        tomorrow = today + timedelta(days=1)
+        next_week = today + timedelta(days=7)
+        first = self.make_appointment(
+            self.make_slot(on=tomorrow, start=time(10)),
+            status=Appointment.Status.CONFIRMED,
+        )
+        second = self.make_appointment(
+            self.make_slot(on=next_week, start=time(9)),
+            status=Appointment.Status.BOOKED,
+        )
+        self.make_appointment(
+            self.make_slot(on=tomorrow, start=time(11)),
+            status=Appointment.Status.CANCELLED,
+        )
+        self.make_appointment(
+            self.make_slot(on=today - timedelta(days=1), start=time(9)),
+            status=Appointment.Status.BOOKED,
+        )
+
+        upcoming = care_dashboard_stats()["upcoming_appointment_list"]
+
+        self.assertEqual([item["id"] for item in upcoming], [str(first.pk), str(second.pk)])
+        self.assertEqual(upcoming[0]["start_time"], "10:00")
+        self.assertEqual(upcoming[0]["specialty_name"], self.family.name)
 
     def test_doctor_create_edit_view_search_filter_delete_and_approved_rating(self):
         created = self.client.post(
@@ -196,6 +225,16 @@ class CareAdminApiTests(TestCase):
         self.assertEqual(schedule.status_code, 200, schedule.data)
         slots = self.client.get(f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={on.isoformat()}")
         self.assertEqual(len(slots.data["results"]), 4)
+        self.assertTrue(
+            all(
+                {"id", "date", "doctor_id", "start_time", "end_time", "status"}
+                <= slot.keys()
+                for slot in slots.data["results"]
+            )
+        )
+        self.assertTrue(
+            all(slot["status"] == AppointmentSlot.Status.AVAILABLE for slot in slots.data["results"])
+        )
         slot_id = slots.data["results"][0]["id"]
         blocked = self.client.patch(
             f"/api/admin/care/slots/{slot_id}/",
@@ -214,6 +253,25 @@ class CareAdminApiTests(TestCase):
         )
         self.assertEqual(booked.status_code, 201, booked.data)
         self.assertEqual(booked.data["appointment"]["status"], "booked")
+        self.assertEqual(booked.data["appointment"]["slot_id"], slot_id)
+        self.assertEqual(booked.data["appointment"]["date"], on.isoformat())
+        self.assertEqual(
+            booked.data["appointment"]["start_time"],
+            slots.data["results"][0]["start_time"],
+        )
+        refreshed_slots = self.client.get(
+            f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={on.isoformat()}"
+        ).data["results"]
+        self.assertEqual(
+            next(slot["status"] for slot in refreshed_slots if slot["id"] == slot_id),
+            AppointmentSlot.Status.BOOKED,
+        )
+        self.assertEqual(
+            self.client.delete(
+                f"/api/admin/care/schedules/{schedule.data['schedule']['id']}/"
+            ).status_code,
+            409,
+        )
         self.assertEqual(
             self.client.delete(f"/api/admin/care/slots/{slot_id}/").status_code,
             409,
@@ -245,6 +303,121 @@ class CareAdminApiTests(TestCase):
             f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={leave_date.isoformat()}"
         )
         self.assertEqual(leave_slots.data["results"], [])
+
+    def test_slot_generation_survives_conflicting_stale_development_key(self):
+        on = timezone.localdate() + timedelta(days=1)
+        self.doctor.development_key = "dev-care-test-doctor"
+        self.doctor.is_development_data = True
+        self.doctor.save(update_fields=["development_key", "is_development_data"])
+        WeeklySchedule.objects.create(
+            doctor=self.doctor,
+            weekday=on.weekday(),
+            start_time=time(9),
+            end_time=time(10),
+            duration_minutes=30,
+            is_working=True,
+        )
+        stale_key = f"{self.doctor.development_key}-slot-{on.isoformat()}-0900"
+        AppointmentSlot.objects.create(
+            doctor=self.doctor,
+            date=on + timedelta(days=7),
+            weekday=(on + timedelta(days=7)).weekday(),
+            start_time=time(12),
+            end_time=time(12, 30),
+            duration_minutes=30,
+            development_key=stale_key,
+            is_development_data=True,
+        )
+
+        response = self.client.get(
+            f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={on.isoformat()}"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(response.data["results"][1]["start_time"], "09:30:00")
+        generated = AppointmentSlot.objects.get(
+            doctor=self.doctor,
+            date=on,
+            start_time=time(9),
+        )
+        self.assertIsNone(generated.development_key)
+
+    def test_schedule_updates_and_deletion_refresh_future_slots(self):
+        on = timezone.localdate() + timedelta(days=1)
+        url = "/api/admin/care/schedules/"
+        payload = {
+            "doctor_id": str(self.doctor.pk),
+            "weekday": on.weekday(),
+            "start_time": "09:00",
+            "end_time": "10:00",
+            "duration_minutes": 30,
+            "is_working": True,
+        }
+        created = self.client.post(url, payload, format="json")
+        self.assertEqual(created.status_code, 200, created.data)
+        schedule_id = created.data["schedule"]["id"]
+        slot_url = f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={on.isoformat()}"
+        self.assertEqual(len(self.client.get(slot_url).data["results"]), 2)
+
+        updated = self.client.post(
+            url,
+            {**payload, "start_time": "11:00", "end_time": "12:00", "duration_minutes": 15},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(updated.data["schedule"]["id"], schedule_id)
+        slots = self.client.get(slot_url).data["results"]
+        self.assertEqual(len(slots), 4)
+        self.assertTrue(all(slot["start_time"].startswith("11:") for slot in slots))
+
+        deleted = self.client.delete(f"{url}{schedule_id}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(
+            AppointmentSlot.objects.filter(
+                doctor=self.doctor,
+                date=on,
+            ).exists()
+        )
+
+    def test_removing_leave_restores_generated_slots(self):
+        on = timezone.localdate() + timedelta(days=1)
+        self.client.post(
+            "/api/admin/care/schedules/",
+            {
+                "doctor_id": str(self.doctor.pk),
+                "weekday": on.weekday(),
+                "start_time": "09:00",
+                "end_time": "10:00",
+                "duration_minutes": 30,
+                "is_working": True,
+            },
+            format="json",
+        )
+        slot_url = f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={on.isoformat()}"
+        self.assertEqual(len(self.client.get(slot_url).data["results"]), 2)
+
+        leave = self.client.post(
+            "/api/admin/care/leaves/",
+            {"doctor_id": str(self.doctor.pk), "date": on.isoformat(), "reason": "Leave"},
+            format="json",
+        )
+        self.assertEqual(leave.status_code, 201, leave.data)
+        self.assertFalse(self.client.get(slot_url).data["results"])
+        self.assertEqual(
+            AppointmentSlot.objects.filter(
+                doctor=self.doctor,
+                date=on,
+                status=AppointmentSlot.Status.BLOCKED,
+                block_reason="leave",
+            ).count(),
+            2,
+        )
+
+        removed = self.client.delete(f"/api/admin/care/leaves/{leave.data['leave']['id']}/")
+        self.assertEqual(removed.status_code, 204)
+        slots = self.client.get(slot_url).data["results"]
+        self.assertEqual(len(slots), 2)
+        self.assertTrue(all(slot["status"] == AppointmentSlot.Status.AVAILABLE for slot in slots))
 
     def test_slot_create_edit_overlap_leave_and_delete_rules(self):
         on = timezone.localdate() + timedelta(days=5)
@@ -299,6 +472,152 @@ class CareAdminApiTests(TestCase):
             204,
         )
         self.assertFalse(AppointmentSlot.objects.filter(pk=slot_id).exists())
+
+    def test_slot_edit_moves_date_both_ways_without_duplicates_and_keeps_time(self):
+        monday = timezone.localdate() + timedelta(
+            days=(7 - timezone.localdate().weekday()) % 7
+        )
+        tuesday = monday + timedelta(days=1)
+        WeeklySchedule.objects.create(
+            doctor=self.doctor,
+            weekday=monday.weekday(),
+            start_time=time(9),
+            end_time=time(10),
+            duration_minutes=30,
+        )
+        payload = {
+            "doctor_id": str(self.doctor.pk),
+            "date": monday.isoformat(),
+            "weekday": monday.weekday(),
+            "start_time": "09:00",
+            "end_time": "09:30",
+            "duration_minutes": 30,
+            "status": "available",
+        }
+        created = self.client.post(
+            "/api/admin/care/slots/", payload, format="json"
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        slot_id = created.data["slot"]["id"]
+
+        moved_to_tuesday = self.client.put(
+            f"/api/admin/care/slots/{slot_id}/",
+            {
+                **payload,
+                "date": tuesday.isoformat(),
+                "weekday": tuesday.weekday(),
+            },
+            format="json",
+        )
+        self.assertEqual(moved_to_tuesday.status_code, 200, moved_to_tuesday.data)
+        self.assertEqual(moved_to_tuesday.data["slot"]["date"], tuesday.isoformat())
+        monday_slots = self.client.get(
+            "/api/admin/care/slots/",
+            {"doctor_id": str(self.doctor.pk), "date": monday.isoformat()},
+        ).data["results"]
+        tuesday_slots = self.client.get(
+            "/api/admin/care/slots/",
+            {"doctor_id": str(self.doctor.pk), "date": tuesday.isoformat()},
+        ).data["results"]
+        self.assertFalse(any(slot["id"] == slot_id for slot in monday_slots))
+        self.assertEqual([slot["id"] for slot in tuesday_slots], [slot_id])
+
+        changed_time = self.client.put(
+            f"/api/admin/care/slots/{slot_id}/",
+            {
+                "date": tuesday.isoformat(),
+                "weekday": tuesday.weekday(),
+                "start_time": "10:00",
+                "end_time": "10:30",
+                "duration_minutes": 30,
+            },
+            format="json",
+        )
+        self.assertEqual(changed_time.status_code, 200, changed_time.data)
+        self.assertEqual(changed_time.data["slot"]["start_time"], "10:00:00")
+
+        moved_back_to_monday = self.client.put(
+            f"/api/admin/care/slots/{slot_id}/",
+            {
+                "date": monday.isoformat(),
+                "weekday": monday.weekday(),
+            },
+            format="json",
+        )
+        self.assertEqual(moved_back_to_monday.status_code, 200, moved_back_to_monday.data)
+        self.assertEqual(moved_back_to_monday.data["slot"]["date"], monday.isoformat())
+        self.assertEqual(moved_back_to_monday.data["slot"]["start_time"], "10:00:00")
+        monday_slots = self.client.get(
+            "/api/admin/care/slots/",
+            {"doctor_id": str(self.doctor.pk), "date": monday.isoformat()},
+        ).data["results"]
+        tuesday_slots = self.client.get(
+            "/api/admin/care/slots/",
+            {"doctor_id": str(self.doctor.pk), "date": tuesday.isoformat()},
+        ).data["results"]
+        self.assertEqual([slot["id"] for slot in monday_slots if slot["id"] == slot_id], [slot_id])
+        self.assertFalse(any(slot["id"] == slot_id for slot in tuesday_slots))
+        self.assertEqual(
+            AppointmentSlot.objects.filter(doctor=self.doctor, pk=slot_id).count(),
+            1,
+        )
+
+    def test_deleting_generated_slot_keeps_it_removed_until_explicitly_added(self):
+        on = timezone.localdate() + timedelta(days=1)
+        WeeklySchedule.objects.create(
+            doctor=self.doctor,
+            weekday=on.weekday(),
+            start_time=time(9),
+            end_time=time(10),
+            duration_minutes=30,
+            is_working=True,
+        )
+        url = f"/api/admin/care/slots/?doctor_id={self.doctor.pk}&date={on.isoformat()}"
+
+        generated = self.client.get(url)
+        self.assertEqual(generated.status_code, 200, generated.data)
+        self.assertEqual(len(generated.data["results"]), 2)
+        slot_id = generated.data["results"][0]["id"]
+        deleted_slot = AppointmentSlot.objects.get(pk=slot_id)
+
+        deleted = self.client.delete(f"/api/admin/care/slots/{slot_id}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertFalse(AppointmentSlot.objects.filter(pk=slot_id).exists())
+        self.assertTrue(
+            DoctorSlotExclusion.objects.filter(
+                doctor=self.doctor,
+                date=on,
+                start_time=deleted_slot.start_time,
+            ).exists()
+        )
+
+        refreshed = self.client.get(url)
+        self.assertEqual(refreshed.status_code, 200, refreshed.data)
+        self.assertEqual(len(refreshed.data["results"]), 1)
+        self.assertNotEqual(refreshed.data["results"][0]["start_time"], deleted_slot.start_time.isoformat())
+
+        restored = self.client.post(
+            "/api/admin/care/slots/",
+            {
+                "doctor_id": str(self.doctor.pk),
+                "date": on.isoformat(),
+                "weekday": on.weekday(),
+                "start_time": deleted_slot.start_time.strftime("%H:%M"),
+                "end_time": deleted_slot.end_time.strftime("%H:%M"),
+                "duration_minutes": deleted_slot.duration_minutes,
+                "status": AppointmentSlot.Status.AVAILABLE,
+            },
+            format="json",
+        )
+        self.assertEqual(restored.status_code, 201, restored.data)
+        self.assertFalse(
+            DoctorSlotExclusion.objects.filter(
+                doctor=self.doctor,
+                date=on,
+                start_time=deleted_slot.start_time,
+            ).exists()
+        )
+        self.assertEqual(len(self.client.get(url).data["results"]), 2)
 
     def test_care_navigation_resources_return_live_sql_counts(self):
         expected_counts = {

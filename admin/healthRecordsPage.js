@@ -2,6 +2,7 @@ import "./healthRecords.css";
 import {
   createHealthRecord,
   deleteHealthRecord,
+  getAdminFile,
   getHealthRecordAccessLog,
   getCachedHealthRecordCounts,
   getHealthRecordCollection,
@@ -62,6 +63,14 @@ const dateText = (value, includeTime = false) => {
 const displayValue = (value) =>
   value === null || value === undefined || value === "" ? "—" : escapeHtml(String(value));
 
+function recordActionsMarkup(resource, record) {
+  return `
+    <button type="button" class="thp-admin-secondary-button" data-health-record-view="${resource}" data-record-id="${record.id}">View</button>
+    ${hasPermission("health_records", "edit") ? `<button type="button" class="thp-admin-secondary-button" data-health-record-edit="${resource}" data-record-id="${record.id}">Edit</button>` : ""}
+    ${hasPermission("health_records", "delete") ? `<button type="button" class="thp-admin-secondary-button is-danger" data-health-record-delete="${resource}" data-record-id="${record.id}">Delete</button>` : ""}
+  `;
+}
+
 function showToast(message) {
   if (typeof window.thpShowToast === "function") {
     window.thpShowToast(message);
@@ -85,6 +94,7 @@ function patientCardMarkup(patient) {
     .toUpperCase();
   const summary = [
     patient.date_of_birth ? `DOB: ${patient.date_of_birth}` : "",
+    patient.gender || "",
     patient.blood_group ? `Blood: ${patient.blood_group}` : "",
     patient.mobile ? `Contact: ${patient.mobile}` : "",
   ].filter(Boolean).join(" · ");
@@ -154,10 +164,10 @@ function renderLabReports() {
       <td>${dateText(record.specimen_date)}</td>
       <td>${displayValue(record.phlebotomist)}</td>
       <td>${displayValue(record.pathologist)}</td>
-      <td><span class="thp-hr-status is-final">Final</span></td>
+      <td><span class="thp-hr-status is-final">${escapeHtml(record.status === "report_ready" ? "Report ready" : "Completed")}</span></td>
       <td class="thp-hr-summary">${displayValue(record.clinical_summary)}</td>
       <td>${record.report_pdf_url
-        ? `<a class="thp-admin-secondary-button thp-hr-view-link" href="${escapeHtml(record.report_pdf_url)}" target="_blank" rel="noopener noreferrer">View PDF</a>`
+       ? `<button type="button" class="thp-admin-secondary-button thp-hr-view-link" data-health-record-report="${escapeHtml(record.report_pdf_url)}">View PDF</button>`
         : '<span class="thp-hr-muted">No PDF attached</span>'}</td>
     </tr>
   `).join("");
@@ -189,7 +199,7 @@ function renderPrescriptions() {
             <div><span class="thp-hr-eyebrow">${escapeHtml(record.prescription_number || "Completed appointment prescription")}</span>
               <h2>${escapeHtml(record.diagnosis || "Prescription")}</h2>
             </div>
-            <div class="thp-hr-prescription-doctor"><strong>${escapeHtml(record.doctor_name || "Doctor not listed")}</strong><span>${dateText(record.issued_on || record.appointment_date)}</span></div>
+            <div class="thp-hr-prescription-doctor"><strong>${escapeHtml(record.doctor_name || "Doctor not listed")}</strong><span>${dateText(record.issued_on || record.appointment_date)}</span><span class="thp-hr-status is-final">${escapeHtml(record.status || "approved")}</span></div>
           </header>
           ${record.medicines?.length ? `
             <div class="thp-hr-medicine-table-wrap"><table class="thp-hr-table thp-hr-medicine-table">
@@ -221,10 +231,7 @@ function renderVaccinations() {
       <td>${dateText(record.administered_on)}</td>
       <td>${escapeHtml(record.dose)}</td>
       <td>${dateText(record.next_due)}</td>
-      <td class="thp-hr-row-actions">
-        ${hasPermission("health_records", "edit") ? `<button type="button" class="thp-admin-secondary-button" data-health-record-edit="vaccinations" data-record-id="${record.id}">Edit</button>` : ""}
-        ${hasPermission("health_records", "delete") ? `<button type="button" class="thp-admin-secondary-button is-danger" data-health-record-delete="vaccinations" data-record-id="${record.id}">Delete</button>` : ""}
-      </td>
+      <td class="thp-hr-row-actions">${recordActionsMarkup("vaccinations", record)}</td>
     </tr>
   `).join("");
   const canCreate = hasPermission("health_records", "create");
@@ -283,16 +290,13 @@ function renderAllergiesAndVitals() {
     <tr>
       <td><strong>${escapeHtml(record.allergy)}</strong></td>
       <td><span class="thp-hr-severity is-${escapeHtml(record.severity)}">${escapeHtml(record.severity)}</span></td>
-      <td class="thp-hr-row-actions">
-        ${hasPermission("health_records", "edit") ? `<button type="button" class="thp-admin-secondary-button" data-health-record-edit="allergies" data-record-id="${record.id}">Edit</button>` : ""}
-        ${hasPermission("health_records", "delete") ? `<button type="button" class="thp-admin-secondary-button is-danger" data-health-record-delete="allergies" data-record-id="${record.id}">Delete</button>` : ""}
-      </td>
+      <td class="thp-hr-row-actions">${recordActionsMarkup("allergies", record)}</td>
     </tr>
   `).join("");
   const vitals = state.records.vitals;
   const vitalRows = vitals.map((record) => `
     <tr><td>${dateText(record.recorded_at, true)}</td><td>${record.systolic_bp}/${record.diastolic_bp} mmHg</td><td>${record.sugar} mg/dL</td><td>${record.weight} kg</td><td>${record.height} cm</td><td>${record.pulse} BPM</td>
-      <td>${hasPermission("health_records", "edit") ? `<button type="button" class="thp-admin-secondary-button" data-health-record-edit="vitals" data-record-id="${record.id}">Edit</button>` : ""}</td>
+      <td class="thp-hr-row-actions">${recordActionsMarkup("vitals", record)}</td>
     </tr>
   `).join("");
   return `
@@ -539,14 +543,20 @@ function localDateTime(value) {
     .slice(0, 16);
 }
 
-function openRecordModal(resource, record = null) {
+function openRecordModal(resource, record = null, readOnly = false) {
   const modal = state.app.querySelector("#health-record-modal");
   const creating = !record;
-  const title = resource === "vaccinations"
-    ? `${creating ? "Add" : "Edit"} vaccination`
+  const resourceLabel = resource === "vaccinations"
+    ? "vaccination"
     : resource === "allergies"
-      ? `${creating ? "Add" : "Edit"} allergy`
-      : `${creating ? "Record" : "Edit"} vitals`;
+      ? "allergy"
+      : "vitals";
+  const actionTitle = readOnly
+    ? "View"
+    : creating
+      ? (resource === "vitals" ? "Record" : "Add")
+      : "Edit";
+  const title = `${actionTitle} ${resourceLabel}`;
   let fields = "";
   if (resource === "vaccinations") {
     fields = `
@@ -580,18 +590,30 @@ function openRecordModal(resource, record = null) {
       <header class="thp-admin-modal-header"><div><p class="thp-admin-eyebrow">PATIENT HEALTH RECORD</p><h2 id="health-record-modal-title">${escapeHtml(title)}</h2></div>
         <button type="button" class="thp-admin-modal-close" data-health-record-modal-close aria-label="Close">×</button>
       </header>
-      <form data-health-record-form="${resource}" data-record-id="${record?.id || ""}">
-        <div class="thp-hr-form-grid">${fields}</div>
-        <p class="thp-hr-modal-error" id="health-record-modal-error" role="alert" hidden></p>
-        <footer class="thp-admin-modal-footer">
-          <button type="button" class="thp-admin-secondary-button" data-health-record-modal-close>Cancel</button>
-          <button type="submit" class="thp-admin-primary-button">${creating ? "Save record" : "Save changes"}</button>
-        </footer>
-      </form>
+      ${readOnly
+        ? `<div class="thp-hr-form-grid">${fields}</div>`
+        : `<form data-health-record-form="${resource}" data-record-id="${record?.id || ""}">
+            <div class="thp-hr-form-grid">${fields}</div>
+            <p class="thp-hr-modal-error" id="health-record-modal-error" role="alert" hidden></p>
+            <footer class="thp-admin-modal-footer">
+              <button type="button" class="thp-admin-secondary-button" data-health-record-modal-close>Cancel</button>
+              <button type="submit" class="thp-admin-primary-button">${creating ? "Save record" : "Save changes"}</button>
+            </footer>
+          </form>`
+      }
+      ${readOnly ? `<footer class="thp-admin-modal-footer"><button type="button" class="thp-admin-secondary-button" data-health-record-modal-close>Close</button></footer>` : ""}
     </section>
   `;
   modal.hidden = false;
-  modal.querySelector("input, select")?.focus();
+  if (readOnly) {
+    modal.querySelectorAll("input, select, textarea").forEach((field) => {
+      field.disabled = true;
+    });
+  }
+  const initialFocus = readOnly
+    ? modal.querySelector("[data-health-record-modal-close]")
+    : modal.querySelector("input, select");
+  initialFocus?.focus();
 }
 
 function closeRecordModal() {
@@ -686,6 +708,32 @@ function attachEvents(app) {
   }, options);
 
   app.addEventListener("click", async (event) => {
+    const reportButton = event.target.closest("[data-health-record-report]");
+    if (reportButton) {
+      const reportWindow = window.open("", "_blank");
+      if (!reportWindow) {
+        setStatus("Allow pop-ups to view the protected lab report.", true);
+        return;
+      }
+      reportWindow.opener = null;
+      reportButton.disabled = true;
+      try {
+        const reportPath = reportButton.dataset.healthRecordReport.replace(
+          /^\/api\/admin(?=\/)/,
+          "",
+        );
+        const file = await getAdminFile(reportPath);
+        const url = URL.createObjectURL(file);
+        reportWindow.location.replace(url);
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (error) {
+        reportWindow.close();
+        setStatus(error?.message || "Unable to open the lab report.", true);
+      } finally {
+        reportButton.disabled = false;
+      }
+      return;
+    }
     if (event.target.closest("[data-health-record-retry]")) {
       await loadTab(state.activeTab);
       return;
@@ -709,6 +757,13 @@ function attachEvents(app) {
     const create = event.target.closest("[data-health-record-create]");
     if (create && state.patient) {
       openRecordModal(create.dataset.healthRecordCreate);
+      return;
+    }
+    const viewRecord = event.target.closest("[data-health-record-view]");
+    if (viewRecord) {
+      const resource = viewRecord.dataset.healthRecordView;
+      const record = recordFor(resource, viewRecord.dataset.recordId);
+      if (record) openRecordModal(resource, record, true);
       return;
     }
     const edit = event.target.closest("[data-health-record-edit]");

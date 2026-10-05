@@ -54,6 +54,9 @@ INSTALLED_APPS = [
     "care",
     "content",
     "health_records",
+    "pharmacy",
+    "lab_tests",
+    "commerce",
     "internships",
     "support",
     "ai_assistant",
@@ -184,3 +187,5 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+PHARMACY_TAX_RATE = os.getenv("PHARMACY_TAX_RATE", "0.00")
+CUSTOMER_JWT_SECRET = os.getenv("JWT_SECRET", "tatito-dev-secret-change-me")

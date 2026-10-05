@@ -18,8 +18,12 @@ import {
   renderAdminUploadedFiles,
   renderAdminAuditLogs,
 } from "./admin/adminPages.js";
+import { renderAdminHealthPlans } from "./admin/adminHealthPlans.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import { renderAdminHealthRecords } from "./admin/healthRecordsPage.js";
+import { renderAdminPharmacy } from "./admin/adminPharmacy.js";
+import { renderAdminLabTests } from "./admin/adminLabTests.js";
+import { renderAdminOrdersPayments } from "./admin/adminOrdersPayments.js";
 import {
   navigate,
   registerPages,
@@ -59,24 +63,11 @@ import { renderDoctorConsole } from "./doctorConsole.js";
 import { initChatbot } from "./chatbot.js";
 
 const adminPlaceholderRoutes = Object.fromEntries(
-  [
-    "pharmacy",
-    "lab_tests",
-    "orders_payments",
-    "health_plans",
-    "content",
-    "support",
-    "ai_assistant",
-    "reports",
-    "uploaded_files",
-    "settings",
-    "audit_logs",
-  ].map((moduleKey) => [
+  ["settings", "audit_logs"].map((moduleKey) => [
     `admin/${moduleKey.replace(/_/g, "-")}`,
     (app) => renderAdminModulePlaceholder(app, moduleKey),
   ]),
 );
-[];
 registerPages({
   home: renderHome,
   pharmacy: renderPharmacy,
@@ -111,6 +102,10 @@ registerPages({
   "admin/providers": renderAdminProviders,
   "admin/doctors": renderAdminDoctors,
   "admin/health-records": renderAdminHealthRecords,
+  "admin/pharmacy": renderAdminPharmacy,
+  "admin/lab-tests": renderAdminLabTests,
+  "admin/orders-payments": renderAdminOrdersPayments,
+  "admin/health-plans": renderAdminHealthPlans,
   "admin/promotions": renderAdminPromotions,
   "admin/content": renderAdminContent,
 
@@ -123,7 +118,6 @@ registerPages({
   "admin/audit-logs": renderAdminAuditLogs,
   "admin/reports": renderAdminReports,
   "admin/uploaded-files": renderAdminUploadedFiles,
-
 });
 
 window.addEventListener("thp-auth-required", () =>

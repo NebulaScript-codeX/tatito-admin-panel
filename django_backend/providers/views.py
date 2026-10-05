@@ -16,6 +16,7 @@ from audit.services import log_action
 
 from .models import HealthcareProvider, ProviderDocument
 from .serializers import HealthcareProviderSerializer, ProviderDocumentSerializer
+from .services import link_partner_user_to_provider
 
 
 class ProviderWorkflowPermission(ModulePermission):
@@ -78,6 +79,7 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         provider = serializer.save(status=HealthcareProvider.Status.PENDING)
+        link_partner_user_to_provider(provider)
         _log_provider_action(
             self.request,
             "create",
@@ -87,6 +89,7 @@ class HealthcareProviderViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         provider = serializer.save()
+        link_partner_user_to_provider(provider)
         _log_provider_action(
             self.request,
             "edit",

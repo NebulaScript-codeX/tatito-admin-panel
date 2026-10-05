@@ -6,23 +6,16 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.db.models import Count
 from .models import PlatformDoctor, PlatformUser
+from pharmacy.models import PharmacyOrder
 
 VALID_PERIODS = ("today", "7", "30")
 
 # metric -> what the backend is missing. Keeps the API honest and self-documenting.
 UNAVAILABLE = {
-    "pending_medicine_orders": "No medicine/pharmacy orders model.",
-    "lab_test_bookings": "No lab-test bookings model.",
-    "sample_collections": "No sample-collections model.",
-    "prescription_reviews": "No prescriptions model.",
     "internship_applications": "No internship-applications model in the Node backend.",
-    "low_stock_products": "No products/inventory model.",
-    "unassigned_sample_bookings": "No sample-bookings model.",
     "open_support_tickets": "No support-tickets model.",
     "revenue_trend": "Depends on revenue (no payments model).",
     "revenue_by_module": "Depends on revenue (no payments model).",
-    "order_trend": "Depends on medicine orders (no orders model).",
-    "recent_orders": "No orders model.",
 }
 
 SOURCES = {
@@ -37,6 +30,18 @@ SOURCES = {
     "doctors_by_specialty": "django:dashboard.PlatformDoctor grouped by specialty",
     "healthcare_providers": "django:providers.HealthcareProvider",
     "provider_documents": "django:providers.ProviderDocument",
+    "prescription_reviews": "django:health_records.PrescriptionUpload (status=pending)",
+    "pending_medicine_orders": "django:pharmacy.PharmacyOrder (status=placed)",
+    "order_trend": "django:pharmacy.PharmacyOrder.created_at",
+    "recent_orders": "django:pharmacy.PharmacyOrder ordered by created_at",
+    "low_stock_products": "django:pharmacy.PharmacyProduct with current inventory",
+    "lab_test_bookings": "django:health_records.LabBooking (excluding cancelled)",
+    "sample_collections": "django:health_records.LabBooking (collected, in_lab, report_ready, completed)",
+    "unassigned_sample_bookings": "django:health_records.LabBooking (unassigned pending or booked)",
+    "active_phlebotomists": "django:health_records.Phlebotomist (is_active=true)",
+    "revenue": "django:commerce.CommerceTransaction plus existing CARE and Pharmacy payment records",
+    "active_coupons": "django:marketing.Coupon",
+    "active_offers": "django:marketing.Promotion, FeaturedPromotion, PromotionalContent",
     "coupons_offers": "django:marketing.Coupon, Promotion, FeaturedPromotion, PromotionalContent",
     "care": "django:care.Doctor, Appointment, InstantConsult, Review, DoctorPayout",
 }
@@ -61,17 +66,17 @@ def period_window(period, now=None):
     return start_local.astimezone(dt_timezone.utc), local_now.astimezone(dt_timezone.utc)
 
 
-def _trend(period, start, end):
-    """Zero-filled registration counts, hourly for today and daily otherwise."""
+def _trend_for(queryset, period, start, end):
+    """Return zero-filled hourly or daily counts for a created_at queryset."""
     tz = dashboard_tz()
     hourly = period == "today"
     counts = Counter()
-    registrations = (
-        PlatformUser.objects.filter(created_at__gte=start, created_at__lte=end)
+    records = (
+        queryset.filter(created_at__gte=start, created_at__lte=end)
         .values_list("created_at", flat=True)
         .iterator()
     )
-    for created_at in registrations:
+    for created_at in records:
         local_created_at = created_at.astimezone(tz)
         key = local_created_at.strftime(
             "%Y-%m-%d %H:00" if hourly else "%Y-%m-%d"
@@ -91,6 +96,44 @@ def _trend(period, start, end):
         })
         cursor += step
     return series
+
+
+def _trend(period, start, end):
+    return _trend_for(PlatformUser.objects.all(), period, start, end)
+
+
+def pharmacy_order_dashboard_data(period, start, end):
+    order_trend = _trend_for(PharmacyOrder.objects.all(), period, start, end)
+    recent_orders = (
+        PharmacyOrder.objects.select_related("patient")
+        .annotate(item_count=Count("items", distinct=True))
+        .order_by("-created_at", "-id")
+        .values(
+            "id",
+            "patient__name",
+            "status",
+            "payment_status",
+            "total",
+            "created_at",
+            "item_count",
+        )[:5]
+    )
+    return {
+        "order_trend": order_trend,
+        "recent_orders": [
+            {
+                "id": order["id"],
+                "order_number": f"PH-{order['id']:06d}",
+                "patient_name": order["patient__name"],
+                "status": order["status"],
+                "payment_status": order["payment_status"],
+                "total": str(order["total"]),
+                "created_at": order["created_at"].isoformat(),
+                "item_count": order["item_count"],
+            }
+            for order in recent_orders
+        ],
+    }
 
 
 def _safe_user(user):
@@ -136,6 +179,8 @@ def build_overview(
     can_see_users=True,
     audit_rows=None,
     provider_stats=None,
+    pharmacy_stats=None,
+    lab_tests_stats=None,
     coupon_stats=None,
     care_stats=None,
 ):
@@ -164,9 +209,14 @@ def build_overview(
 
     live_stats = {
         "today_appointments": (care_stats or {}).get("today_appointments"),
-        "pending_medicine_orders": None,
-        "lab_test_bookings": None,
-        "sample_collections": None,
+        "pending_medicine_orders": (pharmacy_stats or {}).get(
+            "pending_medicine_orders"
+        ),
+        "lab_test_bookings": (lab_tests_stats or {}).get("lab_test_bookings"),
+        "sample_collections": (lab_tests_stats or {}).get("sample_collections"),
+        "active_phlebotomists": (lab_tests_stats or {}).get(
+            "active_phlebotomists"
+        ),
         "revenue": (care_stats or {}).get("consultation_revenue"),
         "new_patients": new_patients.count(),
     }
@@ -182,6 +232,9 @@ def build_overview(
         "document_verifications": (provider_stats or {}).get(
             "document_verifications"
         ),
+        "prescription_reviews": (pharmacy_stats or {}).get(
+            "prescription_reviews"
+        ),
         "pending_reviews": (care_stats or {}).get("pending_reviews"),
         "refund_requests": (care_stats or {}).get("pending_refunds"),
         "unassigned_instant_consults": (care_stats or {}).get("unassigned_consults"),
@@ -190,8 +243,10 @@ def build_overview(
             "waiting_over_15_minutes"
         ),
         "internship_applications": None,
-        "low_stock_products": None,
-        "unassigned_sample_bookings": None,
+        "low_stock_products": (pharmacy_stats or {}).get("low_stock_products"),
+        "unassigned_sample_bookings": (lab_tests_stats or {}).get(
+            "unassigned_sample_bookings"
+        ),
         "open_support_tickets": None,
     }
 
@@ -200,7 +255,7 @@ def build_overview(
         "revenue_by_module": [],
         "appointments_by_specialty": (care_stats or {}).get("appointments_by_specialty", []),
         "user_registration_trend": _trend(period, start, end),
-        "order_trend": [],
+        "order_trend": (pharmacy_stats or {}).get("order_trend"),
     }
 
     # Real, period-independent breakdowns used by the dashboard distribution
@@ -233,7 +288,7 @@ def build_overview(
         "recent_activity": {
             "users": recent_users,
             "appointments": (care_stats or {}).get("recent_appointments", []),
-            "orders": [],
+            "orders": (pharmacy_stats or {}).get("recent_orders"),
             "admin_activity": audit_rows if audit_rows is not None else [],
         },
     }

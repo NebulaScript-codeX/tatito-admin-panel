@@ -16,6 +16,11 @@ from accounts.permissions import (
     has_module_permission,
     is_super_admin,
 )
+from commerce.plans import (
+    active_plan_subscription,
+    record_benefit_usage,
+    usage_total,
+)
 
 from .models import (
     Appointment,
@@ -27,6 +32,7 @@ from .models import (
     CareSetting,
     Doctor,
     DoctorLeave,
+    DoctorSlotExclusion,
     DoctorPayout,
     InstantConsult,
     RefundRequest,
@@ -141,10 +147,15 @@ class CareCollectionView(APIView):
             doctor = Doctor.objects.filter(pk=request.query_params["doctor_id"]).first()
             if not doctor:
                 return fail("Doctor not found.", status.HTTP_404_NOT_FOUND)
+            if DoctorLeave.objects.filter(doctor=doctor, date=target_date).exists():
+                return Response({"success": True, "results": []})
             try:
-                slots = generate_slots(doctor, target_date)
+                generate_slots(doctor, target_date)
             except ValueError as error:
                 return fail(str(error))
+            slots = AppointmentSlot.objects.filter(
+                doctor=doctor, date=target_date
+            ).select_related("doctor").prefetch_related("appointments__patient")
             return Response({
                 "success": True,
                 "results": [serialize_resource("slots", item) for item in slots],
@@ -254,6 +265,11 @@ class CareCollectionView(APIView):
                     )
                     if conflicts.exists():
                         return fail("This slot overlaps an existing slot.", status.HTTP_409_CONFLICT)
+                    DoctorSlotExclusion.objects.filter(
+                        doctor=doctor,
+                        date=slot_date,
+                        start_time=start,
+                    ).delete()
                     slot = AppointmentSlot.objects.create(
                         doctor=doctor,
                         date=slot_date,
@@ -422,6 +438,13 @@ class CareCollectionView(APIView):
                     or not doctor.available
                 ):
                     return fail("Only verified, available doctors can be booked.")
+                subscription = active_plan_subscription(patient)
+                free_consultation = False
+                if subscription:
+                    limit = subscription.plan.free_consultations_per_month
+                    free_consultation = limit is None or (
+                        limit > usage_total(subscription, "consultation")
+                    )
                 slot.status = AppointmentSlot.Status.BOOKED
                 slot.save(update_fields=["status", "updated_at"])
                 appointment = Appointment.objects.create(
@@ -435,15 +458,33 @@ class CareCollectionView(APIView):
                     start_time=slot.start_time,
                     end_time=slot.end_time,
                     fee=doctor.fee,
+                    payment_status=(
+                        Appointment.PaymentStatus.PAID
+                        if free_consultation
+                        else Appointment.PaymentStatus.PENDING
+                    ),
                 )
-                payment = CarePayment.objects.create(
+                CarePayment.objects.create(
                     appointment=appointment,
                     patient_id=patient.external_id or str(patient.pk),
                     doctor=doctor,
-                    amount=doctor.fee,
+                    amount=Decimal("0.00") if free_consultation else doctor.fee,
+                    plan_discount_amount=doctor.fee if free_consultation else Decimal("0.00"),
                     kind=CarePayment.Kind.CONSULTATION,
-                    status=CarePayment.Status.PENDING,
+                    status=(
+                        CarePayment.Status.PAID
+                        if free_consultation
+                        else CarePayment.Status.PENDING
+                    ),
                 )
+                if free_consultation:
+                    record_benefit_usage(
+                        subscription,
+                        "consultation",
+                        "appointment",
+                        appointment.pk,
+                        detail="Free consultation used for appointment booking.",
+                    )
                 create_timeline(appointment, "booked", request.user, {"slot_id": str(slot.pk)})
         except IntegrityError:
             return fail("This slot already has an active appointment.", status.HTTP_409_CONFLICT)
@@ -585,6 +626,11 @@ class CareDetailView(APIView):
                     if DoctorLeave.objects.filter(doctor=doctor, date=slot_date).exists():
                         return fail("A slot cannot be moved to this doctor's leave date.", status.HTTP_409_CONFLICT)
                     Doctor.objects.select_for_update().get(pk=doctor.pk)
+                    moved = (
+                        slot.doctor_id != doctor.pk
+                        or slot.date != slot_date
+                        or slot.start_time != start
+                    )
                     conflicts = AppointmentSlot.objects.filter(
                         doctor=doctor,
                         date=slot_date,
@@ -593,6 +639,17 @@ class CareDetailView(APIView):
                     ).exclude(pk=slot.pk)
                     if conflicts.exists():
                         return fail("This slot overlaps an existing slot.", status.HTTP_409_CONFLICT)
+                    if moved:
+                        DoctorSlotExclusion.objects.get_or_create(
+                            doctor=slot.doctor,
+                            date=slot.date,
+                            start_time=slot.start_time,
+                        )
+                        DoctorSlotExclusion.objects.filter(
+                            doctor=doctor,
+                            date=slot_date,
+                            start_time=start,
+                        ).delete()
                     slot.doctor = doctor
                     slot.date = slot_date
                     slot.weekday = weekday
@@ -651,16 +708,27 @@ class CareDetailView(APIView):
         if resource == "reviews":
             return self._delete_review(request, pk)
         if resource == "schedules":
-            schedule = WeeklySchedule.objects.filter(pk=pk).first()
-            if not schedule:
-                return fail("Schedule not found.", status.HTTP_404_NOT_FOUND)
-            if AppointmentSlot.objects.filter(
-                doctor=schedule.doctor,
-                weekday=schedule.weekday,
-                status=AppointmentSlot.Status.BOOKED,
-            ).exists():
-                return fail("A schedule with booked slots cannot be deleted.", status.HTTP_409_CONFLICT)
-            schedule.delete()
+            with transaction.atomic():
+                schedule = WeeklySchedule.objects.select_for_update().filter(pk=pk).first()
+                if not schedule:
+                    return fail("Schedule not found.", status.HTTP_404_NOT_FOUND)
+                if AppointmentSlot.objects.filter(
+                    doctor=schedule.doctor,
+                    weekday=schedule.weekday,
+                    status=AppointmentSlot.Status.BOOKED,
+                ).exists():
+                    return fail("A schedule with booked slots cannot be deleted.", status.HTTP_409_CONFLICT)
+                AppointmentSlot.objects.filter(
+                    doctor=schedule.doctor,
+                    weekday=schedule.weekday,
+                    date__gte=timezone.localdate(),
+                    status__in=[
+                        AppointmentSlot.Status.AVAILABLE,
+                        AppointmentSlot.Status.BLOCKED,
+                    ],
+                    appointments__isnull=True,
+                ).delete()
+                schedule.delete()
             audit(request, "delete", "doctor_schedule", pk, "Deleted doctor schedule")
             return Response(status=status.HTTP_204_NO_CONTENT)
         if resource == "leaves":
@@ -685,6 +753,11 @@ class CareDetailView(APIView):
                 if slot.status == AppointmentSlot.Status.BOOKED or slot.appointments.exists():
                     return fail("A booked or appointment-linked slot cannot be deleted.", status.HTTP_409_CONFLICT)
                 doctor_name = slot.doctor.name
+                DoctorSlotExclusion.objects.get_or_create(
+                    doctor=slot.doctor,
+                    date=slot.date,
+                    start_time=slot.start_time,
+                )
                 slot.delete()
             audit(request, "delete", "doctor_slot", pk, f"Deleted slot for {doctor_name}")
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -988,14 +1061,43 @@ class CareActionView(APIView):
             if action == "reject" and not reason:
                 return fail("A reason is required when rejecting a refund.")
             refund.status = RefundRequest.Status.APPROVED if action == "approve" else RefundRequest.Status.REJECTED
-            refund.reason = reason
+            if action == "approve":
+                refund.destination = "original_method"
+            else:
+                refund.rejection_reason = reason
             refund.reviewed_at = now()
             refund.reviewed_by = str(request.user.pk)
-            refund.save()
+            refund.save(
+                update_fields=[
+                    "status",
+                    "destination",
+                    "rejection_reason",
+                    "reviewed_at",
+                    "reviewed_by",
+                ]
+            )
             if action == "approve":
                 refund.payment.status = CarePayment.Status.REFUNDED
                 refund.payment.save(update_fields=["status"])
                 refund.appointment.payment_status = Appointment.PaymentStatus.REFUNDED
                 refund.appointment.save(update_fields=["payment_status", "updated_at"])
+                from uuid import uuid4
+
+                from commerce.models import CommerceTransaction
+
+                CommerceTransaction.objects.create(
+                    reference=f"RF-{uuid4().hex[:14].upper()}",
+                    kind=CommerceTransaction.Kind.REFUND,
+                    status=CommerceTransaction.Status.SUCCESSFUL,
+                    method=refund.payment.payment_method,
+                    amount=refund.amount,
+                    order_type=CommerceTransaction.OrderType.APPOINTMENT,
+                    order_id=str(refund.appointment_id),
+                    patient=refund.appointment.patient,
+                    patient_name=refund.appointment.patient.name,
+                    note="Refund approved via appointment workflow",
+                    created_by=request.user,
+                    is_development_data=False,
+                )
         audit(request, action, "refund_request", pk, f"{action.title()} refund request", {"amount": str(refund.amount), "reason": reason})
         return Response({"success": True, "refund": serialize_resource("refunds", refund)})

@@ -319,3 +319,104 @@ export function renderBars(items) {
     </ul>
   `;
 }
+
+export function renderRevenueByModuleChart(items, { ariaLabel = "Revenue by healthcare module" } = {}) {
+  const labels = {
+    pharmacy: "Pharmacy",
+    lab: "Lab Tests",
+    appointment: "Appointments",
+    plan: "Health Plans",
+    scan: "Scans",
+    manual: "Manual Transactions",
+  };
+  const order = ["pharmacy", "lab", "appointment", "plan", "scan", "manual"];
+  const amounts = new Map(
+    (items || []).map((item) => [
+      String(item.module),
+      Number.isFinite(Number(item.amount)) ? Number(item.amount) : 0,
+    ]),
+  );
+  const modules = [
+    ...order,
+    ...[...amounts.keys()].filter((module) => !order.includes(module)).sort(),
+  ];
+  if (!modules.length) return "";
+
+  const rows = modules.map((module) => ({
+    module,
+    label: labels[module] || module.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+    amount: amounts.get(module) || 0,
+  }));
+  const maxPositive = Math.max(0, ...rows.map((row) => row.amount));
+  const maxNegative = Math.abs(Math.min(0, ...rows.map((row) => row.amount)));
+  const positiveScale = niceScale(maxPositive, 4);
+  const negativeScale = maxNegative ? niceScale(maxNegative, 2) : { max: 0, ticks: [] };
+  const positiveLimit = positiveScale.max;
+  const negativeLimit = negativeScale.max;
+  const width = 960;
+  const height = 280;
+  const pad = { top: 20, right: 20, bottom: 48, left: 82 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const y = (value) =>
+    pad.top + ((positiveLimit - value) / (positiveLimit + negativeLimit)) * plotHeight;
+  const baseline = y(0);
+  const formatAxis = (value) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value);
+  const formatAmount = (value) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(value);
+  const ticks = [
+    ...negativeScale.ticks.filter((tick) => tick > 0).reverse().map((tick) => -tick),
+    0,
+    ...positiveScale.ticks.filter((tick) => tick > 0),
+  ];
+  const grid = ticks.map((tick) => `
+    <line class="dash-gridline${tick === 0 ? " is-zero" : ""}" x1="${pad.left}" x2="${width - pad.right}" y1="${y(tick)}" y2="${y(tick)}"/>
+    <text class="dash-axis" x="${pad.left - 10}" y="${y(tick) + 4}" text-anchor="end">${escapeHtml(formatAxis(tick))}</text>
+  `).join("");
+  const slot = plotWidth / rows.length;
+  const barWidth = Math.min(108, slot * 0.64);
+  const bars = rows.map((row, index) => {
+    const x = pad.left + slot * index + (slot - barWidth) / 2;
+    const valueY = y(row.amount);
+    const rectY = Math.min(valueY, baseline);
+    const barHeight = Math.max(Math.abs(baseline - valueY), row.amount === 0 ? 2 : 0);
+    const valueLabelY = row.amount >= 0 ? Math.max(rectY - 8, pad.top + 10) : valueY + 16;
+    return `
+      <g class="dash-revenue-bar${row.amount < 0 ? " is-negative" : ""}" style="--bar-delay:${index * 65}ms">
+        <rect x="${x}" y="${rectY}" width="${barWidth}" height="${barHeight}" rx="8">
+          <title>${escapeHtml(row.label)}: ${escapeHtml(formatAmount(row.amount))}</title>
+        </rect>
+        <text class="dash-revenue-value" x="${x + barWidth / 2}" y="${valueLabelY}" text-anchor="middle">${escapeHtml(formatAmount(row.amount))}</text>
+        <text class="dash-axis dash-revenue-label" x="${x + barWidth / 2}" y="${height - 16}" text-anchor="middle">${escapeHtml(row.label)}</text>
+      </g>
+    `;
+  }).join("");
+
+  return `
+    <div class="dash-revenue-chart">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(ariaLabel)}">
+        <defs>
+          <linearGradient id="dashRevenueBarFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#0b8066" />
+            <stop offset="100%" stop-color="#075f50" />
+          </linearGradient>
+          <linearGradient id="dashRevenueBarNegative" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e29161" />
+            <stop offset="100%" stop-color="#b85c2d" />
+          </linearGradient>
+        </defs>
+        ${grid}
+        ${bars}
+      </svg>
+    </div>
+  `;
+}
