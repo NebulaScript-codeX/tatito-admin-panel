@@ -1346,6 +1346,91 @@ export function reopenSupportTicket(id) {
   });
 }
 
+// AI Assistant
+export function getAIAssistantSettings() {
+  return adminApi("/ai-assistant/settings/");
+}
+
+export function updateAIAssistantSettings(id, data) {
+  return adminApi(`/ai-assistant/settings/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function getAISuggestedChips(params = {}) {
+  return adminApi(
+    `/ai-assistant/chips/${supportQueryString(params)}`
+  );
+}
+
+export function createAISuggestedChip(data) {
+  return adminApi("/ai-assistant/chips/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateAISuggestedChip(id, data) {
+  return adminApi(`/ai-assistant/chips/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAISuggestedChip(id) {
+  return adminApi(`/ai-assistant/chips/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function getAIQueryLogs(params = {}) {
+  return adminApi(
+    `/ai-assistant/query-logs/${supportQueryString(params)}`
+  );
+}
+
+export function sendAIQueryToDoctor(id) {
+  return adminApi(
+    `/ai-assistant/query-logs/${id}/send-to-doctor/`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export function getAISafetyRules(params = {}) {
+  return adminApi(
+    `/ai-assistant/safety-rules/${supportQueryString(params)}`
+  );
+}
+
+export function createAISafetyRule(data) {
+  return adminApi("/ai-assistant/safety-rules/", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function updateAISafetyRule(id, data) {
+  return adminApi(`/ai-assistant/safety-rules/${id}/`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function deleteAISafetyRule(id) {
+  return adminApi(`/ai-assistant/safety-rules/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export function testAIAssistantQuery(query) {
+  return adminApi("/ai-assistant/safety-rules/test/", {
+    method: "POST",
+    body: { query },
+  });
+}
 
 // --------------------
 // Contact Queries

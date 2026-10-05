@@ -13,6 +13,7 @@ import {
   renderAdminSupport,
   renderAdminModulePlaceholder,
   renderAdminContent,
+  renderAdminAIAssistant,
 } from "./admin/adminPages.js";
 import { renderAdminDoctors } from "./admin/adminDoctors.js";
 import { renderAdminHealthRecords } from "./admin/healthRecordsPage.js";
@@ -112,6 +113,7 @@ registerPages({
   "admin/coupons-offers-marketing": renderAdminCouponsOffersMarketing,
   "admin/internships": renderAdminInternships,
   "admin/support": renderAdminSupport,
+  "admin/ai-assistant": renderAdminAIAssistant,
 });
 
 window.addEventListener("thp-auth-required", () =>

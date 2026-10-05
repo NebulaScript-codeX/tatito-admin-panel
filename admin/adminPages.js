@@ -132,6 +132,20 @@ import {
   createAdminNotification,
   updateAdminNotification,
   deleteAdminNotification,
+
+  getAIAssistantSettings,
+  updateAIAssistantSettings,
+  getAISuggestedChips,
+  createAISuggestedChip,
+  updateAISuggestedChip,
+  deleteAISuggestedChip,
+  getAIQueryLogs,
+  sendAIQueryToDoctor,
+  getAISafetyRules,
+  createAISafetyRule,
+  updateAISafetyRule,
+  deleteAISafetyRule,
+  testAIAssistantQuery,
 } from './adminApi.js'
 
 import * as contentApi from "./adminApi.js";
@@ -17531,6 +17545,1317 @@ export function renderAdminSupport(app) {
     }
 
     await renderTickets();
+  }
+
+  renderActiveTab();
+}
+
+export function renderAdminAIAssistant(app) {
+  if (
+    !isAdminAuthenticated() ||
+    !hasPermission("ai_assistant", "view")
+  ) {
+    window.location.hash = "#/admin/dashboard";
+    return;
+  }
+
+  const content = `
+    <section class="thp-admin-module-page thp-admin-ai-page">
+
+      <nav
+        class="thp-marketing-tabs"
+        aria-label="AI Assistant sections"
+        role="tablist"
+      >
+        <button
+          type="button"
+          class="thp-marketing-tab is-active"
+          data-ai-tab="settings"
+          role="tab"
+          aria-selected="true"
+        >
+          Settings
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="chips"
+          role="tab"
+          aria-selected="false"
+        >
+          Suggested Chips
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="logs"
+          role="tab"
+          aria-selected="false"
+        >
+          Query Logs
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="safety"
+          role="tab"
+          aria-selected="false"
+        >
+          Safety Rules
+        </button>
+
+        <button
+          type="button"
+          class="thp-marketing-tab"
+          data-ai-tab="test"
+          role="tab"
+          aria-selected="false"
+        >
+          Test Assistant
+        </button>
+      </nav>
+
+      <div id="admin-ai-workspace"></div>
+
+    </section>
+  `;
+
+  renderAdminLayout(
+    app,
+    "ai_assistant",
+    content,
+    {
+      subtitle: "Configure and monitor the Tatito AI health assistant",
+    },
+  );
+
+  const workspace = app.querySelector("#admin-ai-workspace");
+  const tabs = Array.from(
+    app.querySelectorAll("[data-ai-tab]")
+  );
+
+  let activeTab = "settings";
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function getRows(response) {
+    if (Array.isArray(response)) return response;
+
+    if (Array.isArray(response?.results)) {
+      return response.results;
+    }
+
+    if (Array.isArray(response?.data)) {
+      return response.data;
+    }
+
+    return [];
+  }
+
+  function statusClass(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replaceAll("_", "-")
+      .replaceAll(" ", "-");
+  }
+
+  function loadingState(message = "Loading...") {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>${escapeHtml(message)}</strong>
+      </section>
+    `;
+  }
+
+  function errorState(message) {
+    workspace.innerHTML = `
+      <section class="thp-admin-empty-state">
+        <strong>Unable to load data</strong>
+        <p>${escapeHtml(message || "Please try again.")}</p>
+      </section>
+    `;
+  }
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+
+    tabs.forEach((button) => {
+      const active = button.dataset.aiTab === tab;
+
+      button.classList.toggle("is-active", active);
+      button.setAttribute(
+        "aria-selected",
+        active ? "true" : "false",
+      );
+    });
+
+    renderActiveTab();
+  }
+
+  tabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.aiTab);
+    });
+  });
+
+  async function renderSettings() {
+    loadingState("Loading AI assistant settings...");
+
+    try {
+      const response = await getAIAssistantSettings();
+      const settings = response?.data || response;
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Assistant Settings</h2>
+              <p>
+                Configure the assistant name, availability and medical
+                disclaimer.
+              </p>
+            </div>
+          </div>
+
+          <form id="ai-settings-form">
+
+            <div class="thp-admin-form-row">
+
+              <div class="thp-admin-form-group">
+                <label for="ai-assistant-name">
+                  Assistant Name
+                </label>
+
+                <input
+                  id="ai-assistant-name"
+                  type="text"
+                  maxlength="150"
+                  value="${escapeHtml(settings?.assistant_name || "")}"
+                  required
+                />
+              </div>
+
+              <div class="thp-admin-form-group">
+                <label for="ai-assistant-enabled">
+                  Status
+                </label>
+
+                <select id="ai-assistant-enabled">
+                  <option
+                    value="true"
+                    ${settings?.is_enabled ? "selected" : ""}
+                  >
+                    Enabled
+                  </option>
+
+                  <option
+                    value="false"
+                    ${!settings?.is_enabled ? "selected" : ""}
+                  >
+                    Disabled
+                  </option>
+                </select>
+              </div>
+
+            </div>
+
+            <div class="thp-admin-form-group">
+              <label for="ai-disclaimer">
+                Medical Disclaimer
+              </label>
+
+              <textarea
+                id="ai-disclaimer"
+                rows="6"
+                required
+              >${escapeHtml(settings?.disclaimer_text || "")}</textarea>
+
+              <small>
+                This disclaimer should accompany AI health answers.
+              </small>
+            </div>
+
+            ${
+              hasPermission("ai_assistant", "edit")
+                ? `
+                  <button
+                    type="submit"
+                    class="thp-admin-primary-button"
+                  >
+                    Save Settings
+                  </button>
+                `
+                : ""
+            }
+
+          </form>
+
+        </section>
+      `;
+
+      workspace
+        .querySelector("#ai-settings-form")
+        ?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          const form = event.currentTarget;
+          const button = form.querySelector(
+            'button[type="submit"]',
+          );
+
+          const payload = {
+            assistant_name: form
+              .querySelector("#ai-assistant-name")
+              .value.trim(),
+
+            is_enabled:
+              form.querySelector("#ai-assistant-enabled").value ===
+              "true",
+
+            disclaimer_text: form
+              .querySelector("#ai-disclaimer")
+              .value.trim(),
+          };
+
+          try {
+            if (button) {
+              button.disabled = true;
+              button.textContent = "Saving...";
+            }
+
+            await updateAIAssistantSettings(settings.id, payload);
+
+            showAdminToast(
+              "AI assistant settings saved successfully.",
+            );
+
+            await renderSettings();
+          } catch (error) {
+            showAdminToast(
+              error?.message ||
+                "Unable to save AI assistant settings.",
+              "error",
+            );
+
+            if (button) {
+              button.disabled = false;
+              button.textContent = "Save Settings";
+            }
+          }
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderChips() {
+    loadingState("Loading suggested chips...");
+
+    try {
+      const response = await getAISuggestedChips();
+      const rows = getRows(response);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Suggested Chips</h2>
+              <p>
+                Manage health topics shown as quick suggestions.
+              </p>
+            </div>
+
+            ${
+              hasPermission("ai_assistant", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    id="ai-create-chip"
+                  >
+                    Add Chip
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+
+              <thead>
+                <tr>
+                  <th>Chip</th>
+                  <th>Display Order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                ${
+                  rows.length
+                    ? rows.map((chip) => `
+                      <tr>
+
+                        <td>
+                          ${escapeHtml(chip.text || "—")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(chip.display_order ?? 0)}
+                        </td>
+
+                        <td>
+                          <div class="thp-admin-row-actions">
+
+                            ${
+                              hasPermission("ai_assistant", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-chip-edit="${escapeHtml(chip.id)}"
+                                  >
+                                    Edit
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("ai_assistant", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-chip-delete="${escapeHtml(chip.id)}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="3">
+                          <div class="thp-admin-empty-state">
+                            <strong>No suggested chips found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+
+              </tbody>
+
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      workspace
+        .querySelector("#ai-create-chip")
+        ?.addEventListener("click", () => {
+          openChipModal();
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-chip-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const chip = rows.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.aiChipEdit),
+            );
+
+            if (chip) {
+              openChipModal(chip);
+            }
+          });
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-chip-delete]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Delete this suggested chip?")) {
+              return;
+            }
+
+            try {
+              await deleteAISuggestedChip(
+                button.dataset.aiChipDelete,
+              );
+
+              showAdminToast("Suggested chip deleted.");
+
+              await renderChips();
+            } catch (error) {
+              showAdminToast(
+                error?.message ||
+                  "Unable to delete suggested chip.",
+                "error",
+              );
+            }
+          });
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  function openChipModal(chip = null) {
+    const editing = Boolean(chip);
+
+    const modal = document.createElement("div");
+    modal.className = "thp-admin-modal";
+
+    modal.innerHTML = `
+      <div class="thp-admin-modal-backdrop"></div>
+
+      <section
+        class="thp-admin-modal-card"
+        role="dialog"
+        aria-modal="true"
+      >
+
+        <header class="thp-admin-modal-header">
+          <div>
+            <p class="thp-admin-eyebrow">AI ASSISTANT</p>
+            <h2>${editing ? "Edit Suggested Chip" : "Add Suggested Chip"}</h2>
+          </div>
+
+          <button
+            type="button"
+            class="thp-admin-modal-close"
+            data-ai-chip-close
+          >
+            ×
+          </button>
+        </header>
+
+        <div style="padding: 24px;">
+
+          <div class="thp-admin-form-group">
+            <label for="ai-chip-text">Chip Text</label>
+
+            <input
+              id="ai-chip-text"
+              type="text"
+              maxlength="150"
+              value="${escapeHtml(chip?.text || "")}"
+              placeholder="e.g. Fever and Cold"
+              required
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="ai-chip-order">Display Order</label>
+
+            <input
+              id="ai-chip-order"
+              type="number"
+              min="0"
+              value="${escapeHtml(chip?.display_order ?? 0)}"
+            />
+          </div>
+
+        </div>
+
+        <footer class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-secondary-button"
+            data-ai-chip-close
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="thp-admin-primary-button"
+            id="ai-chip-save"
+          >
+            ${editing ? "Save Changes" : "Add Chip"}
+          </button>
+
+        </footer>
+
+      </section>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+
+    modal
+      .querySelectorAll("[data-ai-chip-close]")
+      .forEach((button) => {
+        button.addEventListener("click", close);
+      });
+
+    modal
+      .querySelector(".thp-admin-modal-backdrop")
+      ?.addEventListener("click", close);
+
+    modal
+      .querySelector("#ai-chip-save")
+      ?.addEventListener("click", async () => {
+        const button = modal.querySelector("#ai-chip-save");
+
+        const payload = {
+          text: modal
+            .querySelector("#ai-chip-text")
+            .value.trim(),
+
+          display_order: Number(
+            modal.querySelector("#ai-chip-order").value || 0,
+          ),
+        };
+
+        if (!payload.text) {
+          showAdminToast("Chip text is required.", "error");
+          return;
+        }
+
+        try {
+          button.disabled = true;
+          button.textContent = "Saving...";
+
+          if (editing) {
+            await updateAISuggestedChip(chip.id, payload);
+          } else {
+            await createAISuggestedChip(payload);
+          }
+
+          close();
+
+          showAdminToast(
+            editing
+              ? "Suggested chip updated."
+              : "Suggested chip created.",
+          );
+
+          await renderChips();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = editing
+            ? "Save Changes"
+            : "Add Chip";
+
+          showAdminToast(
+            error?.message ||
+              "Unable to save suggested chip.",
+            "error",
+          );
+        }
+      });
+  }
+
+  async function renderLogs() {
+    loadingState("Loading AI query logs...");
+
+    try {
+      const response = await getAIQueryLogs();
+      const rows = getRows(response);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Query Logs</h2>
+              <p>
+                Review AI queries, responses and safety flags.
+              </p>
+            </div>
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Query</th>
+                  <th>Reply Summary</th>
+                  <th>Time</th>
+                  <th>Flag</th>
+                  <th>Doctor Review</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                ${
+                  rows.length
+                    ? rows.map((log) => `
+                      <tr>
+
+                        <td>
+                          ${escapeHtml(log.patient_name || "Unknown")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(log.query || "—")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(log.reply_summary || "—")}
+                        </td>
+
+                        <td>
+                          ${escapeHtml(log.created_at || "—")}
+                        </td>
+
+                        <td>
+                          <span class="thp-admin-status-pill ${
+                            log.flagged
+                              ? "high"
+                              : "resolved"
+                          }">
+                            ${log.flagged ? "Flagged" : "Normal"}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span class="thp-admin-status-pill ${
+                            log.doctor_review_requested
+                              ? "in-progress"
+                              : "resolved"
+                          }">
+                            ${
+                              log.doctor_review_requested
+                                ? "Requested"
+                                : "Not Requested"
+                            }
+                          </span>
+                        </td>
+
+                        <td>
+
+                          ${
+                            hasPermission("ai_assistant", "edit") &&
+                            log.flagged &&
+                            !log.doctor_review_requested
+                              ? `
+                                <button
+                                  type="button"
+                                  class="thp-admin-row-button"
+                                  data-ai-doctor-review="${escapeHtml(log.id)}"
+                                >
+                                  Send to Doctor
+                                </button>
+                              `
+                              : "—"
+                          }
+
+                        </td>
+
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="7">
+                          <div class="thp-admin-empty-state">
+                            <strong>No AI query logs found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+
+              </tbody>
+
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      workspace
+        .querySelectorAll("[data-ai-doctor-review]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            try {
+              button.disabled = true;
+              button.textContent = "Sending...";
+
+              await sendAIQueryToDoctor(
+                button.dataset.aiDoctorReview,
+              );
+
+              showAdminToast(
+                "Query sent for doctor review.",
+              );
+
+              await renderLogs();
+            } catch (error) {
+              button.disabled = false;
+              button.textContent = "Send to Doctor";
+
+              showAdminToast(
+                error?.message ||
+                  "Unable to send query for review.",
+                "error",
+              );
+            }
+          });
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  async function renderSafetyRules() {
+    loadingState("Loading safety rules...");
+
+    try {
+      const response = await getAISafetyRules();
+      const rows = getRows(response);
+
+      workspace.innerHTML = `
+        <section class="thp-admin-card">
+
+          <div class="thp-admin-card-header">
+            <div>
+              <h2>Safety Rules</h2>
+              <p>
+                Configure keywords that require medical escalation.
+              </p>
+            </div>
+
+            ${
+              hasPermission("ai_assistant", "create")
+                ? `
+                  <button
+                    type="button"
+                    class="thp-admin-primary-button"
+                    id="ai-create-rule"
+                  >
+                    Add Safety Rule
+                  </button>
+                `
+                : ""
+            }
+          </div>
+
+          <div class="thp-admin-table-wrap">
+            <table class="thp-admin-table">
+
+              <thead>
+                <tr>
+                  <th>Keyword</th>
+                  <th>Severity</th>
+                  <th>Escalation Message</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                ${
+                  rows.length
+                    ? rows.map((rule) => `
+                      <tr>
+
+                        <td>
+                          ${escapeHtml(rule.keyword || "—")}
+                        </td>
+
+                        <td>
+                          <span class="thp-admin-status-pill ${statusClass(rule.severity)}">
+                            ${escapeHtml(rule.severity || "—")}
+                          </span>
+                        </td>
+
+                        <td>
+                          ${escapeHtml(rule.escalation_message || "—")}
+                        </td>
+
+                        <td>
+                          <div class="thp-admin-row-actions">
+
+                            ${
+                              hasPermission("ai_assistant", "edit")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-rule-edit="${escapeHtml(rule.id)}"
+                                  >
+                                    Edit
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                            ${
+                              hasPermission("ai_assistant", "delete")
+                                ? `
+                                  <button
+                                    type="button"
+                                    class="thp-admin-row-button"
+                                    data-ai-rule-delete="${escapeHtml(rule.id)}"
+                                  >
+                                    Delete
+                                  </button>
+                                `
+                                : ""
+                            }
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    `).join("")
+                    : `
+                      <tr>
+                        <td colspan="4">
+                          <div class="thp-admin-empty-state">
+                            <strong>No safety rules found</strong>
+                          </div>
+                        </td>
+                      </tr>
+                    `
+                }
+
+              </tbody>
+
+            </table>
+          </div>
+
+        </section>
+      `;
+
+      workspace
+        .querySelector("#ai-create-rule")
+        ?.addEventListener("click", () => {
+          openSafetyRuleModal();
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-rule-edit]")
+        .forEach((button) => {
+          button.addEventListener("click", () => {
+            const rule = rows.find(
+              (item) =>
+                String(item.id) ===
+                String(button.dataset.aiRuleEdit),
+            );
+
+            if (rule) {
+              openSafetyRuleModal(rule);
+            }
+          });
+        });
+
+      workspace
+        .querySelectorAll("[data-ai-rule-delete]")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            if (!window.confirm("Delete this safety rule?")) {
+              return;
+            }
+
+            try {
+              await deleteAISafetyRule(
+                button.dataset.aiRuleDelete,
+              );
+
+              showAdminToast("Safety rule deleted.");
+
+              await renderSafetyRules();
+            } catch (error) {
+              showAdminToast(
+                error?.message ||
+                  "Unable to delete safety rule.",
+                "error",
+              );
+            }
+          });
+        });
+    } catch (error) {
+      errorState(error?.message);
+    }
+  }
+
+  function openSafetyRuleModal(rule = null) {
+    const editing = Boolean(rule);
+
+    const modal = document.createElement("div");
+    modal.className = "thp-admin-modal";
+
+    modal.innerHTML = `
+      <div class="thp-admin-modal-backdrop"></div>
+
+      <section
+        class="thp-admin-modal-card"
+        role="dialog"
+        aria-modal="true"
+      >
+
+        <header class="thp-admin-modal-header">
+          <div>
+            <p class="thp-admin-eyebrow">AI SAFETY</p>
+            <h2>
+              ${editing ? "Edit Safety Rule" : "Add Safety Rule"}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            class="thp-admin-modal-close"
+            data-ai-rule-close
+          >
+            ×
+          </button>
+        </header>
+
+        <div style="padding: 24px;">
+
+          <div class="thp-admin-form-group">
+            <label for="ai-rule-keyword">Keyword</label>
+
+            <input
+              id="ai-rule-keyword"
+              type="text"
+              maxlength="150"
+              value="${escapeHtml(rule?.keyword || "")}"
+              placeholder="e.g. chest pain"
+              required
+            />
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="ai-rule-severity">Severity</label>
+
+            <select id="ai-rule-severity">
+
+              <option
+                value="low"
+                ${rule?.severity === "low" ? "selected" : ""}
+              >
+                Low
+              </option>
+
+              <option
+                value="medium"
+                ${rule?.severity === "medium" ? "selected" : ""}
+              >
+                Medium
+              </option>
+
+              <option
+                value="high"
+                ${!rule || rule?.severity === "high" ? "selected" : ""}
+              >
+                High
+              </option>
+
+              <option
+                value="critical"
+                ${rule?.severity === "critical" ? "selected" : ""}
+              >
+                Critical
+              </option>
+
+            </select>
+          </div>
+
+          <div class="thp-admin-form-group">
+            <label for="ai-rule-message">
+              Escalation Message
+            </label>
+
+            <textarea
+              id="ai-rule-message"
+              rows="5"
+              required
+            >${escapeHtml(
+              rule?.escalation_message ||
+                "Consult a doctor now.",
+            )}</textarea>
+          </div>
+
+        </div>
+
+        <footer class="thp-admin-modal-footer">
+
+          <button
+            type="button"
+            class="thp-admin-secondary-button"
+            data-ai-rule-close
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="thp-admin-primary-button"
+            id="ai-rule-save"
+          >
+            ${editing ? "Save Changes" : "Add Safety Rule"}
+          </button>
+
+        </footer>
+
+      </section>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+
+    modal
+      .querySelectorAll("[data-ai-rule-close]")
+      .forEach((button) => {
+        button.addEventListener("click", close);
+      });
+
+    modal
+      .querySelector(".thp-admin-modal-backdrop")
+      ?.addEventListener("click", close);
+
+    modal
+      .querySelector("#ai-rule-save")
+      ?.addEventListener("click", async () => {
+        const button = modal.querySelector("#ai-rule-save");
+
+        const payload = {
+          keyword: modal
+            .querySelector("#ai-rule-keyword")
+            .value.trim(),
+
+          severity: modal
+            .querySelector("#ai-rule-severity")
+            .value,
+
+          escalation_message: modal
+            .querySelector("#ai-rule-message")
+            .value.trim(),
+        };
+
+        if (!payload.keyword || !payload.escalation_message) {
+          showAdminToast(
+            "Keyword and escalation message are required.",
+            "error",
+          );
+          return;
+        }
+
+        try {
+          button.disabled = true;
+          button.textContent = "Saving...";
+
+          if (editing) {
+            await updateAISafetyRule(rule.id, payload);
+          } else {
+            await createAISafetyRule(payload);
+          }
+
+          close();
+
+          showAdminToast(
+            editing
+              ? "Safety rule updated."
+              : "Safety rule created.",
+          );
+
+          await renderSafetyRules();
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = editing
+            ? "Save Changes"
+            : "Add Safety Rule";
+
+          showAdminToast(
+            error?.message ||
+              "Unable to save safety rule.",
+            "error",
+          );
+        }
+      });
+  }
+
+  async function renderTest() {
+    workspace.innerHTML = `
+      <section class="thp-admin-card">
+
+        <div class="thp-admin-card-header">
+          <div>
+            <h2>Test AI Assistant</h2>
+            <p>
+              Test a query against the configured safety rules.
+            </p>
+          </div>
+        </div>
+
+        <div class="thp-admin-form-group">
+          <label for="ai-test-query">
+            Test Query
+          </label>
+
+          <textarea
+            id="ai-test-query"
+            rows="5"
+            placeholder="Type a health-related query..."
+          ></textarea>
+        </div>
+
+        <button
+          type="button"
+          class="thp-admin-primary-button"
+          id="ai-test-button"
+        >
+          Test Query
+        </button>
+
+        <div
+          id="ai-test-result"
+          style="margin-top: 20px;"
+        ></div>
+
+      </section>
+    `;
+
+    workspace
+      .querySelector("#ai-test-button")
+      ?.addEventListener("click", async () => {
+        const queryInput =
+          workspace.querySelector("#ai-test-query");
+
+        const result =
+          workspace.querySelector("#ai-test-result");
+
+        const button =
+          workspace.querySelector("#ai-test-button");
+
+        const query = queryInput.value.trim();
+
+        if (!query) {
+          showAdminToast(
+            "Please enter a query.",
+            "error",
+          );
+          return;
+        }
+
+        try {
+          button.disabled = true;
+          button.textContent = "Testing...";
+
+          const response =
+            await testAIAssistantQuery(query);
+
+          const data = response?.data || response;
+
+          result.innerHTML = `
+            <div
+              style="
+                padding: 18px;
+                border-radius: 12px;
+                border: 1px solid ${
+                  data.flagged
+                    ? "#f5b5b5"
+                    : "#d8e5df"
+                };
+                background: ${
+                  data.flagged
+                    ? "#fff5f5"
+                    : "#f7faf8"
+                };
+              "
+            >
+
+              <strong>
+                ${
+                  data.flagged
+                    ? "Consult a doctor now"
+                    : "Sample AI Response"
+                }
+              </strong>
+
+              <p style="white-space: pre-wrap;">
+                ${escapeHtml(data.reply || "No response.")}
+              </p>
+
+              ${
+                data.flagged
+                  ? `
+                    <span class="thp-admin-status-pill high">
+                      Safety Rule Matched
+                    </span>
+                  `
+                  : ""
+              }
+
+            </div>
+          `;
+
+          showAdminToast(
+            data.flagged
+              ? "Query flagged by a safety rule."
+              : "Query tested successfully.",
+          );
+        } catch (error) {
+          showAdminToast(
+            error?.message ||
+              "Unable to test the AI assistant.",
+            "error",
+          );
+        } finally {
+          button.disabled = false;
+          button.textContent = "Test Query";
+        }
+      });
+  }
+
+  async function renderActiveTab() {
+    if (activeTab === "chips") {
+      await renderChips();
+      return;
+    }
+
+    if (activeTab === "logs") {
+      await renderLogs();
+      return;
+    }
+
+    if (activeTab === "safety") {
+      await renderSafetyRules();
+      return;
+    }
+
+    if (activeTab === "test") {
+      await renderTest();
+      return;
+    }
+
+    await renderSettings();
   }
 
   renderActiveTab();
