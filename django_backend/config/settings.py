@@ -113,9 +113,9 @@ else:
             "ENGINE": DATABASE_ENGINE,
             "NAME": os.getenv("DJANGO_DB_NAME", "tatito_admin"),
             "USER": os.getenv("DJANGO_DB_USER", "root"),
-            "PASSWORD": os.getenv("DJANGO_DB_PASSWORD", "Shivam@123"),
+            "PASSWORD": os.getenv("DJANGO_DB_PASSWORD", "root"),
             "HOST": os.getenv("DJANGO_DB_HOST", "127.0.0.1"),
-            "PORT": os.getenv("DJANGO_DB_PORT", "3306"),
+            "PORT": os.getenv("DJANGO_DB_PORT", "3307"),
         }
     }
 

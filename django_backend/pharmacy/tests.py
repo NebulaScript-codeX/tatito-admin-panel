@@ -396,6 +396,121 @@ class PharmacyApiTests(TestCase):
         )
         self.assertEqual(cancelled.status_code, 400)
 
+    def test_order_create_persists_multiple_items_patient_approved_prescription_and_fee(self):
+        rx_product = self.create_rx_product()
+        prescription = PrescriptionUpload.objects.create(
+            patient=self.patient,
+            prescription_number="DEV-API-RX-MULTI",
+            pdf_url="https://example.test/multi-order-rx.pdf",
+            status=PrescriptionUpload.Status.APPROVED,
+        )
+        response = self.api.post(
+            "/api/admin/pharmacy/orders/",
+            {
+                "patient_id": str(self.patient.pk),
+                "address": "Development delivery address",
+                "items": [
+                    {"product_id": self.product.pk, "quantity": 2},
+                    {"product_id": rx_product.pk, "quantity": 3},
+                ],
+                "coupon_code": "",
+                "payment_method": "cash_on_delivery",
+                "delivery_fee": "100.00",
+                "prescription_ids": [prescription.pk],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        order_id = response.data["id"]
+        order = PharmacyOrder.objects.get(pk=order_id)
+        self.assertEqual(order.patient, self.patient)
+        self.assertIsNone(order.coupon)
+        self.assertEqual(order.delivery_fee, Decimal("100.00"))
+        self.assertEqual(order.status, PharmacyOrder.Status.PLACED)
+        self.assertEqual(order.payment_status, PharmacyOrder.PaymentStatus.PENDING)
+        self.assertCountEqual(
+            order.items.values_list("product_id", "quantity"),
+            [(self.product.pk, 2), (rx_product.pk, 3)],
+        )
+        self.assertEqual(list(order.prescriptions.all()), [prescription])
+
+        detail = self.api.get(f"/api/admin/pharmacy/orders/{order_id}/")
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(detail.data["patient"], self.patient.pk)
+        self.assertEqual(detail.data["delivery_fee"], "100.00")
+        self.assertEqual(detail.data["prescription_ids"], [prescription.pk])
+        self.assertCountEqual(
+            [(item["product"], item["quantity"]) for item in detail.data["items"]],
+            [(self.product.pk, 2), (rx_product.pk, 3)],
+        )
+        self.assertEqual(
+            self.api.get("/api/admin/pharmacy/orders/").status_code,
+            200,
+        )
+
+        verified = self.api.post(
+            f"/api/admin/pharmacy/orders/{order_id}/advance/",
+            {"status": "verified"},
+            format="json",
+        )
+        self.assertEqual(verified.status_code, 200, verified.data)
+        self.assertEqual(verified.data["status"], PharmacyOrder.Status.VERIFIED)
+
+    def test_order_create_reports_duplicate_product_lines_for_frontend_aggregation(self):
+        response = self.api.post(
+            "/api/admin/pharmacy/orders/",
+            {
+                "patient_id": str(self.patient.pk),
+                "address": "Development delivery address",
+                "items": [
+                    {"product_id": self.product.pk, "quantity": 1},
+                    {"product_id": self.product.pk, "quantity": 2},
+                ],
+                "coupon_code": "",
+                "payment_method": "cash_on_delivery",
+                "delivery_fee": "100.00",
+                "prescription_ids": [],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data,
+            {"items": ["Add each product once and update its quantity instead."]},
+        )
+        self.assertEqual(PharmacyOrder.objects.count(), 0)
+
+    def test_order_create_rejects_prescriptions_for_another_patient(self):
+        other_patient = CarePatient.objects.create(name="DEV API Other Patient")
+        prescription = PrescriptionUpload.objects.create(
+            patient=other_patient,
+            prescription_number="DEV-API-RX-WRONG-PATIENT",
+            pdf_url="https://example.test/wrong-patient-rx.pdf",
+            status=PrescriptionUpload.Status.APPROVED,
+        )
+        response = self.api.post(
+            "/api/admin/pharmacy/orders/",
+            {
+                "patient_id": str(self.patient.pk),
+                "address": "Development delivery address",
+                "items": [{"product_id": self.create_rx_product().pk, "quantity": 1}],
+                "coupon_code": "",
+                "payment_method": "cash_on_delivery",
+                "delivery_fee": "100.00",
+                "prescription_ids": [prescription.pk],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data,
+            {"prescription_ids": "Selected prescriptions must belong to this patient."},
+        )
+        self.assertEqual(PharmacyOrder.objects.count(), 0)
+
     def test_order_pricing_insufficient_stock_atomicity_and_cancel_restoration(self):
         order = self.create_order(quantity=3)
         self.assertEqual(order.status_code, 201, order.data)

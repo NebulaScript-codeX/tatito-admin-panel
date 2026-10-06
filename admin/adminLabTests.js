@@ -16,6 +16,7 @@ const sections = [
   { id: "categories", label: "Organ Profiles", count: "organ_categories" },
   { id: "radiology", label: "Radiology Scans", count: "radiology" },
   { id: "bookings", label: "Sample Collection", count: "bookings" },
+  { id: "phlebotomists", label: "Phlebotomists", count: "phlebotomists" },
 ];
 const resources = {
   tests: "tests/",
@@ -25,6 +26,7 @@ const resources = {
   radiology: "radiology/",
   bookings: "bookings/",
   "radiology-bookings": "radiology-bookings/",
+  phlebotomists: "phlebotomists/",
 };
 const state = {
   app: null,
@@ -75,25 +77,32 @@ function showToast(message) {
 }
 
 function apiErrorMessage(error, fallback) {
-  const data = error?.data;
-  if (data && typeof data === "object") {
-    const messages = Object.entries(data).flatMap(([field, value]) => {
-      const items = Array.isArray(value) ? value : [value];
-      return items
-        .filter((item) => typeof item === "string" && item.trim())
-        .map((item) => field === "non_field_errors" || field === "detail"
-          ? item
-          : `${label(field)}: ${item}`);
-    });
-    if (messages.length) return messages.join(" ");
-  }
-  return error?.message || fallback;
+  const flatten = (value, field = "") => {
+    if (Array.isArray(value)) {
+      return value.flatMap((item, index) =>
+        flatten(item, field ? `${field}[${index + 1}]` : ""),
+      );
+    }
+    if (value && typeof value === "object") {
+      return Object.entries(value).flatMap(([key, item]) =>
+        flatten(item, ["detail", "non_field_errors"].includes(key) ? field : key),
+      );
+    }
+    if (typeof value === "string" && value.trim()) {
+      return [field && field !== "detail" && field !== "non_field_errors"
+        ? `${label(field)}: ${value}`
+        : value];
+    }
+    return [];
+  };
+  const details = flatten(error?.data).join(" ");
+  return details || error?.message || fallback;
 }
 
 function statusBadge(status) {
-  const tone = ["active", "done", "report_uploaded", "report_ready", "completed", "collected", "in_lab"].includes(status)
+  const tone = ["active", "available", "done", "report_uploaded", "report_ready", "completed", "collected", "in_lab"].includes(status)
     ? "is-good"
-    : ["booked", "scheduled", "assigned", "pending"].includes(status)
+    : ["booked", "scheduled", "assigned", "pending", "unavailable"].includes(status)
       ? "is-warning"
       : ["cancelled", "inactive", "rejected"].includes(status)
         ? "is-danger"
@@ -169,9 +178,10 @@ function renderDefinitions(resource, title, description, headers, rows, placehol
   const records = searchRecords(state.records[resource] || [], resource === "tests"
     ? ["name", "code", "specimen", "organ_categories"]
     : resource === "categories" ? ["name", "description"]
+      : resource === "phlebotomists" ? ["name", "phone", "email"]
       : resource === "packages" ? ["name", "badge", "description"]
         : ["name", "description", "recommended_target"]);
-  const create = can("create") ? action(`add:${resource}`, resource === "tests" ? "Add Test" : resource === "health-checks" ? "Add Health Check" : resource === "packages" ? "Add Package" : resource === "categories" ? "Add Organ Profile" : "Add Scan", "", false) : "";
+  const create = can("create") ? action(`add:${resource}`, resource === "tests" ? "Add Test" : resource === "health-checks" ? "Add Health Check" : resource === "packages" ? "Add Package" : resource === "categories" ? "Add Organ Profile" : resource === "phlebotomists" ? "Add Phlebotomist" : "Add Scan", "", false) : "";
   return `<section class="thp-admin-panel thp-lab-panel">
     ${heading(title, description, create)}
     ${searchToolbar(
@@ -231,6 +241,25 @@ function renderCategories() {
       <td>${valueText(item.description)}</td><td>${valueText(item.test_count ?? item.tests_count ?? 0)}</td>
       <td>${statusBadge(item.is_active === false ? "inactive" : "active")}</td>${rowActions("categories", item)}</tr>`).join(""),
     "Search organ profiles…", 760);
+}
+
+function renderPhlebotomists() {
+  return renderDefinitions(
+    "phlebotomists",
+    "Phlebotomists",
+    "Manage sample-collection staff and their availability for assignments.",
+    ["Name", "Phone", "Email", "Status", "Availability", "Actions"],
+    (records) => records.map((person) => `<tr>
+      <td><strong>${valueText(person.name)}</strong></td>
+      <td>${valueText(person.phone)}</td>
+      <td>${valueText(person.email)}</td>
+      <td>${statusBadge(person.is_active ? "active" : "inactive")}</td>
+      <td>${statusBadge(person.is_available ? "available" : "unavailable")}</td>
+      ${rowActions("phlebotomists", person)}
+    </tr>`).join(""),
+    "Search phlebotomists by name, phone or email…",
+    820,
+  );
 }
 
 function renderRadiology() {
@@ -309,6 +338,7 @@ function renderActiveSection() {
   if (state.active === "health-checks") return renderHealthChecks();
   if (state.active === "packages") return renderPackages();
   if (state.active === "categories") return renderCategories();
+  if (state.active === "phlebotomists") return renderPhlebotomists();
   if (state.active === "radiology") return renderRadiology();
   return renderBookings();
 }
@@ -373,6 +403,12 @@ function formFields(type, record) {
     ${textarea("description", "Description", r.description)}
     ${testMultiSelect(r, "test_ids", "Assigned tests")}
     ${booleanField("is_active", "Active", r.is_active !== false)}`;
+  if (type.endsWith(":phlebotomists")) return `
+    ${input("name", "Name", r.name, "text", "required maxlength='160'")}
+    ${input("phone", "Phone", r.phone, "tel", "maxlength='32'")}
+    ${input("email", "Email", r.email, "email", "maxlength='254'")}
+    ${booleanField("is_active", "Active", r.is_active !== false)}
+    ${booleanField("is_available", "Available for assignments", r.is_available !== false)}`;
   if (type.endsWith(":radiology")) return `
     ${input("name", "Scan service", r.name, "text", "required maxlength='200'")}
     ${select("modality", "Modality", ["xray", "ultrasound", "ct", "mri", "mammography", "pet", "other"].map((item) => `<option value="${item}" ${r.modality === item ? "selected" : ""}>${escapeHtml(label(item))}</option>`).join(""), "", "required")}
@@ -406,6 +442,7 @@ function modalMarkup() {
     "health-checks": "Health Check",
     packages: "Package",
     categories: "Organ Profile",
+    phlebotomists: "Phlebotomist",
     radiology: "Radiology Scan",
     bookings: "Sample Collection Booking",
     "radiology-bookings": "Radiology Booking",
@@ -537,6 +574,7 @@ function exportCsv(resource, records) {
     radiology: ["name", "modality", "centre_name", "price", "turnaround_hours", "is_active"],
     bookings: ["patient_name", "test_name", "centre_name", "scheduled_at", "address", "phlebotomist_name", "status"],
     "radiology-bookings": ["patient_name", "service_name", "centre_name", "scheduled_at", "status"],
+    phlebotomists: ["name", "phone", "email", "is_active", "is_available"],
   }[resource];
   const exportRecords = records.map((record) => ({
     ...record,
@@ -560,7 +598,7 @@ function formDataToPayload(form, resource) {
   const payload = Object.fromEntries(data.entries());
   const multi = [...form.querySelectorAll("select[multiple]")];
   for (const control of multi) payload[control.name] = [...control.selectedOptions].map((option) => option.value);
-  for (const field of ["fasting_required", "is_active"]) {
+  for (const field of ["fasting_required", "is_active", "is_available"]) {
     const control = form.elements.namedItem(field);
     if (control) payload[field] = control.checked;
   }
@@ -624,6 +662,7 @@ async function saveForm(form) {
   try {
     const summary = await adminApi(`${API}summary/`);
     state.summary = summary || {};
+    if (resource === "phlebotomists") await loadMeta();
     await loadSection();
   } catch (error) {
     state.error = apiErrorMessage(error, "The record was saved, but the page could not be refreshed.");
@@ -691,6 +730,7 @@ async function handleClick(event) {
       showToast("Record deleted.");
       const summary = await adminApi(`${API}summary/`);
       state.summary = summary || {};
+      if (resource === "phlebotomists") await loadMeta();
       await loadSection();
     } catch (error) {
       state.error = apiErrorMessage(error, "Unable to delete this record.");

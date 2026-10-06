@@ -170,17 +170,30 @@ class LabTestsApiTests(TestCase):
             format="json",
         )
         self.assertEqual(phlebotomist.status_code, 201, phlebotomist.data)
+        phlebotomist_id = phlebotomist.data["id"]
         self.assertEqual(
-            self.api.patch(
-                f"/api/admin/lab-tests/phlebotomists/{phlebotomist.data['id']}/",
-                {"is_available": False},
-                format="json",
-            ).status_code,
-            200,
+            [person["id"] for person in self.api.get(
+                "/api/admin/lab-tests/phlebotomists/"
+            ).data],
+            [phlebotomist_id],
+        )
+        updated_phlebotomist = self.api.patch(
+            f"/api/admin/lab-tests/phlebotomists/{phlebotomist_id}/",
+            {"is_available": False, "is_active": False},
+            format="json",
+        )
+        self.assertEqual(updated_phlebotomist.status_code, 200, updated_phlebotomist.data)
+        self.assertFalse(updated_phlebotomist.data["is_available"])
+        self.assertFalse(updated_phlebotomist.data["is_active"])
+        self.assertEqual(
+            self.api.get(
+                f"/api/admin/lab-tests/phlebotomists/{phlebotomist_id}/"
+            ).data["name"],
+            "Maya Nair",
         )
         self.assertEqual(
             self.api.delete(
-                f"/api/admin/lab-tests/phlebotomists/{phlebotomist.data['id']}/"
+                f"/api/admin/lab-tests/phlebotomists/{phlebotomist_id}/"
             ).status_code,
             204,
         )

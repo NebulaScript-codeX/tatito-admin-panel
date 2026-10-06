@@ -158,6 +158,41 @@ function patientOptions(selected = "") {
     .join("");
 }
 
+function orderPrescriptionOptions(patientId) {
+  const prescriptions = (state.records.prescriptions || []).filter((item) =>
+    item.status === "approved" && String(item.patient) === String(patientId),
+  );
+  if (!prescriptions.length) {
+    return `<option value="" disabled>${patientId ? "No approved prescriptions for this patient" : "Choose a patient first"}</option>`;
+  }
+  return prescriptions
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.prescription_number || `Prescription ${item.id}`)} · Approved</option>`)
+    .join("");
+}
+
+function apiErrorMessage(error, fallback) {
+  const flatten = (value, field = "") => {
+    if (Array.isArray(value)) {
+      return value.flatMap((item, index) =>
+        flatten(item, field ? `${field}[${index + 1}]` : ""),
+      );
+    }
+    if (value && typeof value === "object") {
+      return Object.entries(value).flatMap(([key, item]) =>
+        flatten(item, ["detail", "non_field_errors"].includes(key) ? field : key),
+      );
+    }
+    if (typeof value === "string" && value.trim()) {
+      return [field && field !== "detail" && field !== "non_field_errors"
+        ? `${field}: ${value}`
+        : value];
+    }
+    return [];
+  };
+  const details = flatten(error?.data).join(" ");
+  return details || error?.message || fallback;
+}
+
 function productOptions(selected = "") {
   return (state.meta.products || [])
     .map((item) => `<option value="${escapeHtml(item.id)}" ${String(item.id) === String(selected) ? "selected" : ""}>${escapeHtml(item.name)} · ${money(item.selling_price)}${item.rx_required ? " · Rx" : ""}</option>`)
@@ -485,9 +520,6 @@ function renderModal() {
     fields = `<p class="thp-pharmacy-help thp-pharmacy-full">${escapeHtml(record.product_name)} · Current quantity ${escapeHtml(record.quantity)} units.</p><label class="thp-admin-form-group"><span>Adjustment (+/- units)</span><input name="delta" type="number" step="1" required></label><label class="thp-admin-form-group thp-pharmacy-full"><span>Reason</span><textarea name="reason" maxlength="500" required rows="3"></textarea></label>`;
   } else if (type === "add-order") {
     title = "Create pharmacy order";
-    const rxOptions = (state.records.prescriptions || [])
-      .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.patient_name)} · ${escapeHtml(item.prescription_number || `Prescription ${item.id}`)} · ${escapeHtml(statusLabel(item.status))}</option>`)
-      .join("");
     fields = `
       <label class="thp-admin-form-group"><span>Patient</span><select name="patient_id" required><option value="">Choose patient</option>${patientOptions()}</select></label>
       <label class="thp-admin-form-group"><span>Payment method</span><select name="payment_method" required>${[["cash_on_delivery","Cash on delivery"],["card","Card"],["wallet","Wallet"],["bank_transfer","Bank transfer"]].map(([key,label]) => `<option value="${key}">${label}</option>`).join("")}</select></label>
@@ -497,7 +529,7 @@ function renderModal() {
       </div>
       <label class="thp-admin-form-group"><span>Coupon</span><select name="coupon_code"><option value="">No coupon</option>${(state.meta.coupons || []).map((item) => `<option value="${escapeHtml(item.code)}">${escapeHtml(item.code)}</option>`).join("")}</select></label>
       <label class="thp-admin-form-group"><span>Delivery fee</span><input name="delivery_fee" type="number" min="0" step="0.01" value="0.00"></label>
-      <label class="thp-admin-form-group thp-pharmacy-full"><span>Approved prescription(s) for Rx products</span><select name="prescription_ids" multiple size="3">${rxOptions}</select></label>
+      <label class="thp-admin-form-group thp-pharmacy-full"><span>Approved prescription(s) for Rx products</span><select name="prescription_ids" multiple size="3">${orderPrescriptionOptions("")}</select></label>
     `;
   } else if (type === "add-prescription") {
     title = "Add prescription for review";
@@ -618,7 +650,7 @@ async function loadTab({ keepSearchFocus = false } = {}) {
     }
   } catch (error) {
     state.loading = false;
-    state.error = error?.message || `Unable to load ${tab}.`;
+    state.error = apiErrorMessage(error, `Unable to load ${tab}.`);
     render();
   }
 }
@@ -636,7 +668,7 @@ async function refreshTab() {
     await loadTab();
   } catch (error) {
     state.loading = false;
-    state.error = error?.message || "Unable to refresh pharmacy data.";
+    state.error = apiErrorMessage(error, "Unable to refresh pharmacy data.");
     render();
   }
 }
@@ -735,12 +767,32 @@ async function submitModal(form) {
   else if (type === "add-batch") request = pharmacyRequest("batches/", { method, body: json });
   else if (type === "adjust-batch") request = pharmacyRequest(`batches/${encodeURIComponent(id)}/adjust/`, { method: "POST", body: json });
   else if (type === "add-order") {
-    const items = [...form.querySelectorAll("[data-order-line]")].map((line) => ({
-      product_id: Number(line.querySelector('[name="product_id"]').value),
-      quantity: Number(line.querySelector('[name="quantity"]').value),
+    const quantitiesByProduct = new Map();
+    for (const line of form.querySelectorAll("[data-order-line]")) {
+      const productId = Number(line.querySelector('[name="product_id"]').value);
+      const quantity = Number(line.querySelector('[name="quantity"]').value);
+      quantitiesByProduct.set(
+        productId,
+        (quantitiesByProduct.get(productId) || 0) + quantity,
+      );
+    }
+    const items = [...quantitiesByProduct].map(([product_id, quantity]) => ({
+      product_id,
+      quantity,
     }));
     const prescriptionIds = [...form.elements.namedItem("prescription_ids").selectedOptions]
       .map((option) => Number(option.value));
+    const hasPrescriptionProduct = items.some((item) =>
+      state.meta.products.some((product) =>
+        Number(product.id) === item.product_id && product.rx_required,
+      ),
+    );
+    const errorBox = form.querySelector("[data-pharmacy-modal-error]");
+    if (hasPrescriptionProduct && !prescriptionIds.length) {
+      errorBox.textContent = "Select an approved prescription for this patient before creating an order with prescription products.";
+      errorBox.hidden = false;
+      return;
+    }
     request = pharmacyRequest("orders/", {
       method: "POST",
       body: {
@@ -773,13 +825,14 @@ async function submitModal(form) {
     state.search = "";
     state.filters = { category: "", brand: "", status: "", stock_status: "" };
     await refreshTab();
-    showToast("Pharmacy record saved.");
+    showToast(type === "add-order" ? "Pharmacy order created." : "Pharmacy record saved.");
   } catch (error) {
+    const message = apiErrorMessage(error, "Unable to save this record.");
     if (errorBox) {
-      errorBox.textContent = error?.message || "Unable to save this record.";
+      errorBox.textContent = message;
       errorBox.hidden = false;
     } else {
-      state.error = error?.message || "Unable to save this record.";
+      state.error = message;
       render();
     }
     if (submitButton) submitButton.disabled = false;
@@ -827,7 +880,7 @@ async function handleClick(event) {
       try {
         state.records.prescriptions = await pharmacyRequest("prescriptions/");
       } catch (error) {
-        return setError(error?.message || "Unable to load prescriptions.");
+        return setError(apiErrorMessage(error, "Unable to load prescriptions."));
       }
     }
     return openModal(action);
@@ -841,7 +894,7 @@ async function handleClick(event) {
       if (!state.records.prescriptions) state.records.prescriptions = await pharmacyRequest("prescriptions/");
       return openModal(action);
     } catch (error) {
-      return setError(error?.message || "Unable to load prescriptions for this order.");
+      return setError(apiErrorMessage(error, "Unable to load prescriptions for this order."));
     }
   }
   if (action === "delete-category" || action === "delete-brand" || action === "delete-product") {
@@ -853,7 +906,7 @@ async function handleClick(event) {
       await refreshTab();
       showToast("Pharmacy record deleted.");
     } catch (error) {
-      setError(error?.message || "Unable to delete this record.");
+      setError(apiErrorMessage(error, "Unable to delete this record."));
     }
     return;
   }
@@ -867,7 +920,7 @@ async function handleClick(event) {
       await refreshTab();
       showToast(product.is_active ? "Product deactivated." : "Product activated.");
     } catch (error) {
-      setError(error?.message || "Unable to change product status.");
+      setError(apiErrorMessage(error, "Unable to change product status."));
     }
     return;
   }
@@ -878,7 +931,7 @@ async function handleClick(event) {
       await refreshTab();
       showToast("Prescription approved.");
     } catch (error) {
-      setError(error?.message || "Unable to approve prescription.");
+      setError(apiErrorMessage(error, "Unable to approve prescription."));
     }
     return;
   }
@@ -900,7 +953,7 @@ async function handleClick(event) {
       };
       render();
     } catch (error) {
-      setError(error?.message || "Unable to load the prescription file.");
+      setError(apiErrorMessage(error, "Unable to load the prescription file."));
     } finally {
       button.disabled = false;
     }
@@ -931,7 +984,7 @@ async function handleClick(event) {
       await refreshTab();
       showToast(`Order ${target}.`);
     } catch (error) {
-      setError(error?.message || "Unable to update order.");
+      setError(apiErrorMessage(error, "Unable to update order."));
     }
     return;
   }
@@ -952,7 +1005,7 @@ async function handleClick(event) {
       await refreshTab();
       showToast(`Delivery marked ${statusLabel(target).toLowerCase()}.`);
     } catch (error) {
-      setError(error?.message || "Unable to update delivery status.");
+      setError(apiErrorMessage(error, "Unable to update delivery status."));
     }
     return;
   }
@@ -988,7 +1041,7 @@ async function handleSubmit(event) {
       await refreshTab();
       showToast("Delivery partner and ETA saved.");
     } catch (error) {
-      setError(error?.message || "Unable to save delivery assignment.");
+      setError(apiErrorMessage(error, "Unable to save delivery assignment."));
     }
   }
 }
@@ -1006,6 +1059,15 @@ function bindEvents(app) {
     state.searchTimer = window.setTimeout(() => void loadTab({ keepSearchFocus: true }), 250);
   }, options);
   app.addEventListener("change", (event) => {
+    if (event.target.matches('[data-pharmacy-form="add-order"] [name="patient_id"]')) {
+      const prescriptionSelect = state.app.querySelector(
+        '[data-pharmacy-form="add-order"] [name="prescription_ids"]',
+      );
+      if (prescriptionSelect) {
+        prescriptionSelect.innerHTML = orderPrescriptionOptions(event.target.value);
+      }
+      return;
+    }
     const filter = event.target.closest("[data-pharmacy-filter]");
     if (!filter) return;
     state.filters[filter.dataset.pharmacyFilter] = filter.value;
@@ -1056,7 +1118,7 @@ export async function renderAdminPharmacy(app) {
     await loadTab();
   } catch (error) {
     state.loading = false;
-    state.error = error?.message || "Unable to load Pharmacy.";
+    state.error = apiErrorMessage(error, "Unable to load Pharmacy.");
     render();
   }
 }
