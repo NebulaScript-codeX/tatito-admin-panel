@@ -30,3 +30,22 @@ class AuditLog(DevelopmentRecord):
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.actor_username} {self.action}"
+
+
+class AdminNotificationReadState(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="admin_notification_read_states",
+    )
+    notification_key = models.CharField(max_length=255)
+    is_read = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "notification_key"],
+                name="uniq_admin_notification_read",
+            ),
+        ]

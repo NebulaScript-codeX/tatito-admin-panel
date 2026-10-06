@@ -1,12 +1,115 @@
 from datetime import datetime
 
 from django.utils.dateparse import parse_date
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import ModulePermission
+from accounts.permissions import (
+    IsAdminUser,
+    ModulePermission,
+    has_module_permission,
+)
 
-from .models import AuditLog
+from .models import AdminNotificationReadState, AuditLog
+
+
+class AdminNotificationReadStateView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def has_module_access(self, request):
+        return has_module_permission(
+            request.user,
+            "dashboard",
+            "view",
+        ) or has_module_permission(request.user, "audit_logs", "view")
+
+    @staticmethod
+    def serialize_states(user, keys):
+        read_keys = set(
+            AdminNotificationReadState.objects.filter(
+                user=user,
+                notification_key__in=keys,
+                is_read=True,
+            ).values_list("notification_key", flat=True)
+        )
+        return [
+            {"key": key, "is_read": key in read_keys}
+            for key in keys
+        ]
+
+    @staticmethod
+    def validate_keys(keys):
+        if (
+            not isinstance(keys, list)
+            or len(keys) > 100
+            or any(
+                not isinstance(key, str)
+                or not key
+                or len(key) > 255
+                for key in keys
+            )
+        ):
+            return None
+        return list(dict.fromkeys(keys))
+
+    def get(self, request):
+        if not self.has_module_access(request):
+            return Response(
+                {"detail": "You do not have permission to access notifications."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        raw_keys = request.query_params.get("keys", "")
+        keys = self.validate_keys(raw_keys.split(",") if raw_keys else [])
+        if keys is None:
+            return Response(
+                {"detail": "Provide up to 100 valid notification keys."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({
+            "success": True,
+            "read_states": self.serialize_states(request.user, keys),
+        })
+
+    def post(self, request):
+        if not self.has_module_access(request):
+            return Response(
+                {"detail": "You do not have permission to update notifications."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        keys = self.validate_keys(request.data.get("keys"))
+        if keys is None:
+            return Response(
+                {"detail": "Provide up to 100 valid notification keys."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_keys = set(
+            AdminNotificationReadState.objects.filter(
+                user=request.user,
+                notification_key__in=keys,
+            ).values_list("notification_key", flat=True)
+        )
+        AdminNotificationReadState.objects.bulk_create(
+            [
+                AdminNotificationReadState(
+                    user=request.user,
+                    notification_key=key,
+                    is_read=True,
+                )
+                for key in keys
+                if key not in existing_keys
+            ],
+            ignore_conflicts=True,
+        )
+
+        return Response({
+            "success": True,
+            "read_states": self.serialize_states(request.user, keys),
+        })
 
 
 class AuditLogListView(APIView):

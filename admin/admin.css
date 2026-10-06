@@ -562,16 +562,24 @@ html:has(body.is-admin-route)::-webkit-scrollbar-thumb {
 .thp-admin-notification {
   position: relative;
   display: grid;
-  width: 34px;
+  width: 40px;
   height: 40px;
-  flex: 0 0 34px;
+  flex: 0 0 40px;
   place-items: center;
+  border: 1px solid #e0e8e5;
+  border-radius: 10px;
+  background: #ffffff;
   color: #35635a;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .thp-admin-notification svg {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
 }
 
 .thp-admin-icon-button {
@@ -587,13 +595,27 @@ html:has(body.is-admin-route)::-webkit-scrollbar-thumb {
 }
 
 .thp-admin-notification-dot {
-  width: 7px;
-  height: 7px;
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  box-sizing: border-box;
+  place-items: center;
+  padding: 0 3px;
+  border: 2px solid #ffffff;
   background: #e85d5d;
+  color: #ffffff;
   border-radius: 50%;
   position: absolute;
-  right: 8px;
-  top: 7px;
+  right: 0;
+  top: 0;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.thp-admin-notification-dot[hidden] {
+  display: none;
 }
 
 .thp-admin-profile {
@@ -4700,6 +4722,8 @@ body.is-admin-route .ai-chatbot-root {
   right: 0;
   width: min(380px, calc(100vw - 28px));
   max-height: min(520px, calc(100vh - 100px));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -4714,7 +4738,72 @@ body.is-admin-route .ai-chatbot-root {
   font-size: 14px;
 }
 
+.thp-admin-notification-heading {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.thp-admin-notification-heading > strong {
+  flex: 0 0 auto;
+}
+
+.thp-admin-notification-heading > span {
+  color: #5d726c;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.thp-admin-notification-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.thp-admin-notification-mark-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #123b34;
+  font: inherit;
+  font-size: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.thp-admin-notification-mark-read:hover:not(:disabled) {
+  background: #f4f8f7;
+}
+
+.thp-admin-notification-mark-read:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thp-admin-notification-mark-read svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
 .thp-admin-notification-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
   padding: 5px 8px;
   border: 0;
   border-radius: 7px;
@@ -4726,14 +4815,38 @@ body.is-admin-route .ai-chatbot-root {
   cursor: pointer;
 }
 
+.thp-admin-notification-refresh svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 .thp-admin-notification-refresh:hover {
   background: #e6f3ef;
 }
 
+.thp-admin-notification-refresh.is-loading svg {
+  animation: thp-admin-notification-spin 0.8s linear infinite;
+}
+
+@keyframes thp-admin-notification-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .thp-admin-notification-content {
-  max-height: 430px;
+  min-height: 0;
+  max-height: min(430px, calc(100vh - 180px));
+  flex: 1 1 auto;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 5px 10px;
+  scrollbar-gutter: stable;
 }
 
 .thp-admin-notification-content > p {
@@ -4746,6 +4859,7 @@ body.is-admin-route .ai-chatbot-root {
 .thp-admin-notification-item {
   display: grid;
   width: 100%;
+  grid-template-columns: 8px minmax(0, 1fr);
   gap: 4px;
   padding: 11px 9px;
   border: 0;
@@ -4756,7 +4870,47 @@ body.is-admin-route .ai-chatbot-root {
   text-align: left;
 }
 
+.thp-admin-notification-item.is-unread {
+  background: #f3faf7;
+}
+
+.thp-admin-notification-item.is-unread .thp-admin-notification-copy > strong {
+  font-weight: 700;
+}
+
+.thp-admin-notification-item.is-attention .thp-admin-notification-copy strong {
+  color: #455f58;
+}
+
+.thp-admin-notification-indicator {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 6px;
+  height: 6px;
+  align-self: start;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.thp-admin-notification-item.is-unread .thp-admin-notification-indicator {
+  background: var(--admin-accent, #0b735c);
+}
+
+.thp-admin-notification-copy {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.thp-admin-notification-copy > strong {
+  display: block;
+}
+
 button.thp-admin-notification-item {
+  appearance: none;
   cursor: pointer;
 }
 
@@ -4777,6 +4931,54 @@ button.thp-admin-notification-item:hover {
   color: #5d726c;
   font-size: 10px;
   line-height: 1.4;
+}
+
+.thp-admin-notification-copy > span,
+.thp-admin-notification-time {
+  display: block;
+}
+
+.thp-admin-notification-time {
+  grid-column: 2;
+  grid-row: 2;
+  overflow-wrap: anywhere;
+}
+
+.thp-admin-notification-time:empty {
+  display: none;
+}
+
+.thp-admin-notification-state {
+  margin: 0;
+  padding: 17px 10px;
+  color: #5d726c;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .thp-admin-notification-panel {
+    position: fixed;
+    top: 82px;
+    left: 14px;
+    right: 14px;
+    width: auto;
+    max-height: min(520px, calc(100vh - 88px));
+  }
+
+  .thp-admin-notification-panel > header {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .thp-admin-notification-mark-read svg {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+
+  .thp-admin-notification-content {
+    max-height: min(430px, calc(100vh - 160px));
+  }
 }
 
 .thp-admin-account-modal {

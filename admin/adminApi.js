@@ -1780,6 +1780,18 @@ export function getAdminNotifications(params = {}) {
   );
 }
 
+export function getAdminNotificationReadStates(keys) {
+  const query = new URLSearchParams({ keys: keys.join(",") });
+  return adminApi(`/audit-logs/notification-read-state/?${query}`);
+}
+
+export function markAdminNotificationsRead(keys) {
+  return adminApi("/audit-logs/notification-read-state/", {
+    method: "POST",
+    body: { keys },
+  });
+}
+
 export function createAdminNotification(data) {
   return adminApi("/support/notifications/", {
     method: "POST",

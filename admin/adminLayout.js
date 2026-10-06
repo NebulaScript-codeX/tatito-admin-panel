@@ -11,6 +11,8 @@ import { escapeHtml } from "./adminChart.js";
 import {
   adminApi,
   getAdminDashboardOverview,
+  getAdminNotificationReadStates,
+  markAdminNotificationsRead,
   refreshHealthRecordCounts,
   updateAdminAccount,
 } from "./adminApi.js";
@@ -717,29 +719,39 @@ function setupAdminLayoutEvents(app) {
   const notificationUnreadCount = app.querySelector("#thp-admin-notification-unread-count");
   const notificationMarkRead = app.querySelector("#thp-admin-notification-mark-read");
   const notificationRefresh = app.querySelector("#thp-admin-notification-refresh");
-  const notificationStorageKey = `tatito-admin-notifications-read:${getAdminSession()?.admin?.id || getAdminSession()?.admin?.email || getAdminSession()?.admin?.username || "admin"}`;
   let notificationIds = [];
-  const readNotificationIds = new Set();
-  const loadReadNotificationIds = () => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(notificationStorageKey) || "[]");
-      readNotificationIds.clear();
-      if (Array.isArray(stored)) stored.forEach((id) => readNotificationIds.add(id));
-    } catch (error) {
-      console.error("Failed to load notification read state:", error);
-    }
+  const notificationReadStates = new Map();
+  const updateNotificationReadUi = () => {
+    const unreadIds = notificationIds.filter(
+      (id) => notificationReadStates.get(id) !== true,
+    );
+    const unreadCount = unreadIds.length;
+    notificationCount.hidden = unreadCount === 0;
+    notificationCount.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+    notificationUnreadCount.textContent = unreadCount
+      ? `${unreadCount} unread`
+      : "All caught up";
+    notificationMarkRead.disabled = unreadCount === 0;
+    notificationContent
+      .querySelectorAll("[data-notification-id]")
+      .forEach((item) => {
+        item.classList.toggle(
+          "is-unread",
+          notificationReadStates.get(item.dataset.notificationId) !== true,
+        );
+      });
   };
-  const saveReadNotificationIds = () => {
-    try {
-      localStorage.setItem(notificationStorageKey, JSON.stringify([...readNotificationIds]));
-      return true;
-    } catch (error) {
-      console.error("Failed to save notification read state:", error);
-      showToast("Unable to save notification read status.", true);
-      return false;
+  const applyNotificationReadStates = (readStates) => {
+    if (!Array.isArray(readStates)) {
+      throw new Error("Unable to update notification read status.");
     }
+    readStates.forEach(({ key, is_read: isRead }) => {
+      if (typeof key === "string" && typeof isRead === "boolean") {
+        notificationReadStates.set(key, isRead);
+      }
+    });
+    updateNotificationReadUi();
   };
-  loadReadNotificationIds();
   let notificationRequestId = 0;
   const loadNotifications = async () => {
     const requestId = ++notificationRequestId;
@@ -771,10 +783,9 @@ function setupAdminLayoutEvents(app) {
         return;
       }
       if (requestId !== notificationRequestId) return;
-      loadReadNotificationIds();
       const notices = [
         ...attention.map((item) => ({
-          id: `attention:${item.module}:${item.label}:${item.detail}`,
+          id: `attention:${item.module}:${item.label}`,
           title: item.label,
           detail: item.detail,
           module: item.module,
@@ -782,7 +793,7 @@ function setupAdminLayoutEvents(app) {
           attention: true,
         })),
         ...entries.slice(0, 5).map((item) => ({
-          id: `activity:${item.id || `${item.created_at || ""}:${item.action || ""}:${item.module || ""}:${item.actor || ""}:${item.description || ""}`}`,
+          id: `activity:${item.id}`,
           title: item.description || item.action || "Admin activity",
           detail: `${item.actor || "Admin"} · ${item.module || "system"}`,
           module: "",
@@ -790,15 +801,21 @@ function setupAdminLayoutEvents(app) {
           attention: false,
         })),
       ];
+      const readStateResponse = await getAdminNotificationReadStates(
+        notices.map((notice) => notice.id),
+      );
+      if (requestId !== notificationRequestId) return;
+      notificationReadStates.clear();
+      readStateResponse.read_states.forEach(({ key, is_read: isRead }) => {
+        if (typeof key === "string" && typeof isRead === "boolean") {
+          notificationReadStates.set(key, isRead);
+        }
+      });
       notificationIds = notices.map((notice) => notice.id);
-      const unreadCount = notices.filter((notice) => !readNotificationIds.has(notice.id)).length;
-      notificationCount.hidden = unreadCount === 0;
-      notificationCount.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
-      notificationUnreadCount.textContent = unreadCount ? `${unreadCount} unread` : "All caught up";
-      notificationMarkRead.disabled = unreadCount === 0;
+      updateNotificationReadUi();
       notificationContent.innerHTML = notices.length
         ? notices.map((notice) => {
-          const unread = !readNotificationIds.has(notice.id);
+          const unread = notificationReadStates.get(notice.id) !== true;
           const tag = notice.module ? "button" : "div";
           const attrs = notice.module
             ? ` type="button" data-notification-module="${escapeHtml(notice.module)}"`
@@ -810,6 +827,7 @@ function setupAdminLayoutEvents(app) {
           </${tag}>`;
         }).join("")
         : '<p class="thp-admin-notification-state">You’re all caught up.</p>';
+      updateNotificationReadUi();
     } catch (error) {
       if (requestId !== notificationRequestId) return;
       notificationCount.hidden = true;
@@ -832,38 +850,39 @@ function setupAdminLayoutEvents(app) {
     setNotificationsOpen(notificationPanel.hidden);
   });
   notificationRefresh?.addEventListener("click", loadNotifications);
-  notificationMarkRead?.addEventListener("click", () => {
-    const previousReadIds = new Set(readNotificationIds);
-    notificationIds.forEach((id) => readNotificationIds.add(id));
-    if (!saveReadNotificationIds()) {
-      readNotificationIds.clear();
-      previousReadIds.forEach((id) => readNotificationIds.add(id));
-      loadNotifications();
-      return;
-    }
-    notificationContent.querySelectorAll(".thp-admin-notification-item").forEach((item) => {
-      item.classList.remove("is-unread");
-    });
-    notificationCount.hidden = true;
-    notificationCount.textContent = "";
-    notificationUnreadCount.textContent = "All caught up";
+  notificationMarkRead?.addEventListener("click", async () => {
+    const unreadIds = notificationIds.filter(
+      (id) => notificationReadStates.get(id) !== true,
+    );
+    if (!unreadIds.length) return;
+
     notificationMarkRead.disabled = true;
+    try {
+      const response = await markAdminNotificationsRead(unreadIds);
+      applyNotificationReadStates(response.read_states);
+    } catch (error) {
+      showToast(
+        error?.message || "Unable to mark notifications as read.",
+        true,
+      );
+      notificationMarkRead.disabled = false;
+    }
   });
-  notificationContent?.addEventListener("click", (event) => {
+  notificationContent?.addEventListener("click", async (event) => {
     const notification = event.target.closest("[data-notification-id]");
     if (notification?.classList.contains("is-unread")) {
-      readNotificationIds.add(notification.dataset.notificationId);
-      if (!saveReadNotificationIds()) {
-        readNotificationIds.delete(notification.dataset.notificationId);
-        loadNotifications();
+      try {
+        const response = await markAdminNotificationsRead([
+          notification.dataset.notificationId,
+        ]);
+        applyNotificationReadStates(response.read_states);
+      } catch (error) {
+        showToast(
+          error?.message || "Unable to mark notification as read.",
+          true,
+        );
         return;
       }
-      notification.classList.remove("is-unread");
-      const unreadCount = notificationContent.querySelectorAll(".thp-admin-notification-item.is-unread").length;
-      notificationCount.hidden = unreadCount === 0;
-      notificationCount.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
-      notificationUnreadCount.textContent = unreadCount ? `${unreadCount} unread` : "All caught up";
-      notificationMarkRead.disabled = unreadCount === 0;
     }
     const item = event.target.closest("[data-notification-module]");
     if (!item) return;
